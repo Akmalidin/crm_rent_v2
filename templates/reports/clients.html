@@ -1,0 +1,153 @@
+<!-- templates/reports/clients.html -->
+{% extends 'base.html' %}
+
+{% block title %}Отчёт по клиентам - CRM Аренда{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    
+    <!-- Header -->
+    <div>
+        <a href="/reports/" class="text-blue-600 hover:underline text-sm mb-2 inline-block">
+            ← Назад к отчётам
+        </a>
+        <h1 class="text-3xl font-bold text-gray-800">👥 Отчёт по клиентам</h1>
+        <p class="text-gray-600">Статистика и анализ клиентской базы</p>
+    </div>
+    
+    <!-- Stats -->
+    <div class="grid grid-cols-4 gap-4">
+        <div class="bg-white rounded-lg shadow p-6 text-center">
+            <p class="text-gray-600 text-sm">Всего клиентов</p>
+            <p class="text-4xl font-bold text-blue-600">{{ total_clients }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6 text-center">
+            <p class="text-gray-600 text-sm">С долгами</p>
+            <p class="text-4xl font-bold text-red-600">{{ clients_with_debt }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6 text-center">
+            <p class="text-gray-600 text-sm">Без долгов</p>
+            <p class="text-4xl font-bold text-green-600">{{ total_clients|add:"-"|add:clients_with_debt }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6 text-center">
+            <p class="text-gray-600 text-sm">Процент должников</p>
+            <p class="text-4xl font-bold text-orange-600">
+                {% if total_clients > 0 %}
+                    {% widthratio clients_with_debt total_clients 100 %}%
+                {% else %}
+                    0%
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    
+    <!-- Top Clients -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">🏆 Топ-10 клиентов по обороту</h2>
+        <div class="space-y-3">
+            {% for item in top_clients %}
+            <div class="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-white rounded-lg border border-blue-100">
+                <div class="flex items-center gap-4">
+                    <div class="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">
+                        {{ forloop.counter }}
+                    </div>
+                    <div>
+                        <a href="/clients/{{ item.client.id }}/" class="font-bold text-lg text-gray-800 hover:text-blue-600">
+                            {{ item.client.get_full_name }}
+                        </a>
+                        <div class="text-sm text-gray-600">
+                            Заказов: {{ item.total_orders }} | Активных: {{ item.active_orders }}
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-bold text-blue-600">{{ item.total_spent|floatformat:0 }} сом</p>
+                    <p class="text-sm text-gray-600">Всего потрачено</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Top Debtors -->
+    {% if top_debtors %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">⚠️ Топ-10 должников</h2>
+        <div class="space-y-3">
+            {% for item in top_debtors %}
+            <div class="flex justify-between items-center p-4 bg-red-50 rounded-lg border border-red-200">
+                <div class="flex items-center gap-4">
+                    <div class="bg-red-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">
+                        {{ forloop.counter }}
+                    </div>
+                    <div>
+                        <a href="/clients/{{ item.client.id }}/" class="font-bold text-lg text-gray-800 hover:text-blue-600">
+                            {{ item.client.get_full_name }}
+                        </a>
+                        <div class="text-sm text-gray-600">
+                            {% for phone in item.client.phones.all|slice:":1" %}
+                                📞 {{ phone.phone_number }}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-bold text-red-600">{{ item.balance|floatformat:0 }} сом</p>
+                    <p class="text-xs text-gray-600">
+                        Потрачено: {{ item.total_spent|floatformat:0 }} | 
+                        Оплачено: {{ item.total_paid|floatformat:0 }}
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- All Clients Table -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b">
+            <h2 class="text-xl font-bold text-gray-800">📋 Все клиенты</h2>
+        </div>
+        <table class="w-full">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Клиент</th>
+                    <th class="px-6 py-3 text-center text-sm font-semibold text-gray-700">Заказов</th>
+                    <th class="px-6 py-3 text-right text-sm font-semibold text-gray-700">Потрачено</th>
+                    <th class="px-6 py-3 text-right text-sm font-semibold text-gray-700">Оплачено</th>
+                    <th class="px-6 py-3 text-right text-sm font-semibold text-gray-700">Баланс</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                {% for item in clients_data %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4">
+                        <a href="/clients/{{ item.client.id }}/" class="font-semibold text-blue-600 hover:underline">
+                            {{ item.client.get_full_name }}
+                        </a>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="px-3 py-1 bg-gray-100 rounded-full text-sm">
+                            {{ item.total_orders }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right">{{ item.total_spent|floatformat:0 }} сом</td>
+                    <td class="px-6 py-4 text-right text-green-600">{{ item.total_paid|floatformat:0 }} сом</td>
+                    <td class="px-6 py-4 text-right">
+                        {% if item.balance < 0 %}
+                            <span class="text-red-600 font-bold">{{ item.balance|floatformat:0 }} сом</span>
+                        {% elif item.balance > 0 %}
+                            <span class="text-green-600 font-bold">+{{ item.balance|floatformat:0 }} сом</span>
+                        {% else %}
+                            <span class="text-gray-600">0 сом</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+</div>
+{% endblock %}

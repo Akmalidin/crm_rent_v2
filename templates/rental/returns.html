@@ -1,0 +1,201 @@
+<!-- templates/rental/returns.html -->
+{% extends 'base.html' %}
+
+{% block title %}Возврат товаров - CRM Аренда{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    
+    <!-- Header -->
+    <div>
+        <h1 class="text-3xl font-bold text-gray-800">⬅️ Возврат товаров</h1>
+        <p class="text-gray-600">Выберите клиента для оформления возврата</p>
+    </div>
+    
+    <!-- Client Selection -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">1️⃣ Выберите клиента</h2>
+        
+        <form method="get" class="flex gap-4">
+            <select 
+                name="client_id"
+                onchange="this.form.submit()"
+                class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+                <option value="">Выберите клиента...</option>
+                {% for client in clients_with_orders %}
+                <option 
+                    value="{{ client.id }}" 
+                    {% if selected_client_id == client.id|stringformat:"s" %}selected{% endif %}
+                >
+                    {{ client.get_full_name }} ({{ client.active_count }} заказ{{ client.active_count|pluralize:",,ов" }})
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+    
+    <!-- Orders -->
+    {% if selected_orders %}
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+        <input type="hidden" name="client_id" value="{{ selected_client_id }}" />
+        
+        {% for order in selected_orders %}
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <!-- Order Header -->
+            <div class="flex justify-between items-start mb-4 pb-4 border-b">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800">Заказ #{{ order.id }}</h2>
+                    <p class="text-sm text-gray-600">Создан: {{ order.created_at }}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm text-gray-600">Сумма заказа:</p>
+                    <p class="text-2xl font-bold text-blue-600">{{ order.total|floatformat:0 }} сом</p>
+                </div>
+            </div>
+            
+            <!-- Items -->
+            <div class="space-y-3">
+                {% for item in order.items %}
+                <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                    <!-- Product Info -->
+                    <div class="flex-1">
+                        <p class="font-bold text-gray-800">{{ item.product_name }}</p>
+                        <div class="text-sm text-gray-600 mt-1 space-x-2">
+                            <span class="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                                Взято: {{ item.quantity_taken }} шт
+                            </span>
+                            <span class="inline-block px-2 py-1 bg-green-100 text-green-800 rounded">
+                                Возвращено: {{ item.quantity_returned }} шт
+                            </span>
+                            <span class="inline-block px-2 py-1 bg-orange-100 text-orange-800 rounded">
+                                Осталось: {{ item.quantity_remaining }} шт
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Выдано: {{ item.issued_date }} | План возврата: {{ item.planned_return_date }}
+                        </p>
+                    </div>
+                    
+                    <!-- Price -->
+                    <div class="text-right mr-4">
+                        <p class="text-sm text-gray-600">Стоимость:</p>
+                        <p class="font-bold text-lg">{{ item.current_total_cost|floatformat:0 }} сом</p>
+                    </div>
+                    
+                    <!-- Return Input -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">
+                            Вернуть (шт)
+                        </label>
+                        <input 
+                            type="number" 
+                            name="return_{{ item.id }}"
+                            min="0"
+                            max="{{ item.quantity_remaining }}"
+                            value="0"
+                            class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-center font-bold text-lg"
+                        />
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        
+        <!-- Notes and Submit -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">2️⃣ Примечания и подтверждение</h2>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    Примечания
+                </label>
+                <textarea 
+                    name="notes"
+                    rows="3"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Дополнительная информация о возврате..."
+                ></textarea>
+            </div>
+            
+<!-- Payment Section -->
+<div class="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg p-6 border-2 border-yellow-200">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">💰 Оплата при возврате (опционально)</h2>
+    
+    <div class="grid grid-cols-2 gap-4">
+        <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                Клиент оплачивает (сом)
+            </label>
+            <input 
+                type="number" 
+                name="payment_amount"
+                min="0"
+                step="1"
+                placeholder="0"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 text-xl font-bold"
+            />
+            <p class="text-xs text-gray-600 mt-1">Оставьте 0 если клиент не платит сейчас</p>
+        </div>
+        
+        {% if selected_client %}
+        <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <p class="text-sm text-gray-600 mb-2">Текущий долг клиента:</p>
+            <p class="text-3xl font-bold {% if selected_client.get_debt > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                {{ selected_client.get_debt|floatformat:0 }} сом
+            </p>
+            {% if selected_client.get_debt > 0 %}
+            <p class="text-xs text-gray-500 mt-2">Рекомендуемая сумма для полной оплаты</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="mt-4 p-4 bg-blue-50 rounded border border-blue-200">
+        <p class="text-sm text-blue-800">
+            <strong>💡 Совет:</strong> Если клиент оплачивает прямо сейчас - укажите сумму. 
+            Если не платит - оставьте 0, долг будет зафиксирован в системе.
+        </p>
+    </div>
+</div>
+            
+            <!-- Buttons -->
+            <div class="flex gap-4">
+                <button 
+                    type="submit"
+                    class="flex-1 bg-green-600 text-white px-6 py-4 rounded-lg hover:bg-green-700 transition font-bold text-lg"
+                >
+                    ✅ Оформить возврат
+                </button>
+                <a 
+                    href="/"
+                    class="px-6 py-4 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition font-semibold text-gray-700"
+                >
+                    Отмена
+                </a>
+            </div>
+        </div>
+    </form>
+    
+    {% elif selected_client_id %}
+    <!-- No Items -->
+    <div class="bg-white rounded-lg shadow p-12 text-center">
+        <p class="text-xl font-semibold text-gray-600 mb-2">У этого клиента нет товаров для возврата</p>
+        <p class="text-gray-500">Все товары уже возвращены</p>
+    </div>
+    
+    {% else %}
+    <!-- No Client Selected -->
+    <div class="bg-white rounded-lg shadow p-12 text-center">
+        <svg class="w-24 h-24 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+        <p class="text-xl font-semibold text-gray-600 mb-2">Выберите клиента</p>
+        <p class="text-gray-500">Выберите клиента из списка выше для оформления возврата</p>
+    </div>
+    {% endif %}
+    
+</div>
+{% endblock %}

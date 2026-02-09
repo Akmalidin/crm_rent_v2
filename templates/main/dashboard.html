@@ -1,0 +1,140 @@
+<!-- templates/main/dashboard.html -->
+{% extends 'base.html' %}
+
+{% block title %}Главная - CRM Аренда{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    
+    <!-- Заголовок -->
+    <div>
+        <h1 class="text-3xl font-bold text-gray-800">Главная панель</h1>
+        <p class="text-gray-600 mt-1">Обзор системы аренды</p>
+    </div>
+    
+    <!-- Статистика -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Клиенты -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm">Всего клиентов</p>
+                    <p class="text-3xl font-bold text-blue-600">{{ total_clients }}</p>
+                </div>
+                <div class="bg-blue-100 p-4 rounded-full">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                </div>
+            </div>
+            <a href="{% url 'main:clients_list' %}" class="text-blue-600 text-sm mt-4 inline-block hover:underline">
+                Посмотреть всех →
+            </a>
+        </div>
+        
+        <!-- Активные заказы -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm">Активных заказов</p>
+                    <p class="text-3xl font-bold text-green-600">{{ active_orders }}</p>
+                </div>
+                <div class="bg-green-100 p-4 rounded-full">
+                    <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                </div>
+            </div>
+            <a href="{% url 'main:orders_list' %}" class="text-green-600 text-sm mt-4 inline-block hover:underline">
+                Посмотреть все →
+            </a>
+        </div>
+        
+        <!-- Общий долг -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm">Общий долг</p>
+                    <p class="text-3xl font-bold text-red-600">{{ total_debt }} ₽</p>
+                </div>
+                <div class="bg-red-100 p-4 rounded-full">
+                    <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+            </div>
+            <a href="{% url 'main:accept_payment' %}" class="text-red-600 text-sm mt-4 inline-block hover:underline">
+                Принять оплату →
+            </a>
+        </div>
+    </div>
+    
+    <!-- Топ должники -->
+    {% if top_debtors %}
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">⚠️ Топ должники</h2>
+        <div class="space-y-3">
+            {% for item in top_debtors %}
+            <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                <div>
+                    <a href="{% url 'main:client_detail' item.client.id %}" class="font-semibold text-gray-800 hover:text-blue-600">
+                        {{ item.client.get_full_name }}
+                    </a>
+                    <p class="text-sm text-gray-600">
+                        {% for phone in item.client.phones.all|slice:":1" %}
+                            {{ phone.phone_number }}
+                        {% endfor %}
+                    </p>
+                </div>
+                <span class="text-red-600 font-bold">-{{ item.debt|floatformat:0 }} сом</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Последние заказы -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">📋 Последние заказы</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">#</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Клиент</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Дата</th>
+                        <th class="px-4 py-2 text-center text-sm font-semibold text-gray-700">Статус</th>
+                        <th class="px-4 py-2 text-right text-sm font-semibold text-gray-700">Сумма</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    {% for order in recent_orders %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm">#{{ order.id }}</td>
+                        <td class="px-4 py-3">
+                            <a href="{% url 'main:client_detail' order.client.id %}" class="text-blue-600 hover:underline">
+                                {{ order.client.get_full_name }}
+                            </a>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ order.created_at|date:"d.m.Y H:i" }}</td>
+                        <td class="px-4 py-3 text-center">
+                            {% if order.status == 'open' %}
+                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-semibold">Открыт</span>
+                            {% else %}
+                            <span class="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full font-semibold">Закрыт</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-right font-semibold">{{ order.get_current_total|floatformat:0 }} сом</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">Заказов пока нет</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

@@ -1,0 +1,221 @@
+<!-- templates/rental/payment.html -->
+{% extends 'base.html' %}
+
+{% block title %}Принять оплату - CRM Аренда{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    
+    <!-- Header -->
+    <div>
+        <h1 class="text-3xl font-bold text-gray-800">💰 Принять оплату</h1>
+        <p class="text-gray-600">Пополнение кошелька клиента</p>
+    </div>
+    
+    <!-- Payment Form -->
+    <div class="max-w-2xl bg-white rounded-lg shadow-lg p-8">
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+            
+            <!-- Клиент -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    👤 Клиент *
+                </label>
+                <select name="client_id" required 
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onchange="updateBalance(this)">
+                    <option value="">Выберите клиента...</option>
+                    {% for item in clients_with_debt %}
+                        <option value="{{ item.client.id }}" data-debt="{{ item.debt }}">
+                            {{ item.client.get_full_name }} - Долг: {{ item.debt|floatformat:0 }} сом
+                        </option>
+                    {% endfor %}
+                    <optgroup label="Все клиенты">
+                        {% for client in clients %}
+                            <option value="{{ client.id }}">{{ client.get_full_name }}</option>
+                        {% endfor %}
+                    </optgroup>
+                </select>
+            </div>
+            
+            <!-- Сумма -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    💵 Сумма оплаты (сом) *
+                </label>
+                <input 
+                    type="number" 
+                    name="amount" 
+                    required 
+                    min="1"
+                    step="1"
+                    placeholder="Введите сумму..."
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xl font-bold"
+                />
+                <div id="debt-info" class="mt-2 p-3 bg-red-50 rounded hidden">
+                    <p class="text-sm text-red-600">
+                        <strong>Долг клиента:</strong> <span id="debt-amount">0</span> сом
+                    </p>
+                </div>
+            </div>
+            {% if selected_client and selected_client_orders %}
+<div>
+    <label class="block text-sm font-semibold text-gray-700 mb-2">
+        📦 Выберите заказы для оплаты (опционально)
+    </label>
+    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+        <p class="text-sm text-gray-600 mb-3">
+            Выберите заказы, которые хотите оплатить. Если не выбрать - система автоматически оплатит заказы по порядку.
+        </p>
+        
+        <div class="space-y-2">
+            {% for order in selected_client_orders %}
+            <label class="flex items-center p-3 bg-white rounded border hover:bg-blue-50 cursor-pointer transition">
+                <input 
+                    type="checkbox" 
+                    name="selected_orders" 
+                    value="{{ order.id }}"
+                    class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <div class="ml-3 flex-1">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold text-gray-800">Заказ #{{ order.id }}</p>
+                            <p class="text-xs text-gray-500">{{ order.created_at|date:"d.m.Y H:i" }} • {{ order.items.count }} товар{{ order.items.count|pluralize:",,ов" }}</p>
+                        </div>
+                        <p class="font-bold text-lg text-blue-600">{{ order.get_current_total|floatformat:0 }} сом</p>
+                    </div>
+                </div>
+            </label>
+            {% endfor %}
+        </div>
+        
+        <div class="mt-3 p-3 bg-blue-50 rounded text-sm text-blue-800">
+            <strong>💡 Совет:</strong> Если ничего не выбрать, оплата распределится автоматически, начиная с самого старого заказа.
+        </div>
+    </div>
+</div>
+{% endif %}
+            <!-- Способ оплаты -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    💳 Способ оплаты *
+                </label>
+                <div class="grid grid-cols-3 gap-3">
+                    <label class="relative">
+                        <input type="radio" name="payment_method" value="cash" checked class="peer sr-only" />
+                        <div class="px-4 py-3 border-2 border-gray-300 rounded-lg cursor-pointer peer-checked:border-blue-600 peer-checked:bg-blue-50 hover:border-blue-400 transition text-center">
+                            <p class="text-2xl mb-1">💵</p>
+                            <p class="font-semibold text-sm">Наличные</p>
+                        </div>
+                    </label>
+                    
+                    <label class="relative">
+                        <input type="radio" name="payment_method" value="card" class="peer sr-only" />
+                        <div class="px-4 py-3 border-2 border-gray-300 rounded-lg cursor-pointer peer-checked:border-blue-600 peer-checked:bg-blue-50 hover:border-blue-400 transition text-center">
+                            <p class="text-2xl mb-1">💳</p>
+                            <p class="font-semibold text-sm">Карта</p>
+                        </div>
+                    </label>
+                    
+                    <label class="relative">
+                        <input type="radio" name="payment_method" value="transfer" class="peer sr-only" />
+                        <div class="px-4 py-3 border-2 border-gray-300 rounded-lg cursor-pointer peer-checked:border-blue-600 peer-checked:bg-blue-50 hover:border-blue-400 transition text-center">
+                            <p class="text-2xl mb-1">🏦</p>
+                            <p class="font-semibold text-sm">Перевод</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Примечания -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    📝 Примечания
+                </label>
+                <textarea 
+                    name="notes" 
+                    rows="3"
+                    placeholder="Дополнительная информация..."
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                ></textarea>
+            </div>
+            
+            <!-- Кнопки -->
+            <div class="flex gap-4 pt-4">
+                <button 
+                    type="submit"
+                    class="flex-1 bg-blue-600 text-white px-6 py-4 rounded-lg hover:bg-blue-700 transition font-bold text-lg"
+                >
+                    ✅ Принять оплату
+                </button>
+                <a 
+                    href="/"
+                    class="px-6 py-4 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition font-semibold text-gray-700"
+                >
+                    Отмена
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Клиенты с долгами -->
+    {% if clients_with_debt %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">⚠️ Клиенты с задолженностью</h2>
+        <div class="grid gap-3">
+            {% for item in clients_with_debt|slice:":10" %}
+            <div class="flex justify-between items-center p-4 bg-red-50 rounded-lg">
+                <div>
+                    <a href="/clients/{{ item.client.id }}/" class="font-bold text-gray-800 hover:text-blue-600">
+                        {{ item.client.get_full_name }}
+                    </a>
+                    {% for phone in item.client.phones.all|slice:":1" %}
+                        <p class="text-sm text-gray-600">{{ phone.phone_number }}</p>
+                    {% endfor %}
+                </div>
+                <div class="text-right">
+                    <p class="text-xl font-bold text-red-600">-{{ item.debt|floatformat:0 }} сом</p>
+                    <button 
+                        onclick="selectClient({{ item.client.id }}, {{ item.debt }})"
+                        class="text-sm text-blue-600 hover:underline"
+                    >
+                        Выбрать →
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+</div>
+
+<script>
+function updateBalance(select) {
+    const debt = select.options[select.selectedIndex].dataset.debt;
+    const debtInfo = document.getElementById('debt-info');
+    const debtAmount = document.getElementById('debt-amount');
+    
+    if (debt && debt > 0) {
+        debtAmount.textContent = parseFloat(debt).toFixed(0);
+        debtInfo.classList.remove('hidden');
+    } else {
+        debtInfo.classList.add('hidden');
+    }
+}
+
+function selectClient(clientId, debt) {
+    const select = document.querySelector('select[name="client_id"]');
+    select.value = clientId;
+    updateBalance(select);
+    
+    // Заполняем сумму равную долгу
+    document.querySelector('input[name="amount"]').value = Math.round(debt);
+    
+    // Прокручиваем к форме
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+{% endblock %}

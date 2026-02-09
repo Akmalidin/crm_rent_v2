@@ -1,0 +1,58 @@
+<!-- templates/base/base.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CRM Аренда{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    
+    <!-- Navbar -->
+    <nav class="bg-blue-600 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo -->
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="text-2xl font-bold">🛠️ CRM Аренда</a>
+                </div>
+                
+                <!-- Menu -->
+                <div class="flex space-x-4">
+                    <a href="/" class="px-4 py-2 rounded hover:bg-blue-700 transition">Главная</a>
+                    <a href="/clients/" class="px-4 py-2 rounded hover:bg-blue-700 transition">👥 Клиенты</a>
+                    <a href="/rental/orders/" class="px-4 py-2 rounded hover:bg-blue-700 transition">📦Заказы</a>
+                    <a href="/rental/returns/" class="px-4 py-2 rounded hover:bg-blue-700 transition">⬅️ Возвраты</a>
+                    <a href="/payment/" class="px-4 py-2 rounded hover:bg-blue-700 transition">💰 Оплаты</a>
+                    <a href="/history/" class="px-4 py-2 rounded hover:bg-blue-700 transition">📜 История</a>
+                    <a href="/reports/" class="px-4 py-2 rounded hover:bg-blue-700 transition">📊 Отчёты</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        {% block content %}
+        {% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white text-center py-4 mt-12">
+        <p>© 2026 CRM Аренда Инструментов</p>
+    </footer>
+    
+    {% block extra_js %}
+    {% endblock %}
+</body>
+</html>

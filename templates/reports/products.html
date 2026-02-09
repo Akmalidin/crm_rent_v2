@@ -1,0 +1,222 @@
+<!-- templates/reports/products.html -->
+{% extends 'base.html' %}
+
+{% block title %}Отчёт по товарам - CRM Аренда{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    
+    <!-- Header -->
+    <div>
+        <a href="/reports/" class="text-blue-600 hover:underline text-sm mb-2 inline-block">
+            ← Назад к отчётам
+        </a>
+        <h1 class="text-3xl font-bold text-gray-800">📦 Отчёт по товарам</h1>
+        <p class="text-gray-600">Анализ эффективности товаров</p>
+    </div>
+    
+    <!-- Top by Income -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">💰 Топ-10 по доходности</h2>
+        <div class="grid gap-3">
+            {% for item in top_by_income %}
+            <div class="flex justify-between items-center p-4 bg-gradient-to-r from-green-50 to-white rounded-lg border border-green-100">
+                <div class="flex items-center gap-4">
+                    <div class="bg-green-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">
+                        {{ forloop.counter }}
+                    </div>
+                    <div>
+                        <p class="font-bold text-lg text-gray-800">{{ item.product.name }}</p>
+                        <div class="text-sm text-gray-600">
+                            Категория: {{ item.product.category.name }} | 
+                            Аренд: {{ item.times_rented }} раз | 
+                            Всего взято: {{ item.total_quantity }} шт
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-bold text-green-600">{{ item.total_income|floatformat:0 }} сом</p>
+                    <p class="text-sm text-gray-600">Общий доход</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Top by Popularity -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">⭐ Топ-10 по популярности</h2>
+        <div class="grid gap-3">
+            {% for item in top_by_popularity %}
+            <div class="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-white rounded-lg border border-blue-100">
+                <div class="flex items-center gap-4">
+                    <div class="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">
+                        {{ forloop.counter }}
+                    </div>
+                    <div>
+                        <p class="font-bold text-lg text-gray-800">{{ item.product.name }}</p>
+                        <div class="text-sm text-gray-600">
+                            Доход: {{ item.total_income|floatformat:0 }} сом | 
+                            Всего взято: {{ item.total_quantity }} шт
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-bold text-blue-600">{{ item.times_rented }} раз</p>
+                    <p class="text-sm text-gray-600">Количество аренд</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- All Products -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b">
+            <h2 class="text-xl font-bold text-gray-800">📋 Все товары</h2>
+        </div>
+        <table class="w-full">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Товар</th>
+                    <th class="px-6 py-3 text-center text-sm font-semibold text-gray-700">Аренд</th>
+                    <th class="px-6 py-3 text-center text-sm font-semibold text-gray-700">Всего взято</th>
+                    <th class="px-6 py-3 text-center text-sm font-semibold text-gray-700">В аренде</th>
+                    <th class="px-6 py-3 text-center text-sm font-semibold text-gray-700">Доступно</th>
+                    <th class="px-6 py-3 text-right text-sm font-semibold text-gray-700">Доход</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                {% for item in products_data %}
+                <tr class="hover:bg-gray-50">
+                    <!-- Товар -->
+                    <td class="px-6 py-4">
+                        <div>
+                            <p class="font-semibold text-gray-800">{{ item.product.name }}</p>
+                            <p class="text-sm text-gray-500">{{ item.product.category.name }}</p>
+                        </div>
+                    </td>
+                    
+                    <!-- Аренд -->
+                    <td class="px-6 py-4 text-center">
+                        <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+                            {{ item.times_rented }}
+                        </span>
+                    </td>
+                    
+                    <!-- Всего взято -->
+                    <td class="px-6 py-4 text-center">
+                        {{ item.total_quantity }} шт
+                    </td>
+                    
+                    <!-- В аренде -->
+                    <td class="px-6 py-4 text-center">
+                        {% if item.in_rent > 0 %}
+                            <span class="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-semibold">
+                                {{ item.in_rent }} шт
+                            </span>
+                        {% else %}
+                            <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Доступно -->
+                    <td class="px-6 py-4 text-center">
+                        {% if item.available > 0 %}
+                            <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                                {{ item.available }} шт
+                            </span>
+                        {% else %}
+                            <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold">
+                                0
+                            </span>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Доход -->
+                    <td class="px-6 py-4 text-right">
+                        <span class="font-bold text-green-600 text-lg">
+                            {{ item.total_income|floatformat:0 }} сом
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Charts -->
+    <div class="grid grid-cols-2 gap-6">
+        <!-- Income Chart -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Доход по товарам (топ-10)</h2>
+            <canvas id="incomeChart"></canvas>
+        </div>
+        
+        <!-- Popularity Chart -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Популярность (топ-10)</h2>
+            <canvas id="popularityChart"></canvas>
+        </div>
+    </div>
+    
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Income Chart
+const incomeCtx = document.getElementById('incomeChart');
+new Chart(incomeCtx, {
+    type: 'bar',
+    data: {
+        labels: [
+            {% for item in top_by_income|slice:":10" %}'{{ item.product.name }}'{% if not forloop.last %},{% endif %}{% endfor %}
+        ],
+        datasets: [{
+            label: 'Доход (сом)',
+            data: [{% for item in top_by_income|slice:":10" %}{{ item.total_income }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            backgroundColor: 'rgba(34, 197, 94, 0.5)',
+            borderColor: 'rgb(34, 197, 94)',
+            borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: { beginAtZero: true }
+        }
+    }
+});
+
+// Popularity Chart
+const popularityCtx = document.getElementById('popularityChart');
+new Chart(popularityCtx, {
+    type: 'bar',
+    data: {
+        labels: [
+            {% for item in top_by_popularity|slice:":10" %}'{{ item.product.name }}'{% if not forloop.last %},{% endif %}{% endfor %}
+        ],
+        datasets: [{
+            label: 'Количество аренд',
+            data: [{% for item in top_by_popularity|slice:":10" %}{{ item.times_rented }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            backgroundColor: 'rgba(59, 130, 246, 0.5)',
+            borderColor: 'rgb(59, 130, 246)',
+            borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: { beginAtZero: true }
+        }
+    }
+});
+</script>
+{% endblock %}

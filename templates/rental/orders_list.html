@@ -1,0 +1,157 @@
+<!-- templates/rental/orders_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}Заказы - CRM Аренда{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">📦 Заказы аренды</h1>
+            <p class="text-gray-600">Список всех заказов</p>
+        </div>
+        <a href="/rental/create/" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold">
+            ➕ Создать заказ
+        </a>
+    </div>
+    
+    <!-- Filters -->
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="flex gap-4">
+            <a href="/rental/orders/" 
+               class="px-4 py-2 rounded-lg {% if not status_filter %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %} transition">
+                Все
+            </a>
+            <a href="/rental/orders/?status=open" 
+               class="px-4 py-2 rounded-lg {% if status_filter == 'open' %}bg-green-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %} transition">
+                Открытые
+            </a>
+            <a href="/rental/orders/?status=closed" 
+               class="px-4 py-2 rounded-lg {% if status_filter == 'closed' %}bg-gray-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %} transition">
+                Закрытые
+            </a>
+        </div>
+    </div>
+    
+    <!-- Orders List -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">#</th>
+                    <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Клиент</th>
+                    <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Дата создания</th>
+                    <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Товары</th>
+                    <th class="px-6 py-3 text-center text-sm font-semibold text-gray-700">Статус</th>
+                    <th class="px-6 py-3 text-right text-sm font-semibold text-gray-700">Сумма</th>
+                    <th class="px-6 py-3 text-center text-sm font-semibold text-gray-700">Действия</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                {% for order in orders %}
+                <tr class="hover:bg-gray-50">
+                    <!-- ID -->
+                    <td class="px-6 py-4">
+                        <span class="font-bold text-gray-800">#{{ order.id }}</span>
+                    </td>
+                    
+                    <!-- Клиент -->
+                    <td class="px-6 py-4">
+                        <a href="/clients/{{ order.client.id }}/" class="text-blue-600 hover:underline font-semibold">
+                            {{ order.client.get_full_name }}
+                        </a>
+                        {% for phone in order.client.phones.all|slice:":1" %}
+                            <p class="text-sm text-gray-500">{{ phone.phone_number }}</p>
+                        {% endfor %}
+                    </td>
+                    
+                    <!-- Дата -->
+                    <td class="px-6 py-4">
+                        <p class="text-gray-700">{{ order.created_at|date:"d.m.Y" }}</p>
+                        <p class="text-sm text-gray-500">{{ order.created_at|date:"H:i" }}</p>
+                    </td>
+                    
+                    <!-- Товары -->
+                    <td class="px-6 py-4">
+                        <div class="space-y-1">
+                            {% for item in order.items.all|slice:":3" %}
+                                <div class="text-sm">
+                                    <span class="font-medium">{{ item.product.name }}</span>
+                                    <span class="text-gray-500">({{ item.quantity_remaining }}/{{ item.quantity_taken }})</span>
+                                </div>
+                            {% endfor %}
+                            {% if order.items.count > 3 %}
+                                <p class="text-xs text-gray-500">+{{ order.items.count|add:"-3" }} ещё...</p>
+                            {% endif %}
+                        </div>
+                    </td>
+                    
+                    <!-- Статус -->
+                    <td class="px-6 py-4 text-center">
+                        {% if order.status == 'open' %}
+                            <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                                Открыт
+                            </span>
+                        {% else %}
+                            <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-semibold">
+                                Закрыт
+                            </span>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Сумма -->
+                    <td class="px-6 py-4 text-right">
+                        <p class="font-bold text-lg">{{ order.get_current_total|floatformat:0 }} сом</p>
+                        {% if order.get_saved_amount > 0 %}
+                            <p class="text-xs text-green-600">-{{ order.get_saved_amount|floatformat:0 }} сом</p>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Действия -->
+                    <td class="px-6 py-4 text-center">
+                        <a href="/admin/rental/rentalorder/{{ order.id }}/change/" 
+                           class="bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 transition text-sm">
+                            👁️ Просмотр
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-6 py-12 text-center">
+                        <div class="text-gray-400">
+                            <p class="text-xl mb-2">📦 Заказов не найдено</p>
+                            <a href="/rental/create/" class="text-blue-600 hover:underline inline-block mt-2">
+                                Создать первый заказ →
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Stats -->
+    <div class="grid grid-cols-3 gap-4">
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+            <p class="text-gray-600 text-sm">Всего заказов</p>
+            <p class="text-2xl font-bold text-blue-600">{{ orders|length }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+            <p class="text-gray-600 text-sm">Открытых</p>
+            <p class="text-2xl font-bold text-green-600">
+                {% for order in orders %}{% if order.status == 'open' %}1{% endif %}{% endfor %}
+            </p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+            <p class="text-gray-600 text-sm">Закрытых</p>
+            <p class="text-2xl font-bold text-gray-600">
+                {% for order in orders %}{% if order.status == 'closed' %}1{% endif %}{% endfor %}
+            </p>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
