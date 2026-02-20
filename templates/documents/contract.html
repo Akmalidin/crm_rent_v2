@@ -1,0 +1,117 @@
+<!-- templates/documents/contract.html -->
+{% extends 'documents/base_document.html' %}
+
+{% block content %}
+<!-- Шапка -->
+<div class="doc-header">
+    <div class="company-name">🏢 CRM Аренда</div>
+    <div class="doc-title">ДОГОВОР АРЕНДЫ ИНСТРУМЕНТОВ</div>
+    <div class="doc-number">№ {{ order.id }} от {{ order.created_at|date:"d.m.Y" }}</div>
+</div>
+
+<!-- Стороны договора -->
+<div class="info-block">
+    <div class="info-row">
+        <span class="info-label">Арендодатель:</span>
+        <span class="info-value"><strong>ИП / ООО Аренда Иснтрумнтов №1</strong></span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Арендатор:</span>
+        <span class="info-value"><strong>{{ client.get_full_name }}</strong></span>
+    </div>
+    {% for phone in client.phones.all %}
+    <div class="info-row">
+        <span class="info-label">Телефон арендатора:</span>
+        <span class="info-value">{{ phone.phone_number }}</span>
+    </div>
+    {% endfor %}
+    <div class="info-row">
+        <span class="info-label">Дата выдачи:</span>
+        <span class="info-value">{{ order.created_at|date:"d.m.Y H:i" }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Статус:</span>
+        <span class="info-value">
+            <span class="status-badge {% if order.status == 'open' %}status-open{% else %}status-closed{% endif %}">
+                {% if order.status == 'open' %}Активен{% else %}Закрыт{% endif %}
+            </span>
+        </span>
+    </div>
+</div>
+
+<!-- Список товаров -->
+<p><strong>ПЕРЕЧЕНЬ АРЕНДУЕМОГО ИНСТРУМЕНТА:</strong></p>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Наименование</th>
+            <th>Кол-во</th>
+            <th>Срок аренды</th>
+            <th>Цена/день</th>
+            <th>Стоимость</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ item.product.name }}</td>
+            <td>{{ item.quantity_taken }} шт</td>
+            <td>
+                {{ item.rental_days }} дн
+                {% if item.rental_hours > 0 %} {{ item.rental_hours }} ч{% endif %}
+            </td>
+            <td>{{ item.price_per_day|floatformat:0 }} сом</td>
+            <td class="highlight">{{ item.current_total_cost|floatformat:0 }} сом</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Итого -->
+<div class="total-block">
+    <div class="total-label">Общая стоимость аренды:</div>
+    <div class="total-amount">{{ order.get_current_total|floatformat:0 }} сом</div>
+</div>
+
+<!-- Условия договора -->
+<div style="margin-top: 20px;">
+    <p><strong>УСЛОВИЯ ДОГОВОРА:</strong></p>
+    <ol style="margin-top: 10px; padding-left: 20px;">
+        <li style="margin: 5px 0;">Арендатор обязуется вернуть инструмент в указанный срок и в исправном состоянии.</li>
+        <li style="margin: 5px 0;">При повреждении или утере инструмента арендатор возмещает полную стоимость.</li>
+        <li style="margin: 5px 0;">Оплата производится наличными или переводом на момент возврата или до возврата.</li>
+        <li style="margin: 5px 0;">При досрочном возврате стоимость пересчитывается по фактическому времени использования.</li>
+        <li style="margin: 5px 0;">При просрочке начисляется дополнительная плата за каждый день просрочки.</li>
+    </ol>
+</div>
+
+{% if order.notes %}
+<div class="notes">
+    <div class="notes-title">Примечания:</div>
+    <div>{{ order.notes }}</div>
+</div>
+{% endif %}
+
+<!-- Подписи -->
+<div class="signatures">
+    <div class="signature-block">
+        <div class="signature-title">АРЕНДОДАТЕЛЬ:</div>
+        <div class="signature-line">Подпись: _______________________</div>
+        <div style="margin-top: 10px; font-size: 10pt; color: #666;">ФИО: ___________________________</div>
+        <div style="margin-top: 10px; font-size: 10pt; color: #666;">Дата: __________________________</div>
+    </div>
+    <div class="signature-block">
+        <div class="signature-title">АРЕНДАТОР:</div>
+        <div class="signature-line">Подпись: _______________________</div>
+        <div style="margin-top: 10px; font-size: 10pt; color: #666;">ФИО: {{ client.get_full_name }}</div>
+        <div style="margin-top: 10px; font-size: 10pt; color: #666;">Дата: __________________________</div>
+    </div>
+</div>
+
+<div class="doc-footer">
+    Документ сформирован автоматически системой CRM Аренда • {{ order.created_at|date:"d.m.Y" }}
+</div>
+{% endblock %}

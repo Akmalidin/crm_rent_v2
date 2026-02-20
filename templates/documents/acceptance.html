@@ -1,0 +1,100 @@
+<!-- templates/documents/acceptance.html -->
+{% extends 'documents/base_document.html' %}
+
+{% block content %}
+<!-- Шапка -->
+<div class="doc-header">
+    <div class="company-name">🏢 CRM Аренда</div>
+    <div class="doc-title">АКТ ПРИЁМА-ПЕРЕДАЧИ</div>
+    <div class="doc-number">к Договору аренды № {{ order.id }} от {{ order.created_at|date:"d.m.Y" }}</div>
+</div>
+
+<!-- Стороны -->
+<div class="info-block">
+    <div class="info-row">
+        <span class="info-label">Арендодатель:</span>
+        <span class="info-value"><strong>ИП / ООО Аренда Иснтрумнтов №1</strong></span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Арендатор:</span>
+        <span class="info-value"><strong>{{ client.get_full_name }}</strong></span>
+    </div>
+    {% for phone in client.phones.all %}
+    <div class="info-row">
+        <span class="info-label">Телефон:</span>
+        <span class="info-value">{{ phone.phone_number }}</span>
+    </div>
+    {% endfor %}
+    <div class="info-row">
+        <span class="info-label">Дата выдачи:</span>
+        <span class="info-value"><strong>{{ order.created_at|date:"d.m.Y H:i" }}</strong></span>
+    </div>
+</div>
+
+<p style="margin: 15px 0;">Арендодатель передал, а Арендатор принял следующий инструмент в исправном состоянии:</p>
+
+<!-- Таблица товаров -->
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Наименование</th>
+            <th>Кол-во</th>
+            <th>Срок аренды</th>
+            <th>Плановый возврат</th>
+            <th>Цена/день</th>
+            <th>Стоимость</th>
+            <th>Состояние</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ item.product.name }}</td>
+            <td>{{ item.quantity_taken }} шт</td>
+            <td>
+                {{ item.rental_days }} дн
+                {% if item.rental_hours > 0 %}{{ item.rental_hours }} ч{% endif %}
+            </td>
+            <td>{{ item.planned_return_date|date:"d.m.Y" }}</td>
+            <td>{{ item.price_per_day|floatformat:0 }} сом</td>
+            <td class="highlight">{{ item.current_total_cost|floatformat:0 }} сом</td>
+            <td>Исправен</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Итого -->
+<div class="total-block">
+    <div class="total-label">Итого стоимость аренды:</div>
+    <div class="total-amount">{{ order.get_current_total|floatformat:0 }} сом</div>
+</div>
+
+{% if order.notes %}
+<div class="notes">
+    <div class="notes-title">Примечания:</div>
+    <div>{{ order.notes }}</div>
+</div>
+{% endif %}
+
+<!-- Подписи -->
+<div class="signatures">
+    <div class="signature-block">
+        <div class="signature-title">ПЕРЕДАЛ (Арендодатель):</div>
+        <div class="signature-line">Подпись: _______________________</div>
+        <div style="margin-top: 10px; font-size: 10pt; color: #666;">Дата: {{ order.created_at|date:"d.m.Y" }}</div>
+    </div>
+    <div class="signature-block">
+        <div class="signature-title">ПРИНЯЛ (Арендатор):</div>
+        <div class="signature-line">Подпись: _______________________</div>
+        <div style="margin-top: 10px; font-size: 10pt; color: #666;">ФИО: {{ client.get_full_name }}</div>
+        <div style="margin-top: 10px; font-size: 10pt; color: #666;">Дата: __________________________</div>
+    </div>
+</div>
+
+<div class="doc-footer">
+    Акт сформирован автоматически системой CRM Аренда • {{ order.created_at|date:"d.m.Y" }}
+</div>
+{% endblock %}

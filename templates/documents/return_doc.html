@@ -1,0 +1,128 @@
+<!-- templates/documents/return_doc.html -->
+{% extends 'documents/base_document.html' %}
+
+{% block content %}
+<!-- Шапка -->
+<div class="doc-header">
+    <div class="company-name">🏢 CRM Аренда</div>
+    <div class="doc-title">НАКЛАДНАЯ НА ВОЗВРАТ</div>
+    <div class="doc-number">к Договору аренды № {{ order.id }} от {{ order.created_at|date:"d.m.Y" }}</div>
+</div>
+
+<!-- Информация -->
+<div class="info-block">
+    <div class="info-row">
+        <span class="info-label">Арендатор:</span>
+        <span class="info-value"><strong>{{ client.get_full_name }}</strong></span>
+    </div>
+    {% for phone in client.phones.all %}
+    <div class="info-row">
+        <span class="info-label">Телефон:</span>
+        <span class="info-value">{{ phone.phone_number }}</span>
+    </div>
+    {% endfor %}
+    <div class="info-row">
+        <span class="info-label">Заказ №:</span>
+        <span class="info-value"><strong>{{ order.id }}</strong> от {{ order.created_at|date:"d.m.Y" }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Дата возврата:</span>
+        <span class="info-value"><strong>{% now "d.m.Y H:i" %}</strong></span>
+    </div>
+</div>
+
+<p style="margin: 15px 0;">Арендатор вернул следующий инструмент:</p>
+
+<!-- Таблица возвращённых товаров -->
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Наименование</th>
+            <th>Кол-во</th>
+            <th>Факт. дней</th>
+            <th>Факт. часов</th>
+            <th>Цена/день</th>
+            <th>Итого</th>
+            <th>Состояние</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ret in returned_items %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ ret.order_item.product.name }}</td>
+            <td>{{ ret.quantity }} шт</td>
+            <td>{{ ret.actual_days }} дн</td>
+            <td>{{ ret.actual_hours }} ч</td>
+            <td>{{ ret.order_item.price_per_day|floatformat:0 }} сом</td>
+            <td class="highlight">{{ ret.calculated_cost|floatformat:0 }} сом</td>
+            <td>_____________</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="8" style="text-align: center; color: #888;">Нет возвращённых товаров</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Итого -->
+{% with total_return=0 %}
+<div class="total-block">
+    <div class="total-label">Оригинальная стоимость заказа:</div>
+    <div style="font-size: 13pt; color: #666;">{{ order.get_original_total|floatformat:0 }} сом</div>
+    <div class="total-label" style="margin-top: 8px;">Фактическая стоимость после возвратов:</div>
+    <div class="total-amount">{{ order.get_current_total|floatformat:0 }} сом</div>
+    {% if order.get_original_total != order.get_current_total %}
+    <div style="color: #059669; font-size: 12pt; margin-top: 5px;">
+        Экономия: {{ order.get_original_total|floatformat:0 }} - {{ order.get_current_total|floatformat:0 }} сом
+    </div>
+    {% endif %}
+</div>
+{% endwith %}
+
+<!-- Состояние товаров -->
+<div style="margin-top: 20px;">
+    <p><strong>СОСТОЯНИЕ ВОЗВРАЩЁННОГО ИНСТРУМЕНТА:</strong></p>
+    <table style="margin-top: 10px;">
+        <thead>
+            <tr>
+                <th>Наименование</th>
+                <th>Состояние при выдаче</th>
+                <th>Состояние при возврате</th>
+                <th>Замечания</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ret in returned_items %}
+            <tr>
+                <td>{{ ret.order_item.product.name }}</td>
+                <td>Исправен</td>
+                <td>_______________</td>
+                <td>_______________</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Подписи -->
+<div class="signatures">
+    <div class="signature-block">
+        <div class="signature-title">ПРИНЯЛ (Арендодатель):</div>
+        <div class="signature-line">Подпись: _______________________</div>
+        <div style="margin-top: 10px; font-size: 10pt; color: #666;">Дата: __________________________</div>
+    </div>
+    <div class="signature-block">
+        <div class="signature-title">СДАЛ (Арендатор):</div>
+        <div class="signature-line">Подпись: _______________________</div>
+        <div style="margin-top: 10px; font-size: 10pt; color: #666;">ФИО: {{ client.get_full_name }}</div>
+        <div style="margin-top: 10px; font-size: 10pt; color: #666;">Дата: __________________________</div>
+    </div>
+</div>
+
+<div class="doc-footer">
+    Накладная сформирована автоматически системой CRM Аренда
+</div>
+{% endblock %}

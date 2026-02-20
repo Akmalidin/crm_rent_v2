@@ -33,15 +33,22 @@ class RentalOrder(models.Model):
         return float(total or 0)
     
     def get_current_total(self):
-        """Текущая сумма (с пересчётом)"""
-        total = self.items.aggregate(total=Sum('current_total_cost'))['total']
-        return float(total or 0)
-    
+        "Текущая стоимость заказа с учётом возвратов и просрочки"
+        from decimal import Decimal
+        
+        total = Decimal('0')
+        
+        for item in self.items.all():
+            # Используем метод get_actual_cost который учитывает всё
+            total += item.get_actual_cost()
+        
+        return total
+
     def get_saved_amount(self):
         """Экономия от досрочного возврата"""
         return self.get_original_total() - self.get_current_total()
     
-    def has_unreturned_items(self):
+    def has_unreturned_items(self): 
         """Есть ли невозвращённые товары"""
         return self.items.filter(quantity_remaining__gt=0).exists()
     
@@ -75,6 +82,7 @@ class OrderItem(models.Model):
     
     original_total_cost = models.DecimalField('Изначальная стоимость', max_digits=10, decimal_places=2)
     current_total_cost = models.DecimalField('Текущая стоимость', max_digits=10, decimal_places=2)
+    actual_cost = models.DecimalField('Фактическая стоимость', max_digits=10, decimal_places=2, null=True, blank=True)
     
     class Meta:
         verbose_name = 'Товар в заказе'
@@ -94,6 +102,62 @@ class OrderItem(models.Model):
             if not self.current_total_cost:
                 self.current_total_cost = self.original_total_cost
         super().save(*args, **kwargs)
+    
+    def get_actual_cost(self):
+        '''Фактическая стоимость с учётом возвратов и просрочки'''
+        from decimal import Decimal
+        
+        # Если всё возвращено и есть actual_cost - используем его
+        if self.quantity_remaining == 0 and self.actual_cost:
+            return Decimal(str(self.actual_cost))
+        
+        # Если есть невозвращённые товары
+        if self.quantity_remaining > 0:
+            now = timezone.now()
+            
+            # Стоимость возвращённых товаров
+            returned_qty = self.quantity_taken - self.quantity_remaining
+            returned_cost = Decimal('0')
+            
+            if returned_qty > 0:
+                # Для возвращённых берём текущую стоимость
+                if self.actual_cost:
+                    returned_cost = Decimal(str(self.actual_cost))
+                else:
+                    # Пропорционально от текущей стоимости
+                    cost_per_item = Decimal(str(self.current_total_cost)) / self.quantity_taken
+                    returned_cost = cost_per_item * returned_qty
+            
+            # Стоимость невозвращённых товаров
+            unreturned_cost = Decimal('0')
+            
+            # Если просрочено
+            if now > self.planned_return_date:
+                overdue_time = now - self.planned_return_date
+                
+                # Плановая стоимость оставшихся товаров
+                cost_per_item = Decimal(str(self.current_total_cost)) / self.quantity_taken
+                planned_cost = cost_per_item * self.quantity_remaining
+                
+                # Стоимость просрочки
+                if overdue_time.total_seconds() < 86400:  # Меньше суток
+                    overdue_hours = overdue_time.total_seconds() / 3600
+                    hourly_rate = self.price_per_day / 24
+                    overdue_cost = Decimal(str(overdue_hours)) * hourly_rate * self.quantity_remaining
+                else:
+                    overdue_days = overdue_time.days
+                    overdue_cost = Decimal(str(overdue_days)) * self.price_per_day * self.quantity_remaining
+                
+                unreturned_cost = planned_cost + overdue_cost
+            else:
+                # Ещё не просрочено - плановая стоимость
+                cost_per_item = Decimal(str(self.current_total_cost)) / self.quantity_taken
+                unreturned_cost = cost_per_item * self.quantity_remaining
+            
+            return returned_cost + unreturned_cost
+        
+        # Всё возвращено - используем текущую стоимость
+        return Decimal(str(self.current_total_cost))
 
 
 class ReturnDocument(models.Model):
@@ -179,6 +243,7 @@ class Payment(models.Model):
         ('cash', 'Наличные'),
         ('card', 'Карта'),
         ('transfer', 'Перевод'),
+        ('credit', 'Зачёт аванса'),
     ]
     
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='payments', verbose_name='Клиент')

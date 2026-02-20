@@ -137,7 +137,7 @@
     
     <!-- Payment History -->
     {% if payments %}
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="bg-white rounded-lg shadow p-6" style="max-height: 400px; overflow-y: scroll;">
         <h2 class="text-xl font-bold text-gray-800 mb-4">💳 История оплат</h2>
         <div class="space-y-2">
             {% for payment in payments %}
@@ -200,74 +200,349 @@
     <div class="divide-y">
         {% for group in order_groups %}
         <div class="transition-all">
-            <!-- Order Header (Clickable) -->
-            <div 
-                onclick="toggleEvent(this)"
-                class="p-6 hover:bg-gray-50 cursor-pointer transition"
+            <!-- Order Header -->
+            
+<!-- Order Header -->
+<div class="p-6 hover:bg-gray-50 transition">
+    <div class="flex items-center gap-4">
+        <!-- Icon -->
+        <div class="flex-shrink-0 text-center">
+            <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-2">
+                <span class="text-3xl">📦</span>
+            </div>
+            <p class="text-xs text-gray-500">{{ group.order.created_at|date:"d.m.Y" }}</p>
+        </div>
+        
+        <!-- Order Info -->
+        <div class="flex-1">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <!-- Title & Buttons -->
+                    <div class="flex items-center gap-3 mb-2">
+                        <h3 class="font-bold text-2xl text-gray-800">Заказ #{{ group.order.id }}</h3>
+                        
+                        
+<!-- Action Buttons for Open Orders -->
+{% if group.order.status == 'open' %}
+<div class="flex items-center gap-2">
+    
+    <!-- 1. РЕДАКТИРОВАТЬ (главная кнопка) -->
+    <a 
+        href="/rental/orders/{{ group.order.id }}/edit/"
+        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold flex items-center gap-2"
+        onclick="event.stopPropagation()"
+        title="Редактировать заказ"
+    >
+        <span>✏️</span>
+        <span>Редактировать</span>
+    </a>
+    {% if user.is_staff %}
+        <a href="{% url 'main:edit_item_date' item_id=group.order.items.first.id %}" 
+        class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-semibold flex items-center gap-2">
+            📅 Изменить дату
+        </a>
+    {% endif %}
+    
+    <!-- 2. ДЕЙСТВИЯ (dropdown) -->
+    <div style="position: relative; display: inline-block;">
+        <button 
+            onclick="event.stopPropagation(); toggleActionMenu({{ group.order.id }})"
+            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-semibold flex items-center gap-2"
+            title="Действия с заказом"
+        >
+            <span>⚡</span>
+            <span>Действия</span>
+            <span>▼</span>
+        </button>
+        
+        <!-- Dropdown Menu -->
+        <div id="action-menu-{{ group.order.id }}" 
+             style="display: none; position: absolute; top: 100%; left: 0; z-index: 100; 
+                    background: white; border: 1px solid #ddd; border-radius: 8px; 
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 200px; margin-top: 4px;">
+            
+            <!-- Возврат -->
+            {% if group.has_unreturned_items %}
+            <a 
+                href="/rental/returns/?client_id={{ group.order.client.id }}"
+                class="block px-4 py-3 hover:bg-green-50 text-sm text-gray-700 border-b"
+                onclick="event.stopPropagation()"
             >
-                <div class="flex items-center gap-4">
-                    <!-- Icon -->
-                    <div class="flex-shrink-0 text-center">
-                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-2">
-                            <span class="text-3xl">📦</span>
-                        </div>
-                        <p class="text-xs text-gray-500">{{ group.order.created_at|date:"d.m.Y" }}</p>
-                    </div>
+                ⬅️ Возврат товаров
+            </a>
+            {% endif %}
+            
+            <!-- Оплата -->
+            {% if group.debt > 0 %}
+            <a 
+                href="/payment/?client={{ group.order.client.id }}"
+                class="block px-4 py-3 hover:bg-yellow-50 text-sm text-gray-700 border-b"
+                onclick="event.stopPropagation()"
+            >
+                💰 Принять оплату
+            </a>
+            {% endif %}
+            
+            <!-- Зачесть аванс -->
+            {% if group.debt > 0 and client.get_credit > 0 %}
+            <a 
+                href="/orders/{{ group.order.id }}/apply-credit/"
+                class="block px-4 py-3 hover:bg-purple-50 text-sm text-gray-700 border-b"
+                onclick="event.stopPropagation(); return confirm('Зачесть аванс в счёт этого заказа?')"
+            >
+                💳 Зачесть аванс ({{ client.get_credit|floatformat:0 }} сом)
+            </a>
+            {% endif %}
+            
+            <!-- Уведомление (если просрочен) -->
+            {% if group.is_overdue %}
+                <a 
+                    href="/orders/{{ group.order.id }}/notify/"
+                    class="block px-4 py-3 hover:bg-orange-50 text-sm text-gray-700 border-b"
+                    onclick="event.stopPropagation(); return confirm('Отправить уведомление о просрочке?')"
+                >
+                    📱 Уведомить о просрочке
+                </a>
+            {% endif %}
+            
+            <!-- Закрыть заказ -->
+            <a 
+                href="/orders/{{ group.order.id }}/close/"
+                class="block px-4 py-3 hover:bg-gray-50 text-sm text-gray-700"
+                onclick="event.stopPropagation(); return confirm('Закрыть заказ #{{ group.order.id }}? Это действие нельзя отменить!')"
+            >
+                🔒 Закрыть заказ
+            </a>
+        </div>
+    </div>
+    
+    <!-- 3. ПЕЧАТЬ (dropdown) -->
+    <div style="position: relative; display: inline-block;">
+        <button 
+            onclick="event.stopPropagation(); togglePrintMenu({{ group.order.id }})"
+            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-semibold flex items-center gap-2"
+            title="Печать документов"
+        >
+            <span>🖨️</span>
+            <span>Печать</span>
+            <span>▼</span>
+        </button>
+        
+        <!-- Dropdown Menu -->
+        <div id="print-menu-{{ group.order.id }}" 
+             style="display: none; position: absolute; top: 100%; left: 0; z-index: 100; 
+                    background: white; border: 1px solid #ddd; border-radius: 8px; 
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 220px; margin-top: 4px;">
+            <a 
+                href="/orders/{{ group.order.id }}/print/contract/"
+                target="_blank"
+                class="block px-4 py-3 hover:bg-gray-50 text-sm text-gray-700 border-b"
+                onclick="event.stopPropagation()"
+            >
+                📄 Договор аренды
+            </a>
+            <a 
+                href="/orders/{{ group.order.id }}/print/acceptance/"
+                target="_blank"
+                class="block px-4 py-3 hover:bg-gray-50 text-sm text-gray-700 border-b"
+                onclick="event.stopPropagation()"
+            >
+                📋 Акт приёма-передачи
+            </a>
+            <a 
+                href="/orders/{{ group.order.id }}/print/return/"
+                target="_blank"
+                class="block px-4 py-3 hover:bg-gray-50 text-sm text-gray-700"
+                onclick="event.stopPropagation()"
+            >
+                📦 Накладная на возврат
+            </a>
+        </div>
+    </div>
+    
+</div>
+{% endif %}
+
+<!-- Для ЗАКРЫТЫХ заказов - только печать -->
+{% if group.order.status == 'closed' %}
+<div class="flex items-center gap-2">
+    <div style="position: relative; display: inline-block;">
+        <button 
+            onclick="event.stopPropagation(); togglePrintMenu({{ group.order.id }})"
+            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-semibold flex items-center gap-2"
+            title="Печать документов"
+        >
+            <span>🖨️</span>
+            <span>Печать</span>
+            <span>▼</span>
+        </button>
+        
+        <!-- Dropdown Menu -->
+        <div id="print-menu-{{ group.order.id }}" 
+             style="display: none; position: absolute; top: 100%; left: 0; z-index: 100; 
+                    background: white; border: 1px solid #ddd; border-radius: 8px; 
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 220px; margin-top: 4px;">
+            <a 
+                href="/orders/{{ group.order.id }}/print/contract/"
+                target="_blank"
+                class="block px-4 py-3 hover:bg-gray-50 text-sm text-gray-700 border-b"
+                onclick="event.stopPropagation()"
+            >
+                📄 Договор аренды
+            </a>
+            <a 
+                href="/orders/{{ group.order.id }}/print/acceptance/"
+                target="_blank"
+                class="block px-4 py-3 hover:bg-gray-50 text-sm text-gray-700 border-b"
+                onclick="event.stopPropagation()"
+            >
+                📋 Акт приёма-передачи
+            </a>
+            <a 
+                href="/orders/{{ group.order.id }}/print/return/"
+                target="_blank"
+                class="block px-4 py-3 hover:bg-gray-50 text-sm text-gray-700"
+                onclick="event.stopPropagation()"
+            >
+                📦 Накладная на возврат
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ============================================ -->
+<!-- JAVASCRIPT для dropdown меню               -->
+<!-- Добавь в конец файла перед </script>        -->
+<!-- ============================================ -->
+
+<script>
+function toggleActionMenu(orderId) {
+    const menu = document.getElementById('action-menu-' + orderId);
+    
+    // Закрыть все другие меню
+    document.querySelectorAll('[id^="action-menu-"]').forEach(m => {
+        if (m.id !== 'action-menu-' + orderId) {
+            m.style.display = 'none';
+        }
+    });
+    document.querySelectorAll('[id^="print-menu-"]').forEach(m => {
+        m.style.display = 'none';
+    });
+    
+    // Переключить текущее
+    if (menu.style.display === 'none') {
+        menu.style.display = 'block';
+    } else {
+        menu.style.display = 'none';
+    }
+}
+
+function togglePrintMenu(orderId) {
+    const menu = document.getElementById('print-menu-' + orderId);
+    
+    // Закрыть все другие меню
+    document.querySelectorAll('[id^="print-menu-"]').forEach(m => {
+        if (m.id !== 'print-menu-' + orderId) {
+            m.style.display = 'none';
+        }
+    });
+    document.querySelectorAll('[id^="action-menu-"]').forEach(m => {
+        m.style.display = 'none';
+    });
+    
+    // Переключить текущее
+    if (menu.style.display === 'none') {
+        menu.style.display = 'block';
+    } else {
+        menu.style.display = 'none';
+    }
+}
+
+// Закрыть меню при клике снаружи
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('[id^="action-menu-"]') && 
+        !e.target.closest('[id^="print-menu-"]') &&
+        !e.target.closest('button[onclick*="toggleActionMenu"]') &&
+        !e.target.closest('button[onclick*="togglePrintMenu"]')) {
+        document.querySelectorAll('[id^="action-menu-"]').forEach(m => {
+            m.style.display = 'none';
+        });
+        document.querySelectorAll('[id^="print-menu-"]').forEach(m => {
+            m.style.display = 'none';
+        });
+    }
+});
+</script>
+</div>
                     
-                    <!-- Order Info -->
-                    <div class="flex-1">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <h3 class="font-bold text-2xl text-gray-800">Заказ #{{ group.order.id }}</h3>
-                                <p class="text-sm text-gray-600">{{ group.order.created_at|date:"d.m.Y H:i" }}</p>
-                                <div class="mt-2 flex gap-2">
-                                    <span class="px-3 py-1 {% if group.order.status == 'open' %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %} rounded-full text-xs font-semibold">
-                                        {% if group.order.status == 'open' %}Открыт{% else %}Закрыт{% endif %}
-                                    </span>
-                                    <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
-                                        {{ group.order.items.count }} товар{{ group.order.items.count|pluralize:",,ов" }}
-                                    </span>
-                                    <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">
-                                        {{ group.events|length }} событи{{ group.events|length|pluralize:"е,я,й" }}
-                                    </span>
-                                </div>
-                            </div>
-                            
-                            <!-- Amounts -->
-                            <div class="text-right">
-                                <p class="text-3xl font-bold text-red-600">{{ group.current_cost|floatformat:0 }} сом</p>
-                                <p class="text-sm text-gray-600 mt-1">Стоимость заказа</p>
-                                
-                                {% if group.total_paid > 0 %}
-                                <div class="mt-2 p-2 bg-green-50 rounded">
-                                    <p class="text-xs text-gray-600">Оплачено:</p>
-                                    <p class="text-lg font-bold text-green-600">{{ group.total_paid|floatformat:0 }} сом</p>
-                                </div>
-                                {% endif %}
-                                
-                                {% if group.debt != 0 %}
-                                <div class="mt-2 p-2 {% if group.debt > 0 %}bg-red-50{% else %}bg-green-50{% endif %} rounded">
-                                    <p class="text-xs text-gray-600">{% if group.debt > 0 %}Долг:{% else %}Переплата:{% endif %}</p>
-                                    <p class="text-lg font-bold {% if group.debt > 0 %}text-red-600{% else %}text-green-600{% endif %}">
-                                        {% if group.debt > 0 %}{{ group.debt|floatformat:0 }}{% else %}+{{ group.debt|floatformat:0|slice:"1:" }}{% endif %} сом
-                                    </p>
-                                </div>
-                                {% endif %}
-                                
-                                <!-- Arrow -->
-                                <svg 
-                                    class="arrow-icon w-8 h-8 text-gray-400 transition-transform duration-300 mx-auto mt-3"
-                                    fill="none" 
-                                    stroke="currentColor" 
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                                </svg>
-                            </div>
-                        </div>
+                    <p class="text-sm text-gray-600">{{ group.order.created_at|date:"d.m.Y H:i" }}</p>
+                    <!-- Badges -->
+                    <div class="mt-2 flex gap-2 flex-wrap">
+                        <!-- Status Badge -->
+                        <span class="px-3 py-1 {% if group.order.status == 'open' %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %} rounded-full text-xs font-semibold">
+                            {% if group.order.status == 'open' %}🟢 Открыт{% else %}⚪ Закрыт{% endif %}
+                        </span>
+                        
+                        <!-- Overdue Badge -->
+                        {% if group.order.status == 'open' and group.is_overdue %}
+                        <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold animate-pulse">
+                            ⚠️ ПРОСРОЧЕН!
+                        </span>
+                        {% endif %}
+                        
+                        <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                            📦 {{ group.order.items.count }} товар{{ group.order.items.count|pluralize:",,ов" }}
+                        </span>
+                        <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">
+                            📋 {{ group.events|length }} событи{{ group.events|length|pluralize:"е,я,й" }}
+                        </span>
                     </div>
                 </div>
+                
+                <!-- Amounts -->
+                <div class="text-right">
+                    <p class="text-3xl font-bold text-red-600">{{ group.current_cost|floatformat:0 }} сом</p>
+                    <p class="text-sm text-gray-600 mt-1">Стоимость заказа</p>
+                    
+                    {% if group.total_paid > 0 %}
+                    <div class="mt-2 p-2 bg-green-50 rounded">
+                        <p class="text-xs text-gray-600">Оплачено:</p>
+                        <p class="text-lg font-bold text-green-600">{{ group.total_paid|floatformat:0 }} сом</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if group.debt != 0 %}
+                    <div class="mt-2 p-2 {% if group.debt > 0 %}bg-red-50{% else %}bg-green-50{% endif %} rounded">
+                        <p class="text-xs text-gray-600">{% if group.debt > 0 %}Долг:{% else %}Переплата:{% endif %}</p>
+                        <p class="text-lg font-bold {% if group.debt > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                            {% if group.debt > 0 %}{{ group.debt|floatformat:0 }}{% else %}+{{ group.debt|floatformat:0|slice:"1:" }}{% endif %} сом
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
+        </div>
+    </div>
+    
+    <!-- Details Button (Centered, Below Everything) -->
+    <div class="mt-4 pt-4 border-t text-center">
+        <button 
+            onclick="toggleEvent(event)"
+            class="details-button px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-semibold inline-flex items-center gap-2"
+        >
+            <span class="button-text">Подробнее</span>
+            <svg 
+                class="arrow-icon w-5 h-5 transition-transform duration-300"
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+            >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+        </button>
+    </div>
+</div>
             
             <!-- Order History (Collapsible) -->
             <div class="event-details hidden px-6 pb-6">
@@ -363,9 +638,13 @@
                                 <p class="text-2xl font-bold text-green-600">{{ group.total_paid|floatformat:0 }} сом</p>
                             </div>
                             <div class="text-center">
-                                <p class="text-sm text-gray-600">{% if group.debt > 0 %}Долг{% else %}Баланс{% endif %}</p>
+                                <p class="text-sm text-gray-600">{% if group.debt > 0 %}Долг{% else %}Переплата{% endif %}</p>
                                 <p class="text-2xl font-bold {% if group.debt > 0 %}text-red-600{% else %}text-green-600{% endif %}">
-                                    {{ group.debt|floatformat:0 }} сом
+                                    {% if group.debt > 0 %}
+                                        {{ group.debt|floatformat:0 }} сом
+                                    {% else %}
+                                        +{{ group.debt|floatformat:0|slice:"1:" }} сом
+                                    {% endif %}
                                 </p>
                             </div>
                         </div>
@@ -384,10 +663,12 @@
 
 <!-- JavaScript -->
 <script>
-function toggleEvent(element) {
-    const parent = element.parentElement;
+function toggleEvent(event) {
+    event.stopPropagation();
+    const svgElement = event.currentTarget;
+    const parent = svgElement.closest('.transition-all');
     const details = parent.querySelector('.event-details');
-    const arrow = element.querySelector('.arrow-icon');
+    const arrow = parent.querySelector('.arrow-icon');
     
     if (details.classList.contains('hidden')) {
         details.classList.remove('hidden');
@@ -398,7 +679,4 @@ function toggleEvent(element) {
     }
 }
 </script>
-
-<!-- Alpine.js Collapse Plugin -->
-<script src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
 {% endblock %}

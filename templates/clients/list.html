@@ -1,154 +1,209 @@
 <!-- templates/clients/list.html -->
 {% extends 'base.html' %}
-
-{% block title %}Клиенты - CRM Аренда{% endblock %}
+{% block title %}Клиенты{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
-    
-    <!-- Header -->
+
+    <!-- Заголовок -->
     <div class="flex justify-between items-center">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-800">👥 Клиенты</h1>
-            <p class="text-gray-600">Список всех клиентов</p>
-        </div>
-        <a href="/admin/clients/client/add/" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold">
-            ➕ Добавить клиента
+        <h1 class="text-3xl font-bold text-gray-800">👥 Клиенты</h1>
+        <a href="/clients/create/" class="px-5 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-semibold">
+            + Новый клиент
         </a>
     </div>
-    
-    <!-- Search -->
-    <div class="bg-white rounded-lg shadow p-4">
-        <form method="get" class="flex gap-4">
-            <input 
-                type="text" 
-                name="q" 
-                value="{{ query }}" 
-                placeholder="🔍 Поиск по имени или телефону..."
-                class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
-                Найти
-            </button>
-            {% if query %}
-            <a href="/clients/" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">
-                Сбросить
+
+    <!-- Статистика -->
+    <div class="grid grid-cols-4 gap-4">
+        <a href="?" class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-500 hover:shadow-md transition">
+            <p class="text-sm text-gray-500">Всего клиентов</p>
+            <p class="text-2xl font-bold text-blue-600">{{ total_clients }}</p>
+        </a>
+        <a href="?filter=active" class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-500 hover:shadow-md transition">
+            <p class="text-sm text-gray-500">Активных</p>
+            <p class="text-2xl font-bold text-green-600">{{ active_count }}</p>
+        </a>
+        <a href="?filter=debt" class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-red-500 hover:shadow-md transition">
+            <p class="text-sm text-gray-500">С долгом</p>
+            <p class="text-2xl font-bold text-red-600">{{ debt_count }}</p>
+        </a>
+        <a href="?filter=credit" class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-purple-500 hover:shadow-md transition">
+            <p class="text-sm text-gray-500">С авансом</p>
+            <p class="text-2xl font-bold text-purple-600">{{ credit_count }}</p>
+        </a>
+    </div>
+
+    <!-- Фильтры -->
+    <form method="get" class="bg-white rounded-xl shadow-sm p-5 space-y-4">
+        <div class="flex items-center justify-between">
+            <h2 class="font-bold text-gray-700 flex items-center gap-2">
+                🔽 Фильтры
+                {% if filters_active %}
+                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-semibold">Активны</span>
+                {% endif %}
+            </h2>
+            {% if filters_active %}
+            <a href="?" class="text-sm text-red-500 hover:text-red-700 font-semibold">✕ Сбросить все</a>
+            {% endif %}
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+            <!-- Тип клиента -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Тип</label>
+                <select name="filter" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none">
+                    <option value="" {% if not current_filter %}selected{% endif %}>Все клиенты</option>
+                    <option value="active" {% if current_filter == 'active' %}selected{% endif %}>🟢 Активные заказы</option>
+                    <option value="debt" {% if current_filter == 'debt' %}selected{% endif %}>🔴 С долгом</option>
+                    <option value="credit" {% if current_filter == 'credit' %}selected{% endif %}>🟣 С авансом</option>
+                </select>
+            </div>
+
+            <!-- Дата регистрации -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Зарегистрирован</label>
+                <select name="date_range" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none">
+                    <option value="" {% if not current_date_range %}selected{% endif %}>За всё время</option>
+                    <option value="today" {% if current_date_range == 'today' %}selected{% endif %}>📅 Сегодня</option>
+                    <option value="week" {% if current_date_range == 'week' %}selected{% endif %}>📅 За неделю</option>
+                    <option value="month" {% if current_date_range == 'month' %}selected{% endif %}>📅 За месяц</option>
+                </select>
+            </div>
+
+            <!-- Долг от -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Долг от (сом)</label>
+                <input type="number" name="amount_min" value="{{ current_amount_min }}"
+                    placeholder="0"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"/>
+            </div>
+
+            <!-- Долг до -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Долг до (сом)</label>
+                <input type="number" name="amount_max" value="{{ current_amount_max }}"
+                    placeholder="9999999"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"/>
+            </div>
+        </div>
+
+        <!-- Сортировка и кнопка -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="md:col-span-2">
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Сортировка</label>
+                <select name="sort" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none">
+                    <option value="-created_at" {% if current_sort == '-created_at' %}selected{% endif %}>Сначала новые</option>
+                    <option value="created_at" {% if current_sort == 'created_at' %}selected{% endif %}>Сначала старые</option>
+                    <option value="name" {% if current_sort == 'name' %}selected{% endif %}>По имени (А-Я)</option>
+                </select>
+            </div>
+            <div class="md:col-span-2 flex items-end">
+                <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold text-sm">
+                    🔍 Применить фильтры
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Быстрые фильтры -->
+    <div class="flex gap-2 flex-wrap">
+        <span class="text-sm text-gray-500 font-semibold self-center">Быстрые:</span>
+        <a href="?filter=active" class="px-3 py-1 {% if current_filter == 'active' %}bg-green-600 text-white{% else %}bg-green-100 text-green-700 hover:bg-green-200{% endif %} rounded-full text-sm font-semibold transition">
+            🟢 Активные
+        </a>
+        <a href="?filter=debt" class="px-3 py-1 {% if current_filter == 'debt' %}bg-red-600 text-white{% else %}bg-red-100 text-red-700 hover:bg-red-200{% endif %} rounded-full text-sm font-semibold transition">
+            🔴 С долгом
+        </a>
+        <a href="?filter=credit" class="px-3 py-1 {% if current_filter == 'credit' %}bg-purple-600 text-white{% else %}bg-purple-100 text-purple-700 hover:bg-purple-200{% endif %} rounded-full text-sm font-semibold transition">
+            🟣 С авансом
+        </a>
+        <a href="?date_range=today" class="px-3 py-1 {% if current_date_range == 'today' %}bg-blue-600 text-white{% else %}bg-blue-100 text-blue-700 hover:bg-blue-200{% endif %} rounded-full text-sm font-semibold transition">
+            📅 Сегодня
+        </a>
+        <a href="?date_range=week" class="px-3 py-1 {% if current_date_range == 'week' %}bg-indigo-600 text-white{% else %}bg-indigo-100 text-indigo-700 hover:bg-indigo-200{% endif %} rounded-full text-sm font-semibold transition">
+            📅 За неделю
+        </a>
+        <a href="?" class="px-3 py-1 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-full text-sm font-semibold transition">
+            Все
+        </a>
+    </div>
+
+    <!-- Список клиентов -->
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="px-5 py-3 bg-gray-50 border-b">
+            <span class="font-semibold text-gray-700">
+                Найдено: <span class="text-blue-600">{{ clients|length }}</span> клиентов
+            </span>
+        </div>
+
+        {% if clients %}
+        <div class="divide-y">
+            {% for client in clients %}
+            <a href="/clients/{{ client.id }}/" class="flex items-center gap-4 px-5 py-4 hover:bg-blue-50 transition">
+                <!-- Аватар -->
+                <div class="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span class="text-xl font-bold text-blue-600">
+                        {{ client.first_name|first|upper }}{{ client.last_name|first|upper }}
+                    </span>
+                </div>
+
+                <!-- Инфо -->
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-gray-800">{{ client.get_full_name }}</span>
+                        {% if client.rental_orders.filter %}
+                            {% with open_count=client.rental_orders.count %}
+                            {% if open_count > 0 %}
+                            <span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                                🟢 {{ open_count }} заказ(а)
+                            </span>
+                            {% endif %}
+                            {% endwith %}
+                        {% endif %}
+                    </div>
+                    {% for phone in client.phones.all %}
+                    {% if phone.is_primary %}
+                    <p class="text-sm text-gray-500 mt-0.5">📞 {{ phone.phone_number }}</p>
+                    {% endif %}
+                    {% endfor %}
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        Зарегистрирован: {{ client.created_at|date:"d.m.Y" }}
+                    </p>
+                </div>
+
+                <!-- Баланс -->
+                <div class="text-right">
+                    {% with balance=client.get_wallet_balance %}
+                    <p class="font-bold text-lg {% if balance < 0 %}text-red-600{% elif balance > 0 %}text-green-600{% else %}text-gray-500{% endif %}">
+                        {% if balance > 0 %}+{% endif %}{{ balance|floatformat:0 }} сом
+                    </p>
+                    <p class="text-xs text-gray-400">
+                        {% if balance < 0 %}Долг{% elif balance > 0 %}Аванс{% else %}Баланс 0{% endif %}
+                    </p>
+                    {% endwith %}
+                </div>
+
+                <!-- Стрелка -->
+                <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="py-16 text-center">
+            <p class="text-5xl mb-4">👤</p>
+            <p class="text-gray-500 font-semibold">Клиентов не найдено</p>
+            <p class="text-gray-400 text-sm mt-1">Попробуйте изменить фильтры</p>
+            {% if filters_active %}
+            <a href="?" class="mt-4 inline-block px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-200 transition">
+                Сбросить фильтры
             </a>
             {% endif %}
-        </form>
-    </div>
-    
-    <!-- Clients List -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <table class="w-full">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Клиент</th>
-                    <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Телефон</th>
-                    <th class="px-6 py-3 text-center text-sm font-semibold text-gray-700">💰 Баланс</th>
-                    <th class="px-6 py-3 text-center text-sm font-semibold text-gray-700">Активных заказов</th>
-                    <th class="px-6 py-3 text-center text-sm font-semibold text-gray-700">Действия</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y">
-                {% for item in clients_data %}
-                <tr class="hover:bg-gray-50">
-                    <!-- Клиент -->
-                    <td class="px-6 py-4">
-                        <div>
-                            <p class="font-semibold text-gray-800">{{ item.client.get_full_name }}</p>
-                            <p class="text-sm text-gray-500">ID: {{ item.client.id }}</p>
-                        </div>
-                    </td>
-                    
-                    <!-- Телефон -->
-                    <td class="px-6 py-4">
-                        {% for phone in item.client.phones.all|slice:":1" %}
-                            <p class="text-gray-700">📞 {{ phone.phone_number }}</p>
-                        {% empty %}
-                            <p class="text-gray-400">-</p>
-                        {% endfor %}
-                    </td>
-                    
-                    <!-- Баланс -->
-                    <td class="px-6 py-4 text-center">
-                        {% if item.balance < 0 %}
-                            <span class="text-red-600 font-bold text-lg">-{{ item.debt|floatformat:0 }} сом</span>
-                            <p class="text-xs text-red-500">Долг</p>
-                        {% elif item.balance > 0 %}
-                            <span class="text-green-600 font-bold text-lg">+{{ item.balance|floatformat:0 }} сом</span>
-                            <p class="text-xs text-green-500">Переплата</p>
-                        {% else %}
-                            <span class="text-gray-600 font-bold">0 сом</span>
-                        {% endif %}
-                    </td>
-                    
-                    <!-- Активные заказы -->
-                    <td class="px-6 py-4 text-center">
-                        {% if item.active_orders > 0 %}
-                            <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full font-semibold">
-                                {{ item.active_orders }}
-                            </span>
-                        {% else %}
-                            <span class="text-gray-400">-</span>
-                        {% endif %}
-                    </td>
-                    
-                    <!-- Действия -->
-                    <td class="px-6 py-4 text-center">
-                        <div class="flex justify-center gap-2">
-                            <a href="/clients/{{ item.client.id }}/" class="bg-blue-100 text-blue-700 px-4 py-2 rounded hover:bg-blue-200 transition text-sm font-semibold">
-                                👁️ Просмотр
-                            </a>
-                            {% if item.debt > 0 %}
-                            <a href="/payment/?client={{ item.client.id }}" class="bg-yellow-100 text-yellow-700 px-4 py-2 rounded hover:bg-yellow-200 transition text-sm font-semibold">
-                                💰 Оплата
-                            </a>
-                            {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="5" class="px-6 py-12 text-center">
-                        <div class="text-gray-400">
-                            <p class="text-xl mb-2">👥 Клиентов не найдено</p>
-                            {% if query %}
-                                <p class="text-sm">Попробуйте изменить поисковый запрос</p>
-                            {% else %}
-                                <p class="text-sm">Добавьте первого клиента</p>
-                                <a href="/admin/clients/client/add/" class="text-blue-600 hover:underline inline-block mt-2">
-                                    Добавить клиента →
-                                </a>
-                            {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    
-    <!-- Stats -->
-    <div class="grid grid-cols-3 gap-4">
-        <div class="bg-white rounded-lg shadow p-4 text-center">
-            <p class="text-gray-600 text-sm">Всего клиентов</p>
-            <p class="text-2xl font-bold text-blue-600">{{ clients_data|length }}</p>
         </div>
-        <div class="bg-white rounded-lg shadow p-4 text-center">
-            <p class="text-gray-600 text-sm">С долгами</p>
-            <p class="text-2xl font-bold text-red-600">
-                {% widthratio clients_data|length 1 1 as total %}
-                {{ clients_data|length|add:"-"|add:total }}
-            </p>
-        </div>
-        <div class="bg-white rounded-lg shadow p-4 text-center">
-            <p class="text-gray-600 text-sm">С активными заказами</p>
-            <p class="text-2xl font-bold text-green-600">
-                {% for item in clients_data %}{% if item.active_orders > 0 %}1{% endif %}{% endfor %}
-            </p>
-        </div>
+        {% endif %}
     </div>
-    
+
 </div>
 {% endblock %}

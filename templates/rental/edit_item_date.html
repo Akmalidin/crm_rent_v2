@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Изменить дату возврата{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto mt-8">
+    <h1 class="text-2xl font-bold mb-6">📅 Изменить дату возврата</h1>
+    
+    <div class="bg-white rounded-xl shadow p-6 mb-6">
+        <p class="mb-2"><strong>Товар:</strong> {{ item.product.name }}</p>
+        <p class="mb-2"><strong>Количество:</strong> {{ item.quantity_remaining }} шт</p>
+        <p class="mb-4"><strong>Текущая дата возврата:</strong> {{ item.planned_return_date|date:"d.m.Y H:i" }}</p>
+        
+        <form method="POST" class="space-y-4">
+            {% csrf_token %}
+            
+            <div>
+                <label class="block font-semibold mb-2">Новая дата и время возврата</label>
+                <input 
+                    type="datetime-local" 
+                    name="planned_return_date" 
+                    value="{{ item.planned_return_date|date:'Y-m-d\TH:i' }}"
+                    required
+                    class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+            </div>
+            
+            <div class="flex gap-4">
+                <button type="submit" 
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">
+                    Сохранить
+                </button>
+                <a href="{% url 'main:client_detail' client.id %}" 
+                   class="px-6 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-semibold">
+                    Отмена
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

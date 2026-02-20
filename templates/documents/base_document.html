@@ -1,0 +1,211 @@
+<!-- templates/documents/base_document.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12pt;
+            color: #1a1a1a;
+            line-height: 1.5;
+        }
+        
+        /* Шапка документа */
+        .doc-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #1a56db;
+        }
+        
+        .company-name {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #1a56db;
+        }
+        
+        .doc-title {
+            font-size: 16pt;
+            font-weight: bold;
+            margin-top: 10px;
+            color: #1a1a1a;
+        }
+        
+        .doc-number {
+            font-size: 11pt;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        /* Блок с информацией */
+        .info-block {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #1a56db;
+            border-radius: 4px;
+        }
+        
+        .info-row {
+            display: flex;
+            margin: 5px 0;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            min-width: 180px;
+            color: #555;
+        }
+        
+        .info-value {
+            color: #1a1a1a;
+        }
+        
+        /* Таблица */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        th {
+            background: #1a56db;
+            color: white;
+            padding: 8px;
+            text-align: left;
+            font-size: 11pt;
+        }
+        
+        td {
+            padding: 7px 8px;
+            border-bottom: 1px solid #ddd;
+            font-size: 11pt;
+        }
+        
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        /* Итого */
+        .total-block {
+            margin-top: 15px;
+            padding: 12px;
+            background: #e8f0fe;
+            border-radius: 4px;
+            text-align: right;
+        }
+        
+        .total-label {
+            font-size: 12pt;
+            color: #555;
+        }
+        
+        .total-amount {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #1a56db;
+        }
+        
+        /* Подписи */
+        .signatures {
+            margin-top: 40px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .signature-block {
+            width: 45%;
+        }
+        
+        .signature-title {
+            font-weight: bold;
+            margin-bottom: 40px;
+        }
+        
+        .signature-line {
+            border-top: 1px solid #1a1a1a;
+            padding-top: 5px;
+            font-size: 10pt;
+            color: #666;
+        }
+        
+        /* Статус */
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 10pt;
+            font-weight: bold;
+        }
+        
+        .status-open {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-closed {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        
+        /* Примечания */
+        .notes {
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px dashed #ccc;
+            border-radius: 4px;
+        }
+        
+        .notes-title {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+        }
+        
+        /* Подвал */
+        .doc-footer {
+            margin-top: 30px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 9pt;
+            color: #888;
+        }
+        
+        /* Печать */
+        .no-print {
+            display: none;
+        }
+        
+        .highlight {
+            color: #1a56db;
+            font-weight: bold;
+        }
+        
+        .text-red {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        
+        .text-green {
+            color: #059669;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    {% block content %}{% endblock %}
+</body>
+</html>

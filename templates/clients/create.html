@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Новый клиент{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-3xl font-bold mb-6">➕ Новый клиент</h1>
+    
+    <form method="POST" class="bg-white rounded-xl shadow p-6 space-y-4">
+        {% csrf_token %}
+        
+        <div>
+            <label class="block font-semibold mb-2">Фамилия *</label>
+            <input type="text" name="last_name" required 
+                   class="w-full px-4 py-2 border rounded-lg">
+        </div>
+        
+        <div>
+            <label class="block font-semibold mb-2">Имя *</label>
+            <input type="text" name="first_name" required 
+                   class="w-full px-4 py-2 border rounded-lg">
+        </div>
+        
+        <div>
+            <label class="block font-semibold mb-2">Отчество</label>
+            <input type="text" name="middle_name" 
+                   class="w-full px-4 py-2 border rounded-lg">
+        </div>
+        
+        <div>
+            <label class="block font-semibold mb-2">Телефон *</label>
+            <input type="tel" name="phone" required 
+                   placeholder="+996 XXX XXX XXX"
+                   class="w-full px-4 py-2 border rounded-lg">
+        </div>
+        
+        <div class="flex gap-4">
+            <button type="submit" 
+                    class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">
+                Создать клиента
+            </button>
+            <a href="/clients/" 
+               class="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-semibold">
+                Отмена
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

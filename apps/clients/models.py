@@ -17,6 +17,7 @@ class Client(models.Model):
     middle_name = models.CharField('Отчество', max_length=100, blank=True)
     passport_front = models.ImageField('Паспорт (лицевая)', upload_to=passport_front_path)
     passport_back = models.ImageField('Паспорт (обратная)', upload_to=passport_back_path)
+    telegram_id = models.CharField(max_length=50, blank=True, null=True, verbose_name='Telegram ID')
     created_at = models.DateTimeField('Дата регистрации', auto_now_add=True)
     updated_at = models.DateTimeField('Дата обновления', auto_now=True)
     

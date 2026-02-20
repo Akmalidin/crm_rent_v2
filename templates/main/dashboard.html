@@ -1,140 +1,470 @@
-<!-- templates/main/dashboard.html -->
-{% extends 'base.html' %}
 
-{% block title %}Главная - CRM Аренда{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Главная панель{% endblock %}
+
+{% block extra_css %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+    --dark-bg: #0f172a;
+    --card-bg: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    --card-border: rgba(148, 163, 184, 0.1);
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --accent-blue: #3b82f6;
+    --accent-purple: #8b5cf6;
+    --accent-green: #10b981;
+    --accent-red: #ef4444;
+    --accent-orange: #f59e0b;
+}
+
+body {
+    background: var(--dark-bg);
+    font-family: 'Space Grotesk', sans-serif;
+    color: var(--text-primary);
+}
+
+.gradient-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.gradient-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.gradient-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(148, 163, 184, 0.3);
+}
+
+.gradient-card:hover::before {
+    opacity: 1;
+}
+
+.stat-value {
+    font-size: 48px;
+    font-weight: 700;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 8px;
+}
+
+.chart-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    padding: 28px;
+    height: 100%;
+}
+
+.chart-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: var(--text-primary);
+}
+
+.overdue-item {
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 3px solid var(--accent-red);
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    transition: all 0.2s ease;
+}
+
+.overdue-item:hover {
+    background: rgba(239, 68, 68, 0.15);
+    transform: translateX(4px);
+}
+
+.top-product {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.product-bar {
+    height: 8px;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.icon-wrapper {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    position: absolute;
+    top: 24px;
+    right: 24px;
+}
+
+.icon-blue {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.05));
+}
+
+.icon-purple {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.05));
+}
+
+.icon-green {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.05));
+}
+
+.icon-red {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.05));
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-in {
+    animation: fadeInUp 0.6s ease-out backwards;
+}
+
+.animate-in:nth-child(1) { animation-delay: 0.1s; }
+.animate-in:nth-child(2) { animation-delay: 0.2s; }
+.animate-in:nth-child(3) { animation-delay: 0.3s; }
+.animate-in:nth-child(4) { animation-delay: 0.4s; }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
     
-    <!-- Заголовок -->
-    <div>
-        <h1 class="text-3xl font-bold text-gray-800">Главная панель</h1>
-        <p class="text-gray-600 mt-1">Обзор системы аренды</p>
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-4xl font-bold mb-2" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                Главная панель
+            </h1>
+            <p class="text-gray-400">Обзор системы аренды • {{ now|date:"d.m.Y H:i" }}</p>
+        </div>
     </div>
-    
-    <!-- Статистика -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Клиенты -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-600 text-sm">Всего клиентов</p>
-                    <p class="text-3xl font-bold text-blue-600">{{ total_clients }}</p>
-                </div>
-                <div class="bg-blue-100 p-4 rounded-full">
-                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                    </svg>
-                </div>
-            </div>
-            <a href="{% url 'main:clients_list' %}" class="text-blue-600 text-sm mt-4 inline-block hover:underline">
-                Посмотреть всех →
-            </a>
-        </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         
-        <!-- Активные заказы -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-600 text-sm">Активных заказов</p>
-                    <p class="text-3xl font-bold text-green-600">{{ active_orders }}</p>
-                </div>
-                <div class="bg-green-100 p-4 rounded-full">
-                    <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                </div>
+        <!-- Всего клиентов -->
+        <div class="gradient-card animate-in">
+            <div class="icon-wrapper icon-blue">👥</div>
+            <div class="stat-value">{{ total_clients }}</div>
+            <div class="stat-label">Всего клиентов</div>
+            <div class="mt-4 text-sm text-gray-400">
+                <span class="text-green-400">↑ {{ new_clients_week }}</span> за неделю
             </div>
-            <a href="{% url 'main:orders_list' %}" class="text-green-600 text-sm mt-4 inline-block hover:underline">
-                Посмотреть все →
-            </a>
         </div>
-        
+
+        <!-- Активных заказов -->
+        <div class="gradient-card animate-in">
+            <div class="icon-wrapper icon-purple">📦</div>
+            <div class="stat-value">{{ active_orders }}</div>
+            <div class="stat-label">Активных заказов</div>
+            <div class="mt-4 text-sm text-gray-400">
+                <span class="text-blue-400">{{ total_orders }}</span> всего
+            </div>
+        </div>
+
         <!-- Общий долг -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-600 text-sm">Общий долг</p>
-                    <p class="text-3xl font-bold text-red-600">{{ total_debt }} ₽</p>
-                </div>
-                <div class="bg-red-100 p-4 rounded-full">
-                    <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </div>
+        <div class="gradient-card animate-in">
+            <div class="icon-wrapper icon-red">💰</div>
+            <div class="stat-value text-red-400">{{ total_debt|floatformat:0 }}</div>
+            <div class="stat-label">Общий долг (сом)</div>
+            <div class="mt-4 text-sm text-gray-400">
+                <span class="text-red-400">⚠️ {{ debtors_count }}</span> должников
             </div>
-            <a href="{% url 'main:accept_payment' %}" class="text-red-600 text-sm mt-4 inline-block hover:underline">
-                Принять оплату →
-            </a>
+        </div>
+
+        <!-- Доход за месяц -->
+        <div class="gradient-card animate-in">
+            <div class="icon-wrapper icon-green">📈</div>
+            <div class="stat-value text-green-400">{{ revenue_month|floatformat:0 }}</div>
+            <div class="stat-label">Доход за месяц (сом)</div>
+            <div class="mt-4 text-sm text-gray-400">
+                <span class="text-green-400">↑ {{ revenue_growth }}%</span> к прошлому месяцу
+            </div>
+        </div>
+
+    </div>
+
+<!-- Charts Row 1 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    
+    <!-- График доходов -->
+    <div class="chart-card">
+        <h3 class="chart-title">📈 Доходы за последние 7 дней</h3>
+        <div style="position: relative; height: 300px;">
+            <canvas id="revenueChart"></canvas>
         </div>
     </div>
+
+    <!-- Круговая диаграмма -->
+    <div class="chart-card">
+        <h3 class="chart-title">📊 Оплаты vs Долги</h3>
+        <div style="position: relative; height: 300px;">
+            <canvas id="paymentsChart"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<!-- Charts Row 2 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     
-    <!-- Топ должники -->
-    {% if top_debtors %}
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">⚠️ Топ должники</h2>
-        <div class="space-y-3">
-            {% for item in top_debtors %}
-            <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
-                <div>
-                    <a href="{% url 'main:client_detail' item.client.id %}" class="font-semibold text-gray-800 hover:text-blue-600">
-                        {{ item.client.get_full_name }}
-                    </a>
-                    <p class="text-sm text-gray-600">
-                        {% for phone in item.client.phones.all|slice:":1" %}
-                            {{ phone.phone_number }}
-                        {% endfor %}
-                    </p>
+    <!-- График заказов -->
+    <div class="chart-card">
+        <h3 class="chart-title">📦 Заказы (Открытые vs Закрытые)</h3>
+        <div style="position: relative; height: 300px;">
+            <canvas id="ordersChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Топ товаров -->
+    <div class="chart-card">
+        <h3 class="chart-title">🔥 Топ-5 популярных товаров</h3>
+        <div class="space-y-4 mt-4">
+            {% for product in top_products %}
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-medium">{{ product.name }}</span>
+                    <span class="text-sm text-gray-400">{{ product.rental_count }} аренд</span>
                 </div>
-                <span class="text-red-600 font-bold">-{{ item.debt|floatformat:0 }} сом</span>
+                <div class="product-bar" style="width: {{ product.percentage }}%;"></div>
             </div>
             {% endfor %}
         </div>
     </div>
-    {% endif %}
-    
-    <!-- Последние заказы -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">📋 Последние заказы</h2>
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">#</th>
-                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Клиент</th>
-                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Дата</th>
-                        <th class="px-4 py-2 text-center text-sm font-semibold text-gray-700">Статус</th>
-                        <th class="px-4 py-2 text-right text-sm font-semibold text-gray-700">Сумма</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y">
-                    {% for order in recent_orders %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 text-sm">#{{ order.id }}</td>
-                        <td class="px-4 py-3">
-                            <a href="{% url 'main:client_detail' order.client.id %}" class="text-blue-600 hover:underline">
-                                {{ order.client.get_full_name }}
-                            </a>
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-600">{{ order.created_at|date:"d.m.Y H:i" }}</td>
-                        <td class="px-4 py-3 text-center">
-                            {% if order.status == 'open' %}
-                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-semibold">Открыт</span>
-                            {% else %}
-                            <span class="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full font-semibold">Закрыт</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-3 text-right font-semibold">{{ order.get_current_total|floatformat:0 }} сом</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">Заказов пока нет</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+</div>
+
+    <!-- Просроченные заказы -->
+    <div class="chart-card">
+        <h3 class="chart-title">⚠️ Просроченные заказы ({{ overdue_orders|length }})</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            {% for order in overdue_orders %}
+            <a href="/clients/{{ order.client.id }}/" class="overdue-item">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="font-semibold text-white">Заказ #{{ order.id }}</div>
+                        <div class="text-sm text-gray-400 mt-1">{{ order.client.get_full_name }}</div>
+                        <div class="text-xs text-red-400 mt-2">
+                            Просрочено: {{ order.days_overdue }} дн. • {{ order.overdue_items }} товаров
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-lg font-bold text-red-400">{{ order.total|floatformat:0 }} ₽</div>
+                    </div>
+                </div>
+            </a>
+            {% empty %}
+            <div class="col-span-2 text-center py-8 text-gray-500">
+                ✅ Нет просроченных заказов
+            </div>
+            {% endfor %}
         </div>
     </div>
-    
+
 </div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Общая конфигурация для всех графиков
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.1)';
+Chart.defaults.font.family = "'Space Grotesk', sans-serif";
+
+// График доходов
+const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+new Chart(revenueCtx, {
+    type: 'line',
+    data: {
+        labels: {{ revenue_labels|safe }},
+        datasets: [{
+            label: 'Доход (сом)',
+            data: {{ revenue_data|safe }},
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#3b82f6',
+            pointBorderColor: '#1e293b',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#1e293b',
+                titleColor: '#f1f5f9',
+                bodyColor: '#94a3b8',
+                borderColor: 'rgba(148, 163, 184, 0.3)',
+                borderWidth: 1,
+                padding: 12,
+                displayColors: false,
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(148, 163, 184, 0.05)' },
+                ticks: { color: '#94a3b8' }
+            },
+            x: {
+                grid: { display: false },
+                ticks: { color: '#94a3b8' }
+            }
+        }
+    }
+});
+
+// Круговая диаграмма
+const paymentsCtx = document.getElementById('paymentsChart').getContext('2d');
+new Chart(paymentsCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Оплачено', 'Долги', 'Аванс'],
+        datasets: [{
+            data: [{{ total_paid }}, {{ total_debt }}, {{ total_credit }}],
+            backgroundColor: [
+                'rgba(16, 185, 129, 0.8)',
+                'rgba(239, 68, 68, 0.8)',
+                'rgba(139, 92, 246, 0.8)',
+            ],
+            borderColor: '#0f172a',
+            borderWidth: 3,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    color: '#94a3b8',
+                    padding: 20,
+                    font: { size: 13 }
+                }
+            },
+            tooltip: {
+                backgroundColor: '#1e293b',
+                titleColor: '#f1f5f9',
+                bodyColor: '#94a3b8',
+                borderColor: 'rgba(148, 163, 184, 0.3)',
+                borderWidth: 1,
+                padding: 12,
+                callbacks: {
+                    label: function(context) {
+                        return context.label + ': ' + context.parsed.toFixed(0) + ' сом';
+                    }
+                }
+            }
+        }
+    }
+});
+
+// График заказов
+const ordersCtx = document.getElementById('ordersChart').getContext('2d');
+new Chart(ordersCtx, {
+    type: 'bar',
+    data: {
+        labels: {{ orders_labels|safe }},
+        datasets: [
+            {
+                label: 'Открытые',
+                data: {{ orders_open_data|safe }},
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+            },
+            {
+                label: 'Закрытые',
+                data: {{ orders_closed_data|safe }},
+                backgroundColor: 'rgba(148, 163, 184, 0.5)',
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    color: '#94a3b8',
+                    padding: 20,
+                    font: { size: 13 }
+                }
+            },
+            tooltip: {
+                backgroundColor: '#1e293b',
+                titleColor: '#f1f5f9',
+                bodyColor: '#94a3b8',
+                borderColor: 'rgba(148, 163, 184, 0.3)',
+                borderWidth: 1,
+                padding: 12,
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(148, 163, 184, 0.05)' },
+                ticks: { color: '#94a3b8' }
+            },
+            x: {
+                grid: { display: false },
+                ticks: { color: '#94a3b8' }
+            }
+        }
+    }
+});
+</script>
 {% endblock %}

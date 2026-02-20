@@ -25,12 +25,15 @@ SECRET_KEY = 'django-insecure-c94unzxpo+#2z03q_43r0q_5013)xl9&4x0!y(d5sznd1ds#&t
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    "unfold",
+    "unfold.contrib.filters",
+    "unfold.contrib.forms",  
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -120,7 +123,8 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
-
+# STATIC_ROOT = BASE_DIR / 'staticfiles'
+# STATICFILES_DIRS = [BASE_DIR / 'static']  # если у тебя есть папка static в корне
 STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -128,3 +132,39 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Язык
 LANGUAGE_CODE = 'ru-ru'
 TIME_ZONE = 'Asia/Bishkek'
+
+TELEGRAM_BOT_TOKEN = '8276509481:AAGhKOhn45P8l5belorDsEqqetqGNgHoG3s'
+TELEGRAM_ADMIN_CHAT_ID = '1289894304'
+
+# ============================================
+# UNFOLD ADMIN НАСТРОЙКИ
+# ============================================
+
+from django.templatetags.static import static
+from django.urls import reverse_lazy
+from django.utils.translation import gettext_lazy as _
+
+UNFOLD = {
+    "SITE_TITLE": "CRM Аренда",
+    "SITE_HEADER": "Управление арендой",
+    "SITE_URL": "/",
+    
+    # Цвета
+    "COLORS": {
+        "primary": {
+            "50": "239 246 255",
+            "100": "219 234 254",
+            "200": "191 219 254",
+            "300": "147 197 253",
+            "400": "96 165 250",
+            "500": "59 130 246",   # Синий как у нас
+            "600": "37 99 235",
+            "700": "29 78 216",
+            "800": "30 64 175",
+            "900": "30 58 138",
+        },
+    },
+    
+    # Убираем кастомное меню - Unfold сам построит
+    "SHOW_SEARCH": True,
+}
