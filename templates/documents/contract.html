@@ -1,117 +1,204 @@
 <!-- templates/documents/contract.html -->
 {% extends 'documents/base_document.html' %}
 
+{% block title %}Договор аренды № {{ order.order_code|default:order.id }}{% endblock %}
+
+{% block header %}
+    <h1>ДОГОВОР АРЕНДЫ ИНСТРУМЕНТОВ</h1>
+    <p class="doc-number">№ {{ order.order_code|default:order.id }} от {{ order.created_at|date:"d.m.Y" }}</p>
+{% endblock %}
+
 {% block content %}
-<!-- Шапка -->
-<div class="doc-header">
-    <div class="company-name">🏢 CRM Аренда</div>
-    <div class="doc-title">ДОГОВОР АРЕНДЫ ИНСТРУМЕНТОВ</div>
-    <div class="doc-number">№ {{ order.id }} от {{ order.created_at|date:"d.m.Y" }}</div>
-</div>
-
-<!-- Стороны договора -->
-<div class="info-block">
-    <div class="info-row">
-        <span class="info-label">Арендодатель:</span>
-        <span class="info-value"><strong>ИП / ООО Аренда Иснтрумнтов №1</strong></span>
-    </div>
-    <div class="info-row">
-        <span class="info-label">Арендатор:</span>
-        <span class="info-value"><strong>{{ client.get_full_name }}</strong></span>
-    </div>
-    {% for phone in client.phones.all %}
-    <div class="info-row">
-        <span class="info-label">Телефон арендатора:</span>
-        <span class="info-value">{{ phone.phone_number }}</span>
-    </div>
-    {% endfor %}
-    <div class="info-row">
-        <span class="info-label">Дата выдачи:</span>
-        <span class="info-value">{{ order.created_at|date:"d.m.Y H:i" }}</span>
-    </div>
-    <div class="info-row">
-        <span class="info-label">Статус:</span>
-        <span class="info-value">
-            <span class="status-badge {% if order.status == 'open' %}status-open{% else %}status-closed{% endif %}">
-                {% if order.status == 'open' %}Активен{% else %}Закрыт{% endif %}
-            </span>
-        </span>
-    </div>
-</div>
-
-<!-- Список товаров -->
-<p><strong>ПЕРЕЧЕНЬ АРЕНДУЕМОГО ИНСТРУМЕНТА:</strong></p>
-
-<table>
-    <thead>
+    <!-- Информация о сторонах -->
+    <table class="info-table">
         <tr>
-            <th>#</th>
-            <th>Наименование</th>
-            <th>Кол-во</th>
-            <th>Срок аренды</th>
-            <th>Цена/день</th>
-            <th>Стоимость</th>
+            <td>Арендодатель:</td>
+            <td>{{ company.company_name }}{% if company.inn %}, ИНН {{ company.inn }}{% endif %}</td>
         </tr>
-    </thead>
-    <tbody>
-        {% for item in items %}
         <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>{{ item.product.name }}</td>
-            <td>{{ item.quantity_taken }} шт</td>
-            <td>
-                {{ item.rental_days }} дн
-                {% if item.rental_hours > 0 %} {{ item.rental_hours }} ч{% endif %}
-            </td>
-            <td>{{ item.price_per_day|floatformat:0 }} сом</td>
-            <td class="highlight">{{ item.current_total_cost|floatformat:0 }} сом</td>
+            <td>Адрес арендодателя:</td>
+            <td>{{ company.address|default:"—" }}</td>
         </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        <tr>
+            <td>Телефон арендодателя:</td>
+            <td>{{ company.phone|default:"—" }}</td>
+        </tr>
+        <tr>
+            <td>Арендатор:</td>
+            <td>{{ client.get_full_name }}</td>
+        </tr>
+        <tr>
+            <td>Телефон арендатора:</td>
+            <td>{{ client.phones.all|join:", " }}</td>
+        </tr>
+        <tr>
+            <td>Дата выдачи:</td>
+            <td>{{ order.created_at|date:"d.m.Y H:i" }}</td>
+        </tr>
+        <tr>
+            <td>Статус:</td>
+            <td>{% if order.status == 'open' %}Активен{% else %}Закрыт{% endif %}</td>
+        </tr>
+    </table>
 
-<!-- Итого -->
-<div class="total-block">
-    <div class="total-label">Общая стоимость аренды:</div>
-    <div class="total-amount">{{ order.get_current_total|floatformat:0 }} сом</div>
-</div>
+    <h3>ПЕРЕЧЕНЬ АРЕНДУЕМОГО ИНСТРУМЕНТА:</h3>
+    
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Наименование</th>
+                <th>Кол-во</th>
+                <th>Срок аренды</th>
+                <th>Цена/день</th>
+                <th>Стоимость</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order.items.all %}
+            <tr {% if item.is_overdue %}class="overdue-row"{% endif %}>
+                <td>{{ forloop.counter }}</td>
+                <td>
+                    {{ item.product.name }}
+                    {% if item.is_overdue %}
+                        <span class="overdue-badge">⚠️ ПРОСРОЧЕНО</span>
+                    {% endif %}
+                </td>
+                <td>{{ item.quantity_taken }} шт</td>
+                <td>
+                    {{ item.rental_days }} дн
+                    {% if item.rental_hours > 0 %}{{ item.rental_hours }} ч{% endif %}
+                </td>
+                <td>{{ item.price_per_day|floatformat:0 }} {{ company.currency }}</td>
+                <td class="amount">{{ item.current_total_cost|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            {% if item.is_overdue %}
+            <tr class="overdue-details">
+                <td colspan="6">
+                    <strong>Просрочка:</strong> 
+                    {{ item.overdue_days }} дн {{ item.overdue_hours }} ч 
+                    (плановый возврат: {{ item.planned_return_date|date:"d.m.Y H:i" }})
+                    <br>
+                    <strong>Доплата за просрочку:</strong> +{{ item.overdue_cost|floatformat:0 }} {{ company.currency }}
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
 
-<!-- Условия договора -->
-<div style="margin-top: 20px;">
-    <p><strong>УСЛОВИЯ ДОГОВОРА:</strong></p>
-    <ol style="margin-top: 10px; padding-left: 20px;">
-        <li style="margin: 5px 0;">Арендатор обязуется вернуть инструмент в указанный срок и в исправном состоянии.</li>
-        <li style="margin: 5px 0;">При повреждении или утере инструмента арендатор возмещает полную стоимость.</li>
-        <li style="margin: 5px 0;">Оплата производится наличными или переводом на момент возврата или до возврата.</li>
-        <li style="margin: 5px 0;">При досрочном возврате стоимость пересчитывается по фактическому времени использования.</li>
-        <li style="margin: 5px 0;">При просрочке начисляется дополнительная плата за каждый день просрочки.</li>
+    <!-- ФИНАНСОВАЯ СВОДКА -->
+    <div class="debt-summary">
+        <h3>ФИНАНСОВАЯ СВОДКА</h3>
+        
+        <table class="summary-table">
+            <tr>
+                <td>Оригинальная стоимость:</td>
+                <td class="amount">{{ order.get_original_total|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            <tr>
+                <td>Текущая стоимость:</td>
+                <td class="amount">{{ order.get_current_total|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            
+            {% if savings > 0 %}
+            <tr class="savings">
+                <td>Экономия (досрочный возврат):</td>
+                <td class="amount">-{{ savings|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            {% endif %}
+            
+            {% if total_overdue_cost > 0 %}
+            <tr class="overdue-header">
+                <td colspan="2"><strong>⚠️ ПРОСРОЧКА:</strong></td>
+            </tr>
+            {% for overdue in overdue_items %}
+            <tr class="overdue-item">
+                <td>• {{ overdue.product_name }} ({{ overdue.quantity }} шт)</td>
+                <td>{{ overdue.overdue_days }} дн {{ overdue.overdue_hours }} ч: +{{ overdue.overdue_cost|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="overdue-total">
+                <td>Итого за просрочку:</td>
+                <td class="amount">+{{ total_overdue_cost|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            {% endif %}
+            
+            <tr class="separator">
+                <td colspan="2"></td>
+            </tr>
+            
+            <tr>
+                <td>Оплачено:</td>
+                <td class="amount paid">{{ total_paid|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            
+            {% if debt > 0 %}
+            <tr class="debt-row">
+                <td><strong>ДОЛГ ПО ЗАКАЗУ:</strong></td>
+                <td class="amount debt">{{ debt|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            {% if client_credit > 0 %}
+            <tr>
+                <td>Покрыто авансом:</td>
+                <td class="amount">-{{ client_credit|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            <tr class="debt-row final">
+                <td><strong>ОСТАТОК К ОПЛАТЕ:</strong></td>
+                <td class="amount debt">{{ final_debt|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            {% endif %}
+            {% elif debt < 0 %}
+            <tr class="credit-row">
+                <td><strong>ПЕРЕПЛАТА:</strong></td>
+                <td class="amount credit">+{{ debt_positive|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            {% else %}
+            <tr class="paid-row">
+                <td colspan="2" class="center">✅ Полностью оплачен</td>
+            </tr>
+            {% endif %}
+        </table>
+        
+        {% if client_balance != 0 %}
+        <div class="client-balance">
+            <strong>Общий баланс клиента:</strong>
+            {% if client_balance > 0 %}
+                <span class="credit">+{{ client_balance|floatformat:0 }} {{ company.currency }} (аванс)</span>
+            {% else %}
+                <span class="debt">{{ client_balance|floatformat:0 }} {{ company.currency }} (долг)</span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <h3>УСЛОВИЯ ДОГОВОРА:</h3>
+    <ol class="conditions">
+        <li>Арендатор обязуется вернуть инструмент в указанный срок и в исправном состоянии.</li>
+        <li>При повреждении или утере инструмента арендатор возмещает полную стоимость.</li>
+        <li>Оплата производится наличными или переводом на момент возврата или до возврата.</li>
+        <li>При досрочном возврате стоимость пересчитывается по фактическому времени использования.</li>
+        <li>При просрочке начисляется дополнительная плата за каждый день просрочки.</li>
     </ol>
-</div>
 
-{% if order.notes %}
-<div class="notes">
-    <div class="notes-title">Примечания:</div>
-    <div>{{ order.notes }}</div>
-</div>
-{% endif %}
+    {% if order.notes %}
+    <p class="notes"><strong>Примечания:</strong> {{ order.notes }}</p>
+    {% endif %}
+{% endblock %}
 
-<!-- Подписи -->
-<div class="signatures">
-    <div class="signature-block">
-        <div class="signature-title">АРЕНДОДАТЕЛЬ:</div>
-        <div class="signature-line">Подпись: _______________________</div>
-        <div style="margin-top: 10px; font-size: 10pt; color: #666;">ФИО: ___________________________</div>
-        <div style="margin-top: 10px; font-size: 10pt; color: #666;">Дата: __________________________</div>
+{% block signatures %}
+    <div class="signatures signatures-flex">
+        <div class="signature-block">
+            <p><strong>АРЕНДОДАТЕЛЬ:</strong></p>
+            <p>{{ company.short_name|default:company.company_name }}</p>
+            <p>Подпись: ______________________</p>
+            <p>Дата: ________________________</p>
+        </div>
+        <div class="signature-block">
+            <p><strong>АРЕНДАТОР:</strong></p>
+            <p>{{ client.get_full_name }}</p>
+            <p>Подпись: ______________________</p>
+            <p>Дата: ________________________</p>
+        </div>
     </div>
-    <div class="signature-block">
-        <div class="signature-title">АРЕНДАТОР:</div>
-        <div class="signature-line">Подпись: _______________________</div>
-        <div style="margin-top: 10px; font-size: 10pt; color: #666;">ФИО: {{ client.get_full_name }}</div>
-        <div style="margin-top: 10px; font-size: 10pt; color: #666;">Дата: __________________________</div>
-    </div>
-</div>
-
-<div class="doc-footer">
-    Документ сформирован автоматически системой CRM Аренда • {{ order.created_at|date:"d.m.Y" }}
-</div>
 {% endblock %}

@@ -532,7 +532,7 @@ def notify_overdue(order):
 
 Пожалуйста, верните инструмент или свяжитесь с нами.
 
-💰 Текущая сумма: <b>{int(order.get_current_total()):,} сом</b>
+💰 Текущая сумма: <b>{int(client.get_wallet_balance()):,} сом</b>
 """.replace(',', ' ')
     
     return send_telegram_message(client.telegram_id, text)

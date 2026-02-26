@@ -137,12 +137,7 @@
         <span>✏️</span>
         <span>Редактировать</span>
     </a>
-    {% if user.is_staff %}
-        <a href="{% url 'main:edit_item_date' item_id=group.order.items.first.id %}" 
-        class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-semibold flex items-center gap-2">
-            📅 Изменить дату
-        </a>
-    {% endif %}
+
     
     <!-- 2. ДЕЙСТВИЯ (dropdown) -->
     <div style="position: relative; display: inline-block;">
@@ -193,6 +188,16 @@
             >
                 💳 Зачесть аванс ({{ client.get_credit|floatformat:0 }} сом)
             </a>
+            {% endif %}
+            {% if group.order.status == 'open' and user.is_staff %}
+                <a 
+                    href="{% url 'main:edit_order_dates' group.order.id %}"
+                    class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-semibold flex items-center gap-2"
+                    title="Изменить даты возврата"
+                >
+                    <span>📅</span>
+                    <span>Изменить даты</span>
+                </a>
             {% endif %}
             
             <!-- Уведомление (если просрочен) -->
@@ -257,6 +262,14 @@
                 onclick="event.stopPropagation()"
             >
                 📦 Накладная на возврат
+            </a>
+            <a href="{% url 'main:client_payments' client.id %}" 
+            class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 border-t-2 bg-green-50">
+                <span class="text-2xl">💰</span>
+                <div>
+                    <div class="font-semibold text-green-700">Все платежи клиента</div>
+                    <div class="text-xs text-gray-500">{{ client.payments.count }} квитанций</div>
+                </div>
             </a>
         </div>
     </div>
@@ -452,6 +465,7 @@ document.addEventListener('click', function(e) {
                         <div class="flex gap-4 p-4 bg-gray-50 rounded-lg border-l-4 
                             {% if event.type == 'order_created' %}border-blue-500
                             {% elif event.type == 'payment' %}border-green-500
+                            {% elif event.type == 'overdue_charge' %}border-red-500
                             {% else %}border-purple-500{% endif %}">
                             
                             <!-- Icon & Date -->
@@ -463,6 +477,10 @@ document.addEventListener('click', function(e) {
                                 {% elif event.type == 'payment' %}
                                     <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                                         <span class="text-xl">💰</span>
+                                    </div>
+                                {% elif event.type == 'overdue_charge' %}
+                                    <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                                        <span class="text-xl">⏰</span>
                                     </div>
                                 {% else %}
                                     <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
@@ -512,6 +530,21 @@ document.addEventListener('click', function(e) {
                                                     <span class="text-green-600">(полностью)</span>
                                                 {% endif %}
                                             </p>
+                                        
+                                        {% elif event.type == 'overdue_charge' %}
+                                            <!-- Overdue Charge Details -->
+                                            <div class="mt-2">
+                                                <p class="text-sm text-gray-600">
+                                                    • {{ event.product_name }} - {{ event.quantity }} шт
+                                                </p>
+                                                <p class="text-xs text-red-600">
+                                                    Просрочка: {{ event.overdue_days }} дн {{ event.overdue_hours }} ч
+                                                    (плановый возврат был: {{ event.planned_return_date|date:"d.m.Y H:i" }})
+                                                </p>
+                                                <p class="text-xs text-red-600 font-semibold">
+                                                    Начислено за просрочку: +{{ event.overdue_cost|floatformat:0 }} сом
+                                                </p>
+                                            </div>
                                         {% endif %}
                                     </div>
                                     
@@ -520,6 +553,8 @@ document.addEventListener('click', function(e) {
                                         <p class="text-xl font-bold text-red-600 ml-4">{{ event.total|floatformat:0 }} сом</p>
                                     {% elif event.type == 'payment' %}
                                         <p class="text-xl font-bold text-green-600 ml-4">+{{ event.amount|floatformat:0 }} сом</p>
+                                    {% elif event.type == 'overdue_charge' %}
+                                        <p class="text-xl font-bold text-red-600 ml-4">+{{ event.overdue_cost|floatformat:0 }} сом</p>
                                     {% endif %}
                                 </div>
                             </div>

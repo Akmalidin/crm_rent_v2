@@ -1,0 +1,169 @@
+<!-- templates/main/users_management.html -->
+{% extends 'base.html' %}
+{% block title %}Управление пользователями{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-8 px-4">
+    
+    <!-- Заголовок -->
+    <div class="mb-8 flex items-center justify-between">
+        <div>
+            <h1 class="text-4xl font-bold text-gray-900">👥 Управление пользователями</h1>
+            <p class="text-gray-600 mt-2">Роли и права доступа</p>
+        </div>
+        <a href="{% url 'main:permissions_matrix' %}" 
+           class="px-6 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700">
+            📊 Матрица прав
+        </a>
+    </div>
+
+    <!-- Статистика -->
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
+            <p class="text-sm opacity-90">Всего пользователей</p>
+            <p class="text-4xl font-bold mt-2">{{ stats.total_users }}</p>
+        </div>
+        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-6 text-white shadow-lg">
+            <p class="text-sm opacity-90">Активных</p>
+            <p class="text-4xl font-bold mt-2">{{ stats.active_users }}</p>
+        </div>
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+            <p class="text-sm opacity-90">Администраторов</p>
+            <p class="text-4xl font-bold mt-2">{{ stats.admins }}</p>
+        </div>
+        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg">
+            <p class="text-sm opacity-90">Менеджеров</p>
+            <p class="text-4xl font-bold mt-2">{{ stats.managers }}</p>
+        </div>
+        <div class="bg-gradient-to-br from-pink-500 to-pink-600 rounded-2xl p-6 text-white shadow-lg">
+            <p class="text-sm opacity-90">Кассиров</p>
+            <p class="text-4xl font-bold mt-2">{{ stats.cashiers }}</p>
+        </div>
+    </div>
+
+    <!-- Список пользователей -->
+    <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b">
+            <h2 class="text-xl font-bold text-gray-900">Список пользователей</h2>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Пользователь</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Роли</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Статус</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Действия</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for u in users %}
+                    <tr class="hover:bg-gray-50">
+                        <!-- Пользователь -->
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                                    {{ u.username|slice:":1"|upper }}
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-900">{{ u.username }}</p>
+                                    <p class="text-sm text-gray-500">{{ u.first_name }} {{ u.last_name }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        
+                        <!-- Email -->
+                        <td class="px-6 py-4 text-sm text-gray-700">
+                            {{ u.email|default:"—" }}
+                        </td>
+                        
+                        <!-- Роли -->
+                        <td class="px-6 py-4">
+                            <div class="flex flex-wrap gap-2">
+                                {% if u.is_superuser %}
+                                <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+                                    👑 Суперпользователь
+                                </span>
+                                {% endif %}
+                                
+                                {% for group in u.groups.all %}
+                                <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold flex items-center gap-1">
+                                    {{ group.name }}
+                                    <a href="{% url 'main:remove_user_group' u.id group.id %}" 
+                                       class="text-purple-900 hover:text-purple-700"
+                                       onclick="return confirm('Удалить роль?')">×</a>
+                                </span>
+                                {% empty %}
+                                <span class="text-gray-400 text-sm">Нет ролей</span>
+                                {% endfor %}
+                                
+                                <!-- Добавить роль -->
+                                <form method="POST" action="{% url 'main:assign_user_group' u.id %}" class="inline">
+                                    {% csrf_token %}
+                                    <select name="group_id" onchange="this.form.submit()" 
+                                            class="px-2 py-1 border border-gray-300 rounded text-xs">
+                                        <option value="">+ Добавить роль</option>
+                                        {% for group in groups %}
+                                        <option value="{{ group.id }}">{{ group.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </form>
+                            </div>
+                        </td>
+                        
+                        <!-- Статус -->
+                        <td class="px-6 py-4">
+                            {% if u.is_active %}
+                            <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                                ✓ Активен
+                            </span>
+                            {% else %}
+                            <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold">
+                                ⊘ Неактивен
+                            </span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Действия -->
+                        <td class="px-6 py-4">
+                            <a href="{% url 'main:toggle_user_active' u.id %}" 
+                               class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold"
+                               onclick="return confirm('{% if u.is_active %}Деактивировать{% else %}Активировать{% endif %} пользователя?')">
+                                {% if u.is_active %}🔒 Заблокировать{% else %}✓ Активировать{% endif %}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Доступные роли -->
+    <div class="mt-8 bg-white rounded-2xl shadow-xl p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">📋 Доступные роли</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {% for group in groups %}
+            <div class="border-2 border-gray-200 rounded-xl p-6 hover:border-purple-400 transition">
+                <h3 class="text-xl font-bold text-gray-900 mb-2">{{ group.name }}</h3>
+                <p class="text-sm text-gray-500 mb-4">{{ group.permissions.count }} разрешений</p>
+                <div class="flex flex-wrap gap-1">
+                    {% for perm in group.permissions.all|slice:":5" %}
+                    <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                        {{ perm.codename|slice:":20" }}
+                    </span>
+                    {% endfor %}
+                    {% if group.permissions.count > 5 %}
+                    <span class="text-gray-400 text-xs">+{{ group.permissions.count|add:"-5" }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

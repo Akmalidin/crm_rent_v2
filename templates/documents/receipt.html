@@ -1,32 +1,41 @@
 <!-- templates/documents/receipt.html -->
 {% extends 'documents/base_document.html' %}
 
+{% block title %}Квитанция № {{ payment.id }}{% endblock %}
+
 {% block content %}
 <!-- Шапка -->
-<div class="doc-header">
-    <div class="company-name">🏢 CRM Аренда</div>
-    <div class="doc-title">КВИТАНЦИЯ ОБ ОПЛАТЕ</div>
-    <div class="doc-number">№ {{ payment.id }} от {{ payment.payment_date|date:"d.m.Y" }}</div>
+<div class="doc-header" style="text-align: center; margin-bottom: 30px;">
+    {% if company.logo %}
+    <img src="{{ company.logo.url }}" alt="{{ company.company_name }}" style="max-width: 120px; margin-bottom: 10px;">
+    {% endif %}
+    <div class="company-name" style="font-size: 16pt; font-weight: bold; color: #1a56db;">{{ company.company_name }}</div>
+    <div style="font-size: 9pt; color: #6b7280;">
+        {% if company.address %}{{ company.address }}{% endif %}
+        {% if company.phone %}<br>Тел: {{ company.phone }}{% endif %}
+    </div>
+    <div class="doc-title" style="font-size: 18pt; font-weight: bold; margin: 20px 0 10px 0;">КВИТАНЦИЯ ОБ ОПЛАТЕ</div>
+    <div class="doc-number" style="font-size: 11pt; color: #6b7280;">№ {{ payment.id }} от {{ payment.payment_date|date:"d.m.Y" }}</div>
 </div>
 
 <!-- Информация об оплате -->
-<div class="info-block">
-    <div class="info-row">
-        <span class="info-label">Плательщик:</span>
-        <span class="info-value"><strong>{{ client.get_full_name }}</strong></span>
+<div class="info-block" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+    <div class="info-row" style="display: flex; justify-content: space-between; padding: 5px 0;">
+        <span class="info-label" style="font-weight: bold; color: #6b7280;">Плательщик:</span>
+        <span class="info-value" style="font-weight: bold;">{{ client.get_full_name }}</span>
     </div>
     {% for phone in client.phones.all %}
-    <div class="info-row">
-        <span class="info-label">Телефон:</span>
+    <div class="info-row" style="display: flex; justify-content: space-between; padding: 5px 0;">
+        <span class="info-label" style="font-weight: bold; color: #6b7280;">Телефон:</span>
         <span class="info-value">{{ phone.phone_number }}</span>
     </div>
     {% endfor %}
-    <div class="info-row">
-        <span class="info-label">Дата оплаты:</span>
+    <div class="info-row" style="display: flex; justify-content: space-between; padding: 5px 0;">
+        <span class="info-label" style="font-weight: bold; color: #6b7280;">Дата оплаты:</span>
         <span class="info-value">{{ payment.payment_date|date:"d.m.Y H:i" }}</span>
     </div>
-    <div class="info-row">
-        <span class="info-label">Способ оплаты:</span>
+    <div class="info-row" style="display: flex; justify-content: space-between; padding: 5px 0;">
+        <span class="info-label" style="font-weight: bold; color: #6b7280;">Способ оплаты:</span>
         <span class="info-value">{{ payment.get_payment_method_display }}</span>
     </div>
 </div>
@@ -35,7 +44,7 @@
 <div style="text-align: center; margin: 30px 0; padding: 20px; border: 2px solid #1a56db; border-radius: 8px;">
     <div style="font-size: 13pt; color: #555; margin-bottom: 10px;">Принято от клиента:</div>
     <div style="font-size: 28pt; font-weight: bold; color: #059669;">
-        {{ payment.amount|floatformat:0 }} сом
+        {{ payment.amount|floatformat:0 }} {{ company.currency }}
     </div>
     <div style="font-size: 12pt; color: #555; margin-top: 10px;">
         {{ payment.get_payment_method_display }}
@@ -44,48 +53,48 @@
 
 <!-- Примечания / Распределение по заказам -->
 {% if payment.notes %}
-<div class="notes">
-    <div class="notes-title">Назначение платежа:</div>
+<div class="notes" style="background: #f8f9fa; padding: 10px; border-left: 4px solid #1a56db; margin: 15px 0;">
+    <div class="notes-title" style="font-weight: bold; margin-bottom: 5px;">Назначение платежа:</div>
     <div style="white-space: pre-line;">{{ payment.notes }}</div>
 </div>
 {% endif %}
 
 <!-- Итого с балансом клиента -->
 <div style="margin-top: 20px;">
-    <table>
+    <table style="width: 100%; border-collapse: collapse;">
         <tr>
-            <td style="padding: 8px;"><strong>Всего оплачено клиентом:</strong></td>
-            <td style="padding: 8px; text-align: right; color: #059669; font-weight: bold;">
-                {{ client.get_total_paid|floatformat:0 }} сом
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><strong>Всего оплачено клиентом:</strong></td>
+            <td style="padding: 8px; text-align: right; color: #059669; font-weight: bold; border-bottom: 1px solid #e5e7eb;">
+                {{ client.get_total_paid|floatformat:0 }} {{ company.currency }}
             </td>
         </tr>
         <tr>
-            <td style="padding: 8px;"><strong>Общий долг клиента:</strong></td>
-            <td style="padding: 8px; text-align: right; color: #dc2626; font-weight: bold;">
-                {{ client.get_total_debt|floatformat:0 }} сом
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><strong>Общий долг клиента:</strong></td>
+            <td style="padding: 8px; text-align: right; color: #dc2626; font-weight: bold; border-bottom: 1px solid #e5e7eb;">
+                {{ client.get_total_debt|floatformat:0 }} {{ company.currency }}
             </td>
         </tr>
         <tr style="background: #e8f0fe;">
             <td style="padding: 8px;"><strong>Баланс кошелька:</strong></td>
             <td style="padding: 8px; text-align: right; font-weight: bold; font-size: 14pt;
                 {% if client.get_wallet_balance >= 0 %}color: #059669;{% else %}color: #dc2626;{% endif %}">
-                {{ client.get_wallet_balance|floatformat:0 }} сом
+                {{ client.get_wallet_balance|floatformat:0 }} {{ company.currency }}
             </td>
         </tr>
     </table>
 </div>
 
 <!-- Подписи -->
-<div class="signatures" style="margin-top: 40px;">
-    <div class="signature-block">
-        <div class="signature-title">ПРИНЯЛ (Кассир):</div>
-        <div class="signature-line">Подпись: _______________________</div>
-        <div style="margin-top: 10px; font-size: 10pt; color: #666;">ФИО: ___________________________</div>
+<div class="signatures" style="margin-top: 40px; display: flex; justify-content: space-between;">
+    <div class="signature-block" style="width: 45%;">
+        <div class="signature-title" style="font-weight: bold; margin-bottom: 10px;">ПРИНЯЛ (Кассир):</div>
+        <div class="signature-line" style="border-bottom: 1px solid #000; margin-bottom: 5px; padding-bottom: 2px;">Подпись: _______________________</div>
+        <div style="margin-top: 10px; font-size: 10pt; color: #666;">{{ company.short_name|default:company.company_name }}</div>
     </div>
-    <div class="signature-block">
-        <div class="signature-title">ОПЛАТИЛ:</div>
-        <div class="signature-line">Подпись: _______________________</div>
-        <div style="margin-top: 10px; font-size: 10pt; color: #666;">ФИО: {{ client.get_full_name }}</div>
+    <div class="signature-block" style="width: 45%;">
+        <div class="signature-title" style="font-weight: bold; margin-bottom: 10px;">ОПЛАТИЛ:</div>
+        <div class="signature-line" style="border-bottom: 1px solid #000; margin-bottom: 5px; padding-bottom: 2px;">Подпись: _______________________</div>
+        <div style="margin-top: 10px; font-size: 10pt; color: #666;">{{ client.get_full_name }}</div>
     </div>
 </div>
 
@@ -95,7 +104,10 @@
     <div style="font-size: 8pt; color: #1a56db;">ОПЛАЧЕНО</div>
 </div>
 
-<div class="doc-footer">
-    Квитанция сформирована автоматически системой CRM Аренда • {{ payment.payment_date|date:"d.m.Y" }}
+<div class="doc-footer" style="margin-top: 30px; text-align: center; font-size: 9pt; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 10px;">
+    {% if company.footer_text %}
+    {{ company.footer_text }}<br>
+    {% endif %}
+    Квитанция сформирована автоматически системой {{ company.short_name|default:company.company_name }} • {{ payment.payment_date|date:"d.m.Y" }}
 </div>
 {% endblock %}

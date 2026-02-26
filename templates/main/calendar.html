@@ -1,0 +1,621 @@
+<!-- templates/main/calendar.html -->
+{% extends 'base.html' %}
+{% block title %}Календарь заказов{% endblock %}
+
+{% block extra_head %}
+<!-- FullCalendar CSS -->
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
+<!-- Google Fonts - Inter -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Phosphor Icons -->
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+<style>
+    :root {
+        --primary: #4F46E5;
+        --primary-light: #6366F1;
+        --primary-dark: #4338CA;
+        --surface: #FFFFFF;
+        --background: #F3F4F6;
+        --text-primary: #1F2937;
+        --text-secondary: #9CA3AF;
+        --border: #E5E7EB;
+        --success: #10B981;
+        --warning: #F59E0B;
+        --danger: #EF4444;
+    }
+
+    * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .fc {
+        max-width: 100%;
+        margin: 0 auto;
+        --fc-border-color: var(--border);
+        --fc-button-bg-color: var(--primary);
+        --fc-button-border-color: var(--primary);
+        --fc-button-hover-bg-color: var(--primary-dark);
+        --fc-button-hover-border-color: var(--primary-dark);
+        --fc-button-active-bg-color: var(--primary-dark);
+        --fc-button-active-border-color: var(--primary-dark);
+        --fc-today-bg-color: #EEF2FF;
+        --fc-page-bg-color: transparent;
+        --fc-neutral-bg-color: transparent;
+    }
+
+    .fc .fc-toolbar-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .fc .fc-button {
+        border-radius: 8px;
+        font-weight: 500;
+        padding: 8px 16px;
+        transition: all 0.2s ease;
+    }
+
+    .fc .fc-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+    }
+
+    .fc .fc-button-primary:not(:disabled).fc-button-active,
+    .fc .fc-button-primary:not(:disabled):active {
+        background-color: var(--primary-dark);
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .fc .fc-col-header-cell-cushion {
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+        padding: 12px 0;
+    }
+
+    .fc .fc-daygrid-day-number {
+        font-weight: 500;
+        color: var(--text-primary);
+        padding: 8px;
+    }
+
+    .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+        background: var(--primary);
+        color: white;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 4px;
+    }
+
+    .fc .fc-daygrid-day.fc-day-other .fc-daygrid-day-number {
+        color: var(--text-secondary);
+        opacity: 0.6;
+    }
+
+    /* Event Styles */
+    .fc-event {
+        cursor: pointer;
+        border: none;
+        font-size: 0.75rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        padding: 4px 8px;
+        border-radius: 6px;
+        margin-bottom: 2px;
+    }
+
+    .fc-event:hover {
+        transform: scale(1.02);
+        z-index: 10;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Pickup event (start) - Blue */
+    .fc-event.event-pickup {
+        background: linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%);
+        border-left: 3px solid #1D4ED8;
+        color: white;
+    }
+
+    /* Return event (end) - Green */
+    .fc-event.event-return {
+        background: linear-gradient(135deg, #10B981 0%, #34D399 100%);
+        border-left: 3px solid #047857;
+        color: white;
+    }
+
+    /* Overdue return - Red */
+    .fc-event.event-return-overdue {
+        background: linear-gradient(135deg, #EF4444 0%, #F87171 100%);
+        border-left: 3px solid #B91C1C;
+        color: white;
+    }
+
+    .fc-event .fc-event-main {
+        padding: 2px 4px;
+    }
+
+    /* Modal Styles */
+    #eventModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0.9);
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        padding: 2rem;
+        border-radius: 1.5rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        max-width: 480px;
+        width: 90%;
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #eventModal.show {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    #modalOverlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(17, 24, 39, 0.6);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        z-index: 999;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    #modalOverlay.show {
+        opacity: 1;
+    }
+
+    /* Legend */
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(99, 102, 241, 0.05) 100%);
+        transition: all 0.2s ease;
+    }
+
+    .legend-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+    }
+
+    .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Stats Cards */
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        border: 1px solid var(--border);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .fc .fc-toolbar {
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .fc .fc-toolbar-title {
+            font-size: 1.25rem;
+        }
+
+        .calendar-container {
+            padding: 12px;
+        }
+    }
+
+    /* Client Select */
+    .client-select-wrapper {
+        position: relative;
+    }
+
+    .client-select {
+        appearance: none;
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 40px 10px 16px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        cursor: pointer;
+        min-width: 200px;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .client-select:hover {
+        border-color: var(--primary-light);
+    }
+
+    .client-select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+
+    .client-select-wrapper::after {
+        content: '';
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 0;
+        height: 0;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 5px solid var(--text-secondary);
+        pointer-events: none;
+    }
+
+    .clear-filter {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 16px;
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        text-decoration: none;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+
+    .clear-filter:hover {
+        border-color: var(--danger);
+        color: var(--danger);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+
+    <!-- Header Section -->
+    <div class="mb-8">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                    <span class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                        <i class="ph ph-calendar-check text-xl"></i>
+                    </span>
+                    Календарь заказов
+                </h1>
+                <p class="text-gray-500 mt-2 flex items-center gap-2">
+                    <i class="ph ph-info"></i>
+                    График аренды и возвратов оборудования
+                </p>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="flex gap-3">
+                <div class="stat-card flex items-center gap-3">
+                    <div class="stat-icon bg-blue-100 text-blue-600">
+                        <i class="ph ph-package"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Активных</p>
+                        <p class="text-xl font-bold text-gray-800">{{ active_count }}</p>
+                    </div>
+                </div>
+                <div class="stat-card flex items-center gap-3">
+                    <div class="stat-icon bg-red-100 text-red-600">
+                        <i class="ph ph-warning"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Просрочено</p>
+                        <p class="text-xl font-bold text-gray-800">{{ overdue_count }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Client Filter -->
+        <div class="mt-6 flex flex-wrap items-center gap-4">
+            <div class="flex items-center gap-3">
+                <i class="ph ph-funnel text-gray-500"></i>
+                <span class="text-sm font-medium text-gray-600">Фильтр:</span>
+            </div>
+
+            <form method="get" action="{% url 'main:calendar' %}" class="flex items-center gap-3" id="clientFilterForm">
+                <div class="client-select-wrapper">
+                    <select name="client_id" class="client-select" onchange="document.getElementById('clientFilterForm').submit()">
+                        <option value="">Все клиенты</option>
+                        {% for client in clients %}
+                        <option value="{{ client.id }}" {% if selected_client_id == client.id %}selected{% endif %}>
+                            {{ client.last_name }} {{ client.first_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {% if selected_client_id %}
+                <a href="{% url 'main:calendar' %}" class="clear-filter">
+                    <i class="ph ph-x"></i>
+                    Сбросить
+                </a>
+                {% endif %}
+            </form>
+
+            {% if selected_client_id %}
+            <div class="ml-auto flex items-center gap-2 px-4 py-2 bg-indigo-50 rounded-lg">
+                <i class="ph ph-user text-indigo-600"></i>
+                <span class="text-sm font-medium text-indigo-700">
+                    Фильтр: клиент выбран
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="bg-white rounded-2xl shadow-sm p-4 mb-6 flex flex-wrap items-center gap-4 border border-gray-100">
+        <span class="text-sm font-medium text-gray-500 mr-2">Легенда:</span>
+        <div class="legend-item">
+            <div class="legend-dot bg-gradient-to-r from-blue-500 to-blue-400"></div>
+            <span class="text-sm text-gray-700 font-medium">Выдача</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot bg-gradient-to-r from-green-500 to-green-400"></div>
+            <span class="text-sm text-gray-700 font-medium">Возврат</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot bg-gradient-to-r from-red-500 to-red-400"></div>
+            <span class="text-sm text-gray-700 font-medium">Просрочен возврат</span>
+        </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="bg-white rounded-2xl shadow-lg p-6 calendar-container border border-gray-100">
+        <div id="calendar"></div>
+    </div>
+
+</div>
+
+<!-- Modal Overlay -->
+<div id="modalOverlay" onclick="closeModal()"></div>
+
+<!-- Modal -->
+<div id="eventModal">
+    <button onclick="closeModal()"
+            class="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+        <i class="ph ph-x text-gray-600"></i>
+    </button>
+    <div id="modalContent"></div>
+</div>
+
+<!-- FullCalendar JS -->
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.10/locales/ru.global.min.js'></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('calendar');
+
+    // Events are already prepared in Python with pickup/return separation
+    var events = {{ events_json|safe }};
+
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'ru',
+        firstDay: 1,
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        buttonText: {
+            today: 'Сегодня',
+            month: 'Месяц',
+            week: 'Неделя',
+            day: 'День'
+        },
+        events: events,
+        eventClick: function(info) {
+            showEventDetails(info.event);
+        },
+        eventDidMount: function(info) {
+            // Add CSS class based on event type
+            var eventType = info.event.extendedProps.event_type;
+            if (eventType === 'pickup') {
+                info.el.classList.add('event-pickup');
+            } else if (eventType === 'return') {
+                var status = info.event.extendedProps.status;
+                if (status === 'overdue') {
+                    info.el.classList.add('event-return-overdue');
+                } else {
+                    info.el.classList.add('event-return');
+                }
+            }
+        },
+        eventContent: function(arg) {
+            var eventType = arg.event.extendedProps.event_type;
+            var icon = eventType === 'pickup' ? '📦' : '↩️';
+            return {
+                html: '<div class="p-1 flex items-center gap-1"><span>' + icon + '</span><span class="truncate">' + arg.event.title + '</span></div>'
+            };
+        },
+        height: 'auto',
+        eventDisplay: 'block',
+        displayEventTime: false,
+        dayMaxEvents: 3,
+        moreLinkClick: 'popover',
+        eventTimeFormat: {
+            hour: '2-digit',
+            minute: '2-digit',
+            meridiem: false
+        }
+    });
+
+    calendar.render();
+});
+
+function showEventDetails(event) {
+    const props = event.extendedProps;
+    const isOverdue = props.status === 'overdue';
+    const isPickup = props.event_type === 'pickup';
+
+    const html = `
+        <div class="pr-8">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-12 h-12 ${isOverdue ? 'bg-red-100' : 'bg-indigo-100'} rounded-xl flex items-center justify-center">
+                    <i class="ph ${isOverdue ? 'ph-warning text-red-600' : 'ph-package text-indigo-600'} text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800">${event.title}</h2>
+                    <span class="text-sm ${isOverdue ? 'text-red-500' : 'text-indigo-500'} font-medium">
+                        ${isOverdue ? 'Просрочен' : 'Активен'}
+                    </span>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                            <i class="ph ph-user text-gray-600 text-xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-xs text-gray-500 uppercase font-medium">Клиент</p>
+                            <p class="font-semibold text-gray-800">${props.client_name}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                            <i class="ph ph-phone text-gray-600 text-xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-xs text-gray-500 uppercase font-medium">Телефон</p>
+                            <p class="font-semibold text-gray-800">${props.phone || 'Не указан'}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                            <i class="ph ph-shopping-cart text-gray-600 text-xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-xs text-gray-500 uppercase font-medium">Товар</p>
+                            <p class="font-semibold text-gray-800">${props.product_name} × ${props.quantity} шт</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4">
+                        <p class="text-xs text-blue-500 uppercase font-medium mb-1">📦 Выдача</p>
+                        <p class="font-bold text-blue-700">${formatDate(props.issued_date)}</p>
+                    </div>
+                    <div class="bg-gradient-to-br ${isOverdue ? 'from-red-50 to-red-100' : 'from-green-50 to-green-100'} rounded-xl p-4">
+                        <p class="text-xs ${isOverdue ? 'text-red-500' : 'text-green-600'} uppercase font-medium mb-1">↩️ Возврат</p>
+                        <p class="font-bold ${isOverdue ? 'text-red-700' : 'text-green-700'}">${formatDate(props.planned_return_date)}</p>
+                    </div>
+                </div>
+            </div>
+
+            <a href="/clients/${props.client_id}/"
+               class="mt-6 block w-full py-3.5 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-xl hover:from-indigo-700 hover:to-indigo-600 font-semibold text-center transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                <i class="ph ph-arrow-right mr-2"></i>
+                Перейти к клиенту
+            </a>
+        </div>
+    `;
+
+    document.getElementById('modalContent').innerHTML = html;
+
+    // Show with animation
+    setTimeout(() => {
+        document.getElementById('modalOverlay').style.display = 'block';
+        document.getElementById('eventModal').style.display = 'block';
+
+        setTimeout(() => {
+            document.getElementById('modalOverlay').classList.add('show');
+            document.getElementById('eventModal').classList.add('show');
+        }, 10);
+    }, 10);
+}
+
+function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('show');
+    document.getElementById('eventModal').classList.remove('show');
+
+    setTimeout(() => {
+        document.getElementById('modalOverlay').style.display = 'none';
+        document.getElementById('eventModal').style.display = 'none';
+    }, 300);
+}
+
+function formatDate(dateStr) {
+    var date = new Date(dateStr);
+    return date.toLocaleString('ru-RU', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// Close on Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal();
+    }
+});
+</script>
+{% endblock %}

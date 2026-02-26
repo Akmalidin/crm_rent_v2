@@ -1,211 +1,426 @@
 <!-- templates/documents/base_document.html -->
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
     <meta charset="UTF-8">
+    <title>{% block title %}{% endblock %}</title>
     <style>
-        @page {
-            size: A4;
-            margin: 2cm;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        /* Базовые стили */
         body {
             font-family: Arial, sans-serif;
             font-size: 12pt;
-            color: #1a1a1a;
-            line-height: 1.5;
+            line-height: 1.4;
+            margin: 0;
+            padding: 20px;
         }
         
-        /* Шапка документа */
-        .doc-header {
+        /* Шапка компании */
+        .company-header {
             text-align: center;
-            margin-bottom: 20px;
             padding-bottom: 15px;
-            border-bottom: 2px solid #1a56db;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #1a56db;
+        }
+        
+        .company-logo {
+            max-width: 150px;
+            max-height: 80px;
+            margin-bottom: 10px;
         }
         
         .company-name {
-            font-size: 18pt;
-            font-weight: bold;
-            color: #1a56db;
-        }
-        
-        .doc-title {
             font-size: 16pt;
             font-weight: bold;
-            margin-top: 10px;
-            color: #1a1a1a;
-        }
-        
-        .doc-number {
-            font-size: 11pt;
-            color: #666;
-            margin-top: 5px;
-        }
-        
-        /* Блок с информацией */
-        .info-block {
-            margin: 15px 0;
-            padding: 10px;
-            background: #f8f9fa;
-            border-left: 4px solid #1a56db;
-            border-radius: 4px;
-        }
-        
-        .info-row {
-            display: flex;
+            color: #1a56db;
             margin: 5px 0;
         }
         
-        .info-label {
+        .company-details {
+            font-size: 9pt;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+        
+        .header {
+            text-align: center;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #1a56db;
+            font-size: 18pt;
+            margin: 10px 0 5px 0;
+        }
+        
+        .doc-number {
+            color: #6b7280;
+            font-size: 10pt;
+        }
+        
+        /* Таблица информации */
+        .info-table {
+            width: 100%;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+            border-collapse: collapse;
+        }
+        
+        .info-table td {
+            padding: 8px 12px;
+            border: none;
+        }
+        
+        .info-table td:first-child {
+            width: 30%;
             font-weight: bold;
-            min-width: 180px;
-            color: #555;
+            color: #6b7280;
+            background: #dbeafe;
         }
         
-        .info-value {
-            color: #1a1a1a;
-        }
-        
-        /* Таблица */
-        table {
+        /* Таблица товаров */
+        .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 15px 0;
+            margin-bottom: 20px;
         }
         
-        th {
+        .items-table th {
             background: #1a56db;
             color: white;
-            padding: 8px;
+            padding: 10px;
             text-align: left;
-            font-size: 11pt;
+            font-size: 10pt;
         }
         
-        td {
-            padding: 7px 8px;
-            border-bottom: 1px solid #ddd;
-            font-size: 11pt;
+        .items-table td {
+            padding: 8px 10px;
+            border: 1px solid #e5e7eb;
         }
         
-        tr:nth-child(even) {
+        .items-table tr:nth-child(even) {
             background: #f8f9fa;
         }
         
-        /* Итого */
-        .total-block {
-            margin-top: 15px;
-            padding: 12px;
-            background: #e8f0fe;
-            border-radius: 4px;
+        .amount {
             text-align: right;
-        }
-        
-        .total-label {
-            font-size: 12pt;
-            color: #555;
-        }
-        
-        .total-amount {
-            font-size: 16pt;
             font-weight: bold;
             color: #1a56db;
+        }
+        
+        /* Просрочка */
+        .overdue-row {
+            background: #fef2f2 !important;
+        }
+        
+        .overdue-row td {
+            color: #dc2626;
+        }
+        
+        .overdue-badge {
+            background: #dc2626;
+            color: white;
+            font-size: 8pt;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+        
+        .overdue-details {
+            background: #fef2f2;
+            font-size: 10pt;
+            color: #dc2626;
+        }
+        
+        .overdue-details td {
+            padding: 8px 10px 8px 30px;
+        }
+        
+        .overdue-date {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        
+        .overdue-status {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        
+        /* Финансовая сводка */
+        .debt-summary {
+            background: #f0f9ff;
+            border: 2px solid #1a56db;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .debt-summary h3 {
+            margin: 0 0 15px 0;
+            color: #1a56db;
+            font-size: 14pt;
+        }
+        
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .summary-table td {
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .summary-table td:first-child {
+            width: 60%;
+        }
+        
+        .summary-table .separator td {
+            border-bottom: 2px solid #1a56db;
+            padding: 5px 0;
+        }
+        
+        .summary-table .savings {
+            color: #059669;
+        }
+        
+        .summary-table .savings .amount {
+            color: #059669;
+        }
+        
+        .summary-table .overdue-header {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+        
+        .summary-table .overdue-item {
+            font-size: 10pt;
+            padding-left: 20px;
+        }
+        
+        .summary-table .overdue-total {
+            background: #fef2f2;
+            font-weight: bold;
+        }
+        
+        .summary-table .overdue-total .amount {
+            color: #dc2626;
+        }
+        
+        .summary-table .paid {
+            color: #059669;
+        }
+        
+        .summary-table .debt-row {
+            background: #fef2f2;
+            font-size: 12pt;
+        }
+        
+        .summary-table .debt-row .amount {
+            color: #dc2626;
+            font-size: 14pt;
+        }
+        
+        .summary-table .debt-row.final {
+            background: #fee2e2;
+            border: 2px solid #dc2626;
+        }
+        
+        .summary-table .credit-row {
+            background: #f0fdf4;
+        }
+        
+        .summary-table .credit-row .amount {
+            color: #059669;
+        }
+        
+        .summary-table .paid-row {
+            background: #f0fdf4;
+            text-align: center;
+            color: #059669;
+            font-weight: bold;
+            font-size: 12pt;
+        }
+        
+        .client-balance {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #1a56db;
+        }
+        
+        .client-balance .credit {
+            color: #059669;
+            font-weight: bold;
+        }
+        
+        .client-balance .debt {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        
+        /* Компактная сводка для акта */
+        .debt-summary.compact .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .debt-summary.compact .summary-grid > div {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .debt-summary.compact .overdue {
+            color: #dc2626;
+        }
+        
+        .debt-summary.compact .overdue .value {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        
+        .debt-summary.compact .debt {
+            background: #fef2f2;
+            padding: 8px !important;
+            border-radius: 4px;
+        }
+        
+        .debt-summary.compact .debt .value {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        
+        .debt-summary.compact .credit .value {
+            color: #059669;
+            font-weight: bold;
+        }
+        
+        /* Невозвращённые товары */
+        .unreturned-warning {
+            background: #fffbeb;
+            border: 2px solid #f59e0b;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 8px;
+        }
+        
+        .unreturned-warning h4 {
+            color: #f59e0b;
+            margin: 0 0 10px 0;
+        }
+        
+        .unreturned-warning ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .unreturned-warning li {
+            margin-bottom: 5px;
         }
         
         /* Подписи */
         .signatures {
             margin-top: 40px;
+        }
+        
+        .signatures-flex {
             display: flex;
             justify-content: space-between;
         }
-        
+
         .signature-block {
             width: 45%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
         
-        .signature-title {
-            font-weight: bold;
-            margin-bottom: 40px;
+        .signatures p {
+            margin: 5px 0;
+            font-size: 11pt;
         }
         
-        .signature-line {
-            border-top: 1px solid #1a1a1a;
-            padding-top: 5px;
-            font-size: 10pt;
-            color: #666;
+        /* Условия */
+        .conditions {
+            margin: 15px 0;
+            padding-left: 20px;
         }
         
-        /* Статус */
-        .status-badge {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 10pt;
-            font-weight: bold;
+        .conditions li {
+            margin-bottom: 8px;
         }
         
-        .status-open {
-            background: #d1fae5;
-            color: #065f46;
-        }
-        
-        .status-closed {
-            background: #e5e7eb;
-            color: #374151;
-        }
-        
-        /* Примечания */
         .notes {
-            margin-top: 15px;
+            background: #f8f9fa;
             padding: 10px;
-            border: 1px dashed #ccc;
-            border-radius: 4px;
-        }
-        
-        .notes-title {
-            font-weight: bold;
-            color: #555;
-            margin-bottom: 5px;
+            border-left: 4px solid #1a56db;
+            margin: 15px 0;
         }
         
         /* Подвал */
-        .doc-footer {
+        .footer {
             margin-top: 30px;
-            padding-top: 10px;
-            border-top: 1px solid #ddd;
             text-align: center;
             font-size: 9pt;
-            color: #888;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 10px;
         }
         
-        /* Печать */
-        .no-print {
-            display: none;
-        }
-        
-        .highlight {
-            color: #1a56db;
-            font-weight: bold;
-        }
-        
-        .text-red {
-            color: #dc2626;
-            font-weight: bold;
-        }
-        
-        .text-green {
-            color: #059669;
-            font-weight: bold;
+        /* Для печати */
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            .debt-summary {
+                page-break-inside: avoid;
+            }
+            
+            .signatures {
+                page-break-inside: avoid;
+            }
         }
     </style>
 </head>
 <body>
-    {% block content %}{% endblock %}
+    <!-- Шапка компании -->
+    <div class="company-header">
+        {% if company.logo %}
+        <img src="{{ company.logo.url }}" alt="{{ company.company_name }}" class="company-logo">
+        {% endif %}
+        
+        <div class="company-name">{{ company.company_name }}</div>
+        
+        <div class="company-details">
+            {% if company.address %}{{ company.address }}{% endif %}
+            {% if company.city %} • {{ company.city }}{% endif %}
+            <br>
+            {% if company.phone %}Тел: {{ company.phone }}{% endif %}
+            {% if company.email %} • Email: {{ company.email }}{% endif %}
+            {% if company.inn %}<br>ИНН: {{ company.inn }}{% endif %}
+        </div>
+    </div>
+
+    <div class="header">
+        {% block header %}{% endblock %}
+    </div>
+    
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+    
+    <div class="signatures w-100">
+        {% block signatures %}{% endblock %}
+    </div>
+    
+    <div class="footer">
+        {% if company.footer_text %}
+        {{ company.footer_text }}<br>
+        {% endif %}
+        Документ сформирован автоматически системой {{ company.short_name|default:company.company_name }} • {% now "d.m.Y" %}
+    </div>
 </body>
 </html>

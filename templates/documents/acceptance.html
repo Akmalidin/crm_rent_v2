@@ -1,100 +1,140 @@
 <!-- templates/documents/acceptance.html -->
 {% extends 'documents/base_document.html' %}
 
+{% block title %}Акт приёма-передачи № {{ order.order_code|default:order.id }}{% endblock %}
+<style>
+    @page {
+        size: A4;
+        margin: 2cm;
+        @frame content_frame {
+            left: 2cm;
+            top: 2cm;
+            width: 16cm;
+        }
+    }
+
+    body {
+        font-family: DejaVu Sans, Arial, Helvetica, sans-serif !important;
+    }
+</style>
+{% block header %}
+    <h1>АКТ ПРИЁМА-ПЕРЕДАЧИ</h1>
+    <p class="doc-number">к Договору аренды № {{ order.order_code|default:order.id }} от {{ order.created_at|date:"d.m.Y" }}</p>
+{% endblock %}
+
 {% block content %}
-<!-- Шапка -->
-<div class="doc-header">
-    <div class="company-name">🏢 CRM Аренда</div>
-    <div class="doc-title">АКТ ПРИЁМА-ПЕРЕДАЧИ</div>
-    <div class="doc-number">к Договору аренды № {{ order.id }} от {{ order.created_at|date:"d.m.Y" }}</div>
-</div>
-
-<!-- Стороны -->
-<div class="info-block">
-    <div class="info-row">
-        <span class="info-label">Арендодатель:</span>
-        <span class="info-value"><strong>ИП / ООО Аренда Иснтрумнтов №1</strong></span>
-    </div>
-    <div class="info-row">
-        <span class="info-label">Арендатор:</span>
-        <span class="info-value"><strong>{{ client.get_full_name }}</strong></span>
-    </div>
-    {% for phone in client.phones.all %}
-    <div class="info-row">
-        <span class="info-label">Телефон:</span>
-        <span class="info-value">{{ phone.phone_number }}</span>
-    </div>
-    {% endfor %}
-    <div class="info-row">
-        <span class="info-label">Дата выдачи:</span>
-        <span class="info-value"><strong>{{ order.created_at|date:"d.m.Y H:i" }}</strong></span>
-    </div>
-</div>
-
-<p style="margin: 15px 0;">Арендодатель передал, а Арендатор принял следующий инструмент в исправном состоянии:</p>
-
-<!-- Таблица товаров -->
-<table>
-    <thead>
+    <table class="info-table">
         <tr>
-            <th>#</th>
-            <th>Наименование</th>
-            <th>Кол-во</th>
-            <th>Срок аренды</th>
-            <th>Плановый возврат</th>
-            <th>Цена/день</th>
-            <th>Стоимость</th>
-            <th>Состояние</th>
+            <td>Арендодатель:</td>
+            <td>{{ company.company_name }}</td>
         </tr>
-    </thead>
-    <tbody>
-        {% for item in items %}
         <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>{{ item.product.name }}</td>
-            <td>{{ item.quantity_taken }} шт</td>
-            <td>
-                {{ item.rental_days }} дн
-                {% if item.rental_hours > 0 %}{{ item.rental_hours }} ч{% endif %}
-            </td>
-            <td>{{ item.planned_return_date|date:"d.m.Y" }}</td>
-            <td>{{ item.price_per_day|floatformat:0 }} сом</td>
-            <td class="highlight">{{ item.current_total_cost|floatformat:0 }} сом</td>
-            <td>Исправен</td>
+            <td>Адрес:</td>
+            <td>{{ company.address|default:"—" }}</td>
         </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        <tr>
+            <td>Арендатор:</td>
+            <td>{{ client.get_full_name }}</td>
+        </tr>
+        <tr>
+            <td>Телефон:</td>
+            <td>{{ client.phones.all|join:", " }}</td>
+        </tr>
+        <tr>
+            <td>Дата выдачи:</td>
+            <td>{{ order.created_at|date:"d.m.Y H:i" }}</td>
+        </tr>
+    </table>
 
-<!-- Итого -->
-<div class="total-block">
-    <div class="total-label">Итого стоимость аренды:</div>
-    <div class="total-amount">{{ order.get_current_total|floatformat:0 }} сом</div>
-</div>
+    <p>Арендодатель передал, а Арендатор принял следующий инструмент в исправном состоянии:</p>
 
-{% if order.notes %}
-<div class="notes">
-    <div class="notes-title">Примечания:</div>
-    <div>{{ order.notes }}</div>
-</div>
-{% endif %}
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Наименование</th>
+                <th>Кол-во</th>
+                <th>Срок</th>
+                <th>Возврат до</th>
+                <th>Цена/день</th>
+                <th>Стоимость</th>
+                <th>Состояние</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order.items.all %}
+            <tr {% if item.is_overdue %}class="overdue-row"{% endif %}>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ item.product.name }}</td>
+                <td>{{ item.quantity_taken }} шт</td>
+                <td>
+                    {{ item.rental_days }} дн
+                    {% if item.rental_hours > 0 %}{{ item.rental_hours }} ч{% endif %}
+                </td>
+                <td {% if item.is_overdue %}class="overdue-date"{% endif %}>
+                    {{ item.planned_return_date|date:"d.m.Y" }}
+                    {% if item.is_overdue %}{% endif %}
+                </td>
+                <td>{{ item.price_per_day|floatformat:0 }} {{ company.currency }}</td>
+                <td class="amount">{{ item.current_total_cost|floatformat:0 }} {{ company.currency }}</td>
+                <td {% if item.is_overdue %}class="overdue-status"{% endif %}>
+                    {% if item.is_overdue %}Просрочен{% else %}Исправен{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
-<!-- Подписи -->
-<div class="signatures">
-    <div class="signature-block">
-        <div class="signature-title">ПЕРЕДАЛ (Арендодатель):</div>
-        <div class="signature-line">Подпись: _______________________</div>
-        <div style="margin-top: 10px; font-size: 10pt; color: #666;">Дата: {{ order.created_at|date:"d.m.Y" }}</div>
+    <!-- ФИНАНСОВАЯ СВОДКА -->
+    <div class="debt-summary compact">
+        <h3>ФИНАНСОВАЯ СВОДКА</h3>
+        
+        <div class="summary-grid">
+            <div>
+                <span class="label">Оригинальная стоимость:</span>
+                <span class="value">{{ order.get_original_total|floatformat:0 }} {{ company.currency }}</span>
+            </div>
+            <div>
+                <span class="label">Текущая стоимость:</span>
+                <span class="value">{{ order.get_current_total|floatformat:0 }} {{ company.currency }}</span>
+            </div>
+            {% if total_overdue_cost > 0 %}
+            <div class="overdue">
+                <span class="label">⚠️ В т.ч. просрочка:</span>
+                <span class="value">+{{ total_overdue_cost|floatformat:0 }} {{ company.currency }}</span>
+            </div>
+            {% endif %}
+            <div>
+                <span class="label">Оплачено:</span>
+                <span class="value paid">{{ total_paid|floatformat:0 }} {{ company.currency }}</span>
+            </div>
+            <div class="{% if debt > 0 %}debt{% elif debt < 0 %}credit{% endif %}">
+                <span class="label">
+                    {% if debt > 0 %}ДОЛГ{% elif debt < 0 %}ПЕРЕПЛАТА{% else %}СТАТУС{% endif %}:
+                </span>
+                <span class="value">
+                    {% if debt > 0 %}{{ debt|floatformat:0 }} {{ company.currency }}
+                    {% elif debt < 0 %}+{{ debt|stringformat:"+d"|cut:"-" }} {{ company.currency }}
+                    {% else %}✅ Оплачен{% endif %}
+                </span>
+            </div>
+        </div>
     </div>
-    <div class="signature-block">
-        <div class="signature-title">ПРИНЯЛ (Арендатор):</div>
-        <div class="signature-line">Подпись: _______________________</div>
-        <div style="margin-top: 10px; font-size: 10pt; color: #666;">ФИО: {{ client.get_full_name }}</div>
-        <div style="margin-top: 10px; font-size: 10pt; color: #666;">Дата: __________________________</div>
-    </div>
-</div>
+{% endblock %}
 
-<div class="doc-footer">
-    Акт сформирован автоматически системой CRM Аренда • {{ order.created_at|date:"d.m.Y" }}
-</div>
+{% block signatures %}
+    <div class="signatures">
+        <div>
+            <p><strong>ПЕРЕДАЛ (Арендодатель):</strong></p>
+            <p>{{ company.short_name|default:company.company_name }}</p>
+            <p>Подпись: ______________________</p>
+            <p>Дата: ________________________</p>
+        </div>
+        <div>
+            <p><strong>ПРИНЯЛ (Арендатор):</strong></p>
+            <p>{{ client.get_full_name }}</p>
+            <p>Подпись: ______________________</p>
+            <p>Дата: ________________________</p>
+        </div>
+    </div>
 {% endblock %}

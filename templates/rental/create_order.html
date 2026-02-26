@@ -1,303 +1,608 @@
-<!-- templates/rental/create_order.html -->
 {% extends 'base.html' %}
+{% block title %}Создать заказ{% endblock %}
 
-{% block title %}Создать заказ - CRM Аренда{% endblock %}
+{% block extra_head %}
+    <!-- Select2 для поиска -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <style>
+        /* Select2 стили */
+        .select2-container--default .select2-selection--single {
+            height: 48px !important;
+            padding: 10px 12px !important;
+            border: 2px solid #e5e7eb !important;
+            border-radius: 12px !important;
+            font-size: 16px !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 28px !important;
+            padding-left: 0 !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 46px !important;
+        }
+
+        .select2-dropdown {
+            border: 2px solid #3b82f6 !important;
+            border-radius: 12px !important;
+        }
+
+        .select2-search--dropdown .select2-search__field {
+            border: 2px solid #e5e7eb !important;
+            border-radius: 8px !important;
+            padding: 8px !important;
+        }
+
+        .select2-results__option--highlighted {
+            background-color: #3b82f6 !important;
+        }
+
+        /* Итоговая стоимость */
+        #totalSummary {
+            position: sticky;
+            top: 120px;
+            z-index: 10;
+        }
+    </style>
+{% endblock %}
 
 {% block content %}
-<div class="space-y-6" x-data="orderForm()">
+<div class="max-w-7xl mx-auto py-8 px-4">
     
-    <!-- Header -->
-    <div>
-        <h1 class="text-3xl font-bold text-gray-800">➕ Создать заказ</h1>
-        <p class="text-gray-600">Оформление новой аренды</p>
+    <!-- Заголовок -->
+    <div class="mb-8">
+        <h1 class="text-4xl font-bold text-gray-900 flex items-center gap-4">
+            <span class="text-5xl">📦</span>
+            <span>Создать заказ</span>
+        </h1>
+        <p class="text-gray-600 mt-2 text-lg">Оформление новой аренды</p>
     </div>
-    
-    <!-- Form -->
-    <form method="post" class="space-y-6">
-        {% csrf_token %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        <!-- Клиент -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">1️⃣ Выберите клиента</h2>
+        <!-- Левая колонка: Форма -->
+        <div class="lg:col-span-2 space-y-8">
             
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">
-                        Клиент *
-                    </label>
-                    <select 
-                        name="client_id" 
-                        required 
-                        x-model="selectedClient"
-                        @change="updateClientInfo()"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            <form method="POST" action="{% url 'main:create_order' %}" id="orderForm">
+                {% csrf_token %}
+                
+                <!-- ШАГ 1: Клиент -->
+                <div class="bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl p-8 border-2 border-blue-200 shadow-lg mb-8">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold">1</div>
+                        <h2 class="text-2xl font-bold text-gray-900">Выберите клиента</h2>
+                    </div>
+                    
+                    <div>
+                        <label for="client" class="block text-sm font-bold text-gray-700 mb-2">
+                            Клиент <span class="text-red-500">*</span>
+                        </label>
+                        <select 
+                            name="client" 
+                            id="client" 
+                            required
+                            class="w-full"
+                            style="width: 100%;"
+                        >
+                            <option value="">🔍 Начните вводить имя или телефон...</option>
+                            {% for c in clients %}
+                            <option value="{{ c.id }}" 
+                                    data-balance="{{ c.get_wallet_balance }}"
+                                    data-phone="{% for phone in c.phones.all %}{{ phone.phone_number }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+                                {{ c.get_full_name }}
+                                {% for phone in c.phones.all %}
+                                    {% if phone.is_primary %}({{ phone.phone_number }}){% endif %}
+                                {% endfor %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        
+                        <!-- Информация о клиенте -->
+                        <div id="clientInfo" class="hidden mt-4"></div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <a href="/clients/create/" class="inline-flex items-center gap-2 text-blue-700 hover:text-blue-800 font-semibold">
+                            <span class="text-xl">➕</span>
+                            <span>Добавить нового клиента</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- ШАГ 2: Товары -->
+                <div class="bg-gradient-to-r from-purple-50 to-purple-100 rounded-2xl p-8 border-2 border-purple-200 shadow-lg">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold">2</div>
+                        <h2 class="text-2xl font-bold text-gray-900">Добавьте товары</h2>
+                    </div>
+                    
+                    <div id="items-container" class="space-y-4">
+                        <!-- Первый товар -->
+                        <div class="item-row bg-white rounded-xl p-6 border-2 border-purple-200 shadow" data-index="0">
+                            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                
+                                <!-- Товар -->
+                                <div class="md:col-span-5">
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                                        Товар <span class="text-red-500">*</span>
+                                    </label>
+                                    <select 
+                                        name="products[]" 
+                                        class="product-select w-full"
+                                        style="width: 100%;"
+                                        required
+                                        onchange="calculateTotal()"
+                                    >
+                                        <option value="">🔍 Поиск товара...</option>
+                                        {% for p in products %}
+                                        <option value="{{ p.id }}" 
+                                                data-price-day="{{ p.price_per_day }}"
+                                                data-price-hour="{{ p.price_per_hour }}"
+                                                data-available="{{ p.quantity_available }}">
+                                            {{ p.name }} ({{ p.quantity_available }} шт, {{ p.price_per_day }} сом/день)
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <!-- Количество -->
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">Кол-во</label>
+                                    <input 
+                                        type="number" 
+                                        name="quantities[]" 
+                                        value="1" 
+                                        min="1" 
+                                        required
+                                        onchange="calculateTotal()"
+                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                    />
+                                </div>
+                                
+                                <!-- Дней -->
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">Дней</label>
+                                    <input 
+                                        type="number" 
+                                        name="days[]" 
+                                        value="3" 
+                                        min="0" 
+                                        required
+                                        onchange="calculateTotal()"
+                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                    />
+                                </div>
+                                
+                                <!-- Часов -->
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">Часов</label>
+                                    <input 
+                                        type="number" 
+                                        name="hours[]" 
+                                        value="0" 
+                                        min="0" 
+                                        max="23"
+                                        onchange="calculateTotal()"
+                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                    />
+                                </div>
+                                
+                                <!-- Удалить -->
+                                <div class="md:col-span-1 flex items-end">
+                                    <button 
+                                        type="button" 
+                                        onclick="removeItem(this)" 
+                                        class="remove-btn hidden w-full px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 font-bold text-xl"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Стоимость этой позиции -->
+                            <div class="mt-4 p-4 bg-purple-50 rounded-lg">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-semibold text-gray-700">Стоимость позиции:</span>
+                                    <span class="item-cost text-xl font-bold text-purple-600">0 сом</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Кнопка добавить товар -->
+                    <button 
+                        type="button" 
+                        onclick="addItem()"
+                        class="mt-6 w-full py-4 border-3 border-dashed border-purple-400 rounded-xl text-purple-700 hover:bg-purple-50 font-bold text-lg transition"
                     >
-                        <option value="">Выберите клиента...</option>
-                        {% for client in clients %}
-                        <option value="{{ client.id }}">
-                            {{ client.get_full_name }}
-                        </option>
-                        {% endfor %}
-                    </select>
+                        ➕ Добавить ещё товар
+                    </button>
+                </div>
+
+                <!-- Кнопка отправки -->
+                <div class="mt-8 flex gap-4">
+                    <button 
+                        type="submit"
+                        class="flex-1 py-5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl font-bold text-xl shadow-2xl hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition"
+                    >
+                        ✅ Создать заказ
+                    </button>
+                    <a 
+                        href="/orders/"
+                        class="px-12 py-5 bg-gray-300 text-gray-800 rounded-2xl font-bold text-xl hover:bg-gray-400 transition"
+                    >
+                        Отмена
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Правая колонка: Итого -->
+        <div class="lg:col-span-1">
+            <div id="totalSummary" class="bg-white rounded-2xl shadow-2xl p-8 border-2 border-green-200">
+                <h3 class="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <span>💰</span>
+                    <span>Итого</span>
+                </h3>
+                
+                <!-- Список позиций -->
+                <div id="summaryItems" class="space-y-3 mb-6 max-h-96 overflow-y-auto">
+                    <p class="text-gray-400 text-center py-8">Добавьте товары</p>
                 </div>
                 
-                <div x-show="selectedClient" class="bg-blue-50 rounded-lg p-4">
-                    <p class="text-sm text-gray-600">Баланс клиента:</p>
-                    <p class="text-2xl font-bold" :class="clientBalance < 0 ? 'text-red-600' : 'text-green-600'">
-                        <span x-text="clientBalance < 0 ? '-' : '+'"></span>
-                        <span x-text="Math.abs(clientBalance).toFixed(0)"></span> сом
+                <!-- Разделитель -->
+                <div class="border-t-2 border-gray-200 my-6"></div>
+                
+                <!-- Общая стоимость -->
+                <div class="space-y-3">
+                    <div class="flex justify-between text-lg">
+                        <span class="font-semibold text-gray-700">Всего позиций:</span>
+                        <span id="totalItems" class="font-bold">0</span>
+                    </div>
+                    
+                    <div class="flex justify-between text-2xl">
+                        <span class="font-bold text-gray-900">Итого:</span>
+                        <span id="totalCost" class="font-bold text-green-600">0 сом</span>
+                    </div>
+                </div>
+                
+                <!-- Информация -->
+                <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                    <p class="text-sm text-blue-700">
+                        💡 Стоимость рассчитывается автоматически при выборе товаров
                     </p>
                 </div>
             </div>
         </div>
-        
-        <!-- Товары -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">2️⃣ Добавьте товары</h2>
-            
-            <!-- Добавление товара -->
-            <div class="grid grid-cols-5 gap-4 mb-4">
-                <div class="col-span-2">
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Товар</label>
+    </div>
+
+</div>
+
+<!-- jQuery + Select2 -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+function addItem() {
+    itemIndex++;
+    const container = document.getElementById('items-container');
+    const firstItem = container.querySelector('.item-row');
+    
+    // ============================================================
+    // ВАЖНО: Уничтожаем Select2 ПЕРЕД клонированием!
+    // ============================================================
+    
+    // Сохраняем оригинальный select
+    const originalSelect = firstItem.querySelector('.product-select');
+    
+    // Уничтожаем Select2 временно
+    $(originalSelect).select2('destroy');
+    
+    // Теперь клонируем чистый HTML
+    const newItem = firstItem.cloneNode(true);
+    
+    // Восстанавливаем Select2 на оригинале
+    $(originalSelect).select2({
+        placeholder: '🔍 Поиск товара...',
+        allowClear: true,
+        width: '100%'
+    });
+    
+    // ============================================================
+    // Очищаем клонированный элемент
+    // ============================================================
+    
+    newItem.setAttribute('data-index', itemIndex);
+    
+    // Очищаем значения
+    const newSelect = newItem.querySelector('.product-select');
+    newSelect.selectedIndex = 0;
+    newSelect.value = '';
+    
+    newItem.querySelectorAll('input[name="quantities[]"]').forEach(i => i.value = '1');
+    newItem.querySelectorAll('input[name="days[]"]').forEach(i => i.value = '3');
+    newItem.querySelectorAll('input[name="hours[]"]').forEach(i => i.value = '0');
+    newItem.querySelector('.item-cost').textContent = '0 сом';
+    
+    // Показываем кнопку удаления
+    newItem.querySelector('.remove-btn').classList.remove('hidden');
+    
+    // Добавляем в контейнер
+    container.appendChild(newItem);
+    
+    // ============================================================
+    // Инициализируем Select2 на новом элементе
+    // ============================================================
+    
+    $(newItem).find('.product-select').select2({
+        placeholder: '🔍 Поиск товара...',
+        allowClear: true,
+        width: '100%'
+    });
+    
+    updateRemoveButtons();
+    calculateTotal();
+}
+
+
+// ============================================================
+// АЛЬТЕРНАТИВНЫЙ СПОСОБ (создавать с нуля, не клонировать)
+// ============================================================
+
+function addItemAlternative() {
+    itemIndex++;
+    const container = document.getElementById('items-container');
+    
+    // Создаём HTML вручную (без клонирования)
+    const newItemHTML = `
+        <div class="item-row bg-white rounded-xl p-6 border-2 border-purple-200 shadow" data-index="${itemIndex}">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                
+                <!-- Товар -->
+                <div class="md:col-span-5">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        Товар <span class="text-red-500">*</span>
+                    </label>
                     <select 
-                        x-model="newItem.product_id"
-                        @change="selectProduct()"
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                        name="products[]" 
+                        class="product-select-${itemIndex}"
+                        required
+                        onchange="calculateTotal()"
                     >
-                        <option value="">Выберите товар...</option>
-                        {% for product in products %}
-                        <option 
-                            value="{{ product.id }}"
-                            data-name="{{ product.name }}"
-                            data-available="{{ product.quantity_available }}"
-                            data-price-day="{{ product.price_per_day }}"
-                            data-price-hour="{{ product.price_per_hour }}"
-                        >
-                            {{ product.name }} ({{ product.quantity_available }} шт)
+                        <option value="">🔍 Поиск товара...</option>
+                        {% for p in products %}
+                        <option value="{{ p.id }}" 
+                                data-price-day="{{ p.price_per_day }}"
+                                data-price-hour="{{ p.price_per_hour }}"
+                                data-available="{{ p.quantity_available }}">
+                            {{ p.name }} ({{ p.quantity_available }} шт, {{ p.price_per_day }} сом/день)
                         </option>
                         {% endfor %}
                     </select>
                 </div>
                 
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Количество</label>
-                    <input 
-                        type="number" 
-                        x-model="newItem.quantity"
-                        min="1"
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                        placeholder="1"
-                    />
+                <!-- Количество -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Кол-во</label>
+                    <input type="number" name="quantities[]" value="1" min="1" required
+                           onchange="calculateTotal()"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg" />
                 </div>
                 
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Дней</label>
-                    <input 
-                        type="number" 
-                        x-model="newItem.days"
-                        min="0"
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                        placeholder="3"
-                    />
+                <!-- Дней -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Дней</label>
+                    <input type="number" name="days[]" value="3" min="0" required
+                           onchange="calculateTotal()"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg" />
                 </div>
                 
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Часов</label>
-                    <input 
-                        type="number" 
-                        x-model="newItem.hours"
-                        min="0"
-                        max="23"
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                        placeholder="0"
-                    />
+                <!-- Часов -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Часов</label>
+                    <input type="number" name="hours[]" value="0" min="0" max="23"
+                           onchange="calculateTotal()"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg" />
+                </div>
+                
+                <!-- Удалить -->
+                <div class="md:col-span-1 flex items-end">
+                    <button type="button" onclick="removeItem(this)"
+                            class="remove-btn w-full px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 font-bold text-xl">
+                        ×
+                    </button>
                 </div>
             </div>
             
-            <button 
-                type="button"
-                @click="addItem()"
-                class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition font-semibold"
-            >
-                ➕ Добавить товар
-            </button>
-            
-            <!-- Список товаров -->
-            <div class="mt-6" x-show="items.length > 0">
-                <h3 class="font-bold text-gray-800 mb-3">Товары в заказе:</h3>
-                <div class="space-y-2">
-                    <template x-for="(item, index) in items" :key="index">
-                        <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                            <div class="flex-1">
-                                <p class="font-semibold" x-text="item.name"></p>
-                                <p class="text-sm text-gray-600">
-                                    <span x-text="item.quantity"></span> шт × 
-                                    <span x-text="item.days"></span> дн 
-                                    <span x-text="item.hours"></span> ч
-                                </p>
-                                <!-- Hidden inputs -->
-                                <input type="hidden" :name="'items['+index+'][product_id]'" :value="item.product_id" />
-                                <input type="hidden" :name="'items['+index+'][quantity]'" :value="item.quantity" />
-                                <input type="hidden" :name="'items['+index+'][days]'" :value="item.days" />
-                                <input type="hidden" :name="'items['+index+'][hours]'" :value="item.hours" />
-                            </div>
-                            <div class="text-right mr-4">
-                                <p class="font-bold text-lg" x-text="item.total.toFixed(0) + ' сом'"></p>
-                            </div>
-                            <button 
-                                type="button"
-                                @click="removeItem(index)"
-                                class="bg-red-100 text-red-600 px-3 py-2 rounded hover:bg-red-200 transition"
-                            >
-                                🗑️
-                            </button>
-                        </div>
-                    </template>
+            <!-- Стоимость позиции -->
+            <div class="mt-4 p-4 bg-purple-50 rounded-lg">
+                <div class="flex justify-between items-center">
+                    <span class="font-semibold text-gray-700">Стоимость позиции:</span>
+                    <span class="item-cost text-xl font-bold text-purple-600">0 сом</span>
                 </div>
             </div>
         </div>
-        
-        <!-- Итого -->
-        <div class="bg-white rounded-lg shadow p-6" x-show="items.length > 0">
-            <div class="flex justify-between items-center text-2xl font-bold">
-                <span>💰 ИТОГО:</span>
-                <span class="text-blue-600" x-text="getTotal().toFixed(0) + ' сом'"></span>
-            </div>
-            
-            <!-- Новый баланс -->
-            <div class="mt-4 p-4 rounded-lg" :class="getNewBalance() < 0 ? 'bg-red-50' : 'bg-green-50'">
-                <p class="text-sm text-gray-600">Баланс после создания заказа:</p>
-                <p class="text-xl font-bold" :class="getNewBalance() < 0 ? 'text-red-600' : 'text-green-600'">
-                    <span x-text="getNewBalance() < 0 ? '-' : '+'"></span>
-                    <span x-text="Math.abs(getNewBalance()).toFixed(0)"></span> сом
-                </p>
-            </div>
-        </div>
-        
-        <!-- Примечания -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">3️⃣ Дополнительно</h2>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">
-                Примечания
-            </label>
-            <textarea 
-                name="notes"
-                rows="3"
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="Дополнительная информация о заказе..."
-            ></textarea>
-        </div>
-        
-        <!-- Кнопки -->
-        <div class="flex gap-4">
-            <button 
-                type="submit"
-                :disabled="!selectedClient || items.length === 0"
-                class="flex-1 bg-green-600 text-white px-6 py-4 rounded-lg hover:bg-green-700 transition font-bold text-lg disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-                ✅ Создать заказ
-            </button>
-            <a 
-                href="/"
-                class="px-6 py-4 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition font-semibold text-gray-700"
-            >
-                Отмена
-            </a>
-        </div>
-    </form>
+    `;
     
-</div>
-
-<script>
-function orderForm() {
-    return {
-        selectedClient: '',
-        clientBalance: 0,
-        items: [],
-        newItem: {
-            product_id: '',
-            name: '',
-            quantity: 1,
-            days: 3,
-            hours: 0,
-            available: 0,
-            price_day: 0,
-            price_hour: 0
-        },
-        
-        updateClientInfo() {
-            // В реальности нужно получить баланс через AJAX
-            // Пока просто сбрасываем
-            this.clientBalance = 0;
-        },
-        
-        selectProduct() {
-            const select = event.target;
-            const option = select.options[select.selectedIndex];
-            
-            if (option.value) {
-                this.newItem.name = option.dataset.name;
-                this.newItem.available = parseInt(option.dataset.available);
-                this.newItem.price_day = parseFloat(option.dataset.priceDay);
-                this.newItem.price_hour = parseFloat(option.dataset.priceHour);
-            }
-        },
-        
-        addItem() {
-            if (!this.newItem.product_id) {
-                alert('Выберите товар');
-                return;
-            }
-            
-            if (this.newItem.quantity < 1) {
-                alert('Укажите количество');
-                return;
-            }
-            
-            if (this.newItem.quantity > this.newItem.available) {
-                alert(`Доступно только ${this.newItem.available} шт`);
-                return;
-            }
-            
-            const total = this.newItem.quantity * (
-                this.newItem.price_day * this.newItem.days +
-                this.newItem.price_hour * this.newItem.hours
-            );
-            
-            this.items.push({
-                product_id: this.newItem.product_id,
-                name: this.newItem.name,
-                quantity: this.newItem.quantity,
-                days: this.newItem.days,
-                hours: this.newItem.hours,
-                total: total
-            });
-            
-            // Сброс формы
-            this.newItem = {
-                product_id: '',
-                name: '',
-                quantity: 1,
-                days: 3,
-                hours: 0,
-                available: 0,
-                price_day: 0,
-                price_hour: 0
-            };
-        },
-        
-        removeItem(index) {
-            this.items.splice(index, 1);
-        },
-        
-        getTotal() {
-            return this.items.reduce((sum, item) => sum + item.total, 0);
-        },
-        
-        getNewBalance() {
-            return this.clientBalance - this.getTotal();
-        }
-    }
+    // Вставляем HTML
+    container.insertAdjacentHTML('beforeend', newItemHTML);
+    
+    // Инициализируем Select2 на новом элементе
+    $(`.product-select-${itemIndex}`).select2({
+        placeholder: '🔍 Поиск товара...',
+        allowClear: true,
+        width: '100%'
+    });
+    
+    updateRemoveButtons();
+    calculateTotal();
 }
+
+
+// ============================================================
+// ПОЛНОЕ ИСПРАВЛЕНИЕ (копируй весь блок скрипта)
+// ============================================================
+
+let itemIndex = 0;
+
+$(document).ready(function() {
+    // Инициализация Select2 для клиента
+    $('#client').select2({
+        placeholder: '🔍 Начните вводить имя или телефон...',
+        allowClear: true,
+        width: '100%'
+    });
+    
+    // Показ информации о клиенте
+    $('#client').on('select2:select', function(e) {
+        var $option = $(this).find('option:selected');
+        var balance = parseFloat($option.data('balance') || 0);
+        var phone = $option.data('phone') || '';
+        
+        var html = '';
+        if (balance < 0) {
+            html = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+                <p class="font-bold text-red-700">⚠️ Долг: ${Math.abs(Math.round(balance))} сом</p>
+                ${phone ? `<p class="text-sm text-red-600 mt-1">📞 ${phone}</p>` : ''}
+            </div>`;
+        } else if (balance > 0) {
+            html = `<div class="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                <p class="font-bold text-green-700">✅ Аванс: +${Math.round(balance)} сом</p>
+                ${phone ? `<p class="text-sm text-green-600 mt-1">📞 ${phone}</p>` : ''}
+            </div>`;
+        } else {
+            html = `<div class="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                <p class="font-bold text-blue-700">💰 Баланс: 0 сом</p>
+                ${phone ? `<p class="text-sm text-blue-600 mt-1">📞 ${phone}</p>` : ''}
+            </div>`;
+        }
+        
+        $('#clientInfo').html(html).removeClass('hidden');
+        
+        // Автопереход к товару
+        setTimeout(() => $('.product-select').first().select2('open'), 300);
+    });
+    
+    // Инициализация первого товара
+    $('.product-select').select2({
+        placeholder: '🔍 Поиск товара...',
+        allowClear: true,
+        width: '100%'
+    });
+    
+    calculateTotal();
+});
+
+function addItem() {
+    itemIndex++;
+    const container = document.getElementById('items-container');
+    const firstItem = container.querySelector('.item-row');
+    
+    // КРИТИЧНО: Уничтожаем Select2 перед клонированием
+    const originalSelect = firstItem.querySelector('.product-select');
+    $(originalSelect).select2('destroy');
+    
+    // Клонируем
+    const newItem = firstItem.cloneNode(true);
+    
+    // Восстанавливаем оригинал
+    $(originalSelect).select2({
+        placeholder: '🔍 Поиск товара...',
+        allowClear: true,
+        width: '100%'
+    });
+    
+    // Настраиваем клон
+    newItem.setAttribute('data-index', itemIndex);
+    newItem.querySelector('.product-select').selectedIndex = 0;
+    newItem.querySelectorAll('input[name="quantities[]"]').forEach(i => i.value = '1');
+    newItem.querySelectorAll('input[name="days[]"]').forEach(i => i.value = '3');
+    newItem.querySelectorAll('input[name="hours[]"]').forEach(i => i.value = '0');
+    newItem.querySelector('.item-cost').textContent = '0 сом';
+    newItem.querySelector('.remove-btn').classList.remove('hidden');
+    
+    container.appendChild(newItem);
+    
+    // Инициализируем Select2 на клоне
+    $(newItem).find('.product-select').select2({
+        placeholder: '🔍 Поиск товара...',
+        allowClear: true,
+        width: '100%'
+    });
+    
+    updateRemoveButtons();
+    calculateTotal();
+}
+
+function removeItem(btn) {
+    const row = btn.closest('.item-row');
+    
+    // Уничтожаем Select2 перед удалением
+    $(row).find('.product-select').select2('destroy');
+    
+    row.remove();
+    updateRemoveButtons();
+    calculateTotal();
+}
+
+function updateRemoveButtons() {
+    const items = document.querySelectorAll('.item-row');
+    items.forEach(item => {
+        const removeBtn = item.querySelector('.remove-btn');
+        if (items.length > 1) {
+            removeBtn.classList.remove('hidden');
+        } else {
+            removeBtn.classList.add('hidden');
+        }
+    });
+}
+
+function calculateTotal() {
+    let totalCost = 0;
+    let totalItems = 0;
+    let summaryHTML = '';
+    
+    document.querySelectorAll('.item-row').forEach((row, index) => {
+        const select = row.querySelector('select[name="products[]"]');
+        const quantity = parseInt(row.querySelector('input[name="quantities[]"]').value) || 0;
+        const days = parseInt(row.querySelector('input[name="days[]"]').value) || 0;
+        const hours = parseInt(row.querySelector('input[name="hours[]"]').value) || 0;
+        
+        if (select.value && quantity > 0) {
+            const option = select.options[select.selectedIndex];
+            const priceDay = parseFloat(option.dataset.priceDay) || 0;
+            const priceHour = parseFloat(option.dataset.priceHour) || (priceDay / 24);
+            
+            const cost = quantity * (priceDay * days + priceHour * hours);
+            
+            row.querySelector('.item-cost').textContent = `${Math.round(cost)} сом`;
+            
+            totalCost += cost;
+            totalItems++;
+            
+            summaryHTML += `
+                <div class="p-3 bg-gray-50 rounded-lg">
+                    <p class="font-semibold text-gray-800 text-sm">${option.text.split('(')[0].trim()}</p>
+                    <div class="flex justify-between mt-1">
+                        <span class="text-xs text-gray-500">${quantity} шт × ${days}д ${hours}ч</span>
+                        <span class="font-bold text-purple-600">${Math.round(cost)} сом</span>
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
+    if (summaryHTML) {
+        document.getElementById('summaryItems').innerHTML = summaryHTML;
+    } else {
+        document.getElementById('summaryItems').innerHTML = '<p class="text-gray-400 text-center py-8">Добавьте товары</p>';
+    }
+    
+    document.getElementById('totalItems').textContent = totalItems;
+    document.getElementById('totalCost').textContent = `${Math.round(totalCost)} сом`;
+}
+
+document.addEventListener('DOMContentLoaded', updateRemoveButtons);
 </script>
 {% endblock %}

@@ -1,0 +1,106 @@
+<!-- templates/main/setup_company.html -->
+{% extends 'base.html' %}
+{% block title %}Настройка компании{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8 px-4">
+    
+    <!-- Заголовок -->
+    <div class="mb-8 text-center">
+        <h1 class="text-4xl font-bold text-gray-900 mb-2">🏢 Настройка профиля компании</h1>
+        <p class="text-gray-600">Укажите информацию о вашей компании для печати документов</p>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" class="space-y-8">
+        {% csrf_token %}
+        
+        <!-- Основная информация -->
+        <div class="bg-white rounded-2xl shadow-lg p-8 border-2 border-blue-100">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">📋 Основная информация</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Название компании <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="company_name" required
+                           value="{{ company.company_name }}"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-blue-500"
+                           placeholder="ООО 'Моя компания'">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Короткое название</label>
+                    <input type="text" name="short_name"
+                           value="{{ company.short_name }}"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-blue-500"
+                           placeholder="МояКомпания">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Валюта</label>
+                    <input type="text" name="currency"
+                           value="{{ company.currency }}"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-blue-500"
+                           placeholder="сом">
+                </div>
+            </div>
+        </div>
+
+        <!-- Контакты -->
+        <div class="bg-white rounded-2xl shadow-lg p-8 border-2 border-purple-100">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">📞 Контактная информация</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Телефон</label>
+                    <input type="text" name="phone"
+                           value="{{ company.phone }}"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-purple-500"
+                           placeholder="+996 XXX XXX XXX">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                    <input type="email" name="email"
+                           value="{{ company.email }}"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-purple-500"
+                           placeholder="info@example.com">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Город</label>
+                    <input type="text" name="city"
+                           value="{{ company.city }}"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-purple-500"
+                           placeholder="Бишкек">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">ИНН</label>
+                    <input type="text" name="inn"
+                           value="{{ company.inn }}"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-purple-500"
+                           placeholder="123456789012">
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Адрес</label>
+                    <textarea name="address" rows="2"
+                              class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-purple-500"
+                              placeholder="ул. Примерная, д. 1">{{ company.address }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Кнопки -->
+        <div class="flex gap-4">
+            <button type="submit"
+                    class="flex-1 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 shadow-lg">
+                ✅ Сохранить и продолжить
+            </button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}

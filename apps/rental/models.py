@@ -19,13 +19,67 @@ class RentalOrder(models.Model):
     status = models.CharField('Статус', max_length=20, choices=STATUS_CHOICES, default='open')
     notes = models.TextField('Примечания', blank=True)
     
+    order_number = models.PositiveIntegerField(
+        verbose_name='Номер заказа клиента',
+        help_text='Порядковый номер заказа для этого клиента (#1, #2, #3...)',
+        null=True,
+        blank=True
+    )
+    
+    order_code = models.CharField(
+        max_length=50,
+        verbose_name='Код заказа',
+        help_text='Уникальный код заказа (ФИО-1, ФИО-2...)',
+        blank=True,
+        db_index=True
+    )
+
+
     class Meta:
         verbose_name = 'Заказ аренды'
         verbose_name_plural = 'Заказы аренды'
         ordering = ['-created_at']
     
     def __str__(self):
+        if self.order_code:
+            return f"Заказ {self.order_code} - {self.client.get_full_name()}"
         return f"Заказ #{self.id} - {self.client.get_full_name()}"
+    
+    def save(self, *args, **kwargs):
+        # Автоматическая генерация номера и кода при создании
+        if not self.pk:  # Только для новых заказов
+            self.generate_order_number_and_code()
+        super().save(*args, **kwargs)
+    
+    def generate_order_number_and_code(self):
+        """С проверкой на уникальность"""
+        
+        # Получаем количество с блокировкой
+        from django.db import transaction
+        
+        with transaction.atomic():
+            client_orders = RentalOrder.objects.filter(
+                client=self.client
+            ).select_for_update()
+            
+            client_orders_count = client_orders.count()
+            self.order_number = client_orders_count + 1
+            
+            # Генерируем код
+            last_name = self.client.last_name.upper()[:3]
+            self.order_code = f"{last_name}-{self.order_number}"
+            
+            # Проверяем уникальность кода (на всякий случай)
+            while RentalOrder.objects.filter(order_code=self.order_code).exists():
+                self.order_number += 1
+                self.order_code = f"{last_name}-{self.order_number}"
+            
+
+    def get_display_name(self):
+        """Красивое отображение заказа"""
+        if self.order_code:
+            return f"#{self.order_number} ({self.order_code})"
+        return f"#{self.id}"
     
     def get_original_total(self):
         """Изначальная сумма"""
@@ -107,26 +161,25 @@ class OrderItem(models.Model):
         '''Фактическая стоимость с учётом возвратов и просрочки'''
         from decimal import Decimal
         
-        # Если всё возвращено и есть actual_cost - используем его
-        if self.quantity_remaining == 0 and self.actual_cost:
-            return Decimal(str(self.actual_cost))
+        # Если всё возвращено - используем сохранённую фактическую стоимость
+        if self.quantity_remaining == 0:
+            if self.actual_cost is not None:
+                return Decimal(str(self.actual_cost))
+            # Fallback если actual_cost не сохранён
+            return Decimal(str(self.current_total_cost))
         
         # Если есть невозвращённые товары
         if self.quantity_remaining > 0:
             now = timezone.now()
             
-            # Стоимость возвращённых товаров
+            # Стоимость возвращённых товаров (если есть)
             returned_qty = self.quantity_taken - self.quantity_remaining
             returned_cost = Decimal('0')
             
-            if returned_qty > 0:
-                # Для возвращённых берём текущую стоимость
-                if self.actual_cost:
-                    returned_cost = Decimal(str(self.actual_cost))
-                else:
-                    # Пропорционально от текущей стоимости
-                    cost_per_item = Decimal(str(self.current_total_cost)) / self.quantity_taken
-                    returned_cost = cost_per_item * returned_qty
+            if returned_qty > 0 and self.actual_cost is not None:
+                # Пропорционально от фактической стоимости возвращённых
+                cost_per_item = Decimal(str(self.actual_cost)) / self.quantity_taken
+                returned_cost = cost_per_item * returned_qty
             
             # Стоимость невозвращённых товаров
             unreturned_cost = Decimal('0')
@@ -142,11 +195,11 @@ class OrderItem(models.Model):
                 # Стоимость просрочки
                 if overdue_time.total_seconds() < 86400:  # Меньше суток
                     overdue_hours = overdue_time.total_seconds() / 3600
-                    hourly_rate = self.price_per_day / 24
+                    hourly_rate = Decimal(str(self.price_per_day)) / 24
                     overdue_cost = Decimal(str(overdue_hours)) * hourly_rate * self.quantity_remaining
                 else:
                     overdue_days = overdue_time.days
-                    overdue_cost = Decimal(str(overdue_days)) * self.price_per_day * self.quantity_remaining
+                    overdue_cost = Decimal(str(overdue_days)) * Decimal(str(self.price_per_day)) * self.quantity_remaining
                 
                 unreturned_cost = planned_cost + overdue_cost
             else:
@@ -156,7 +209,6 @@ class OrderItem(models.Model):
             
             return returned_cost + unreturned_cost
         
-        # Всё возвращено - используем текущую стоимость
         return Decimal(str(self.current_total_cost))
 
 

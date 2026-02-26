@@ -1,0 +1,89 @@
+<!-- templates/main/permissions_matrix.html -->
+{% extends 'base.html' %}
+{% block title %}Матрица прав доступа{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-8 px-4">
+    
+    <!-- Заголовок -->
+    <div class="mb-8 flex items-center justify-between">
+        <div>
+            <h1 class="text-4xl font-bold text-gray-900">📊 Матрица прав доступа</h1>
+            <p class="text-gray-600 mt-2">Кто что может делать</p>
+        </div>
+        <a href="{% url 'main:users_management' %}" 
+           class="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700">
+            👥 Пользователи
+        </a>
+    </div>
+
+    <!-- Матрица -->
+    <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+        {% for category_name, permissions in permission_categories.items %}
+        <div class="border-b last:border-b-0">
+            <!-- Заголовок категории -->
+            <div class="px-6 py-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b">
+                <h2 class="text-xl font-bold text-gray-900">{{ category_name }}</h2>
+            </div>
+            
+            <!-- Таблица разрешений -->
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase w-1/3">
+                                Действие
+                            </th>
+                            {% for group in groups %}
+                            <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">
+                                {{ group.name }}
+                            </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for perm in permissions %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4">
+                                <div class="text-sm font-semibold text-gray-900">
+                                    {{ perm.name }}
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    {{ perm.codename }}
+                                </div>
+                            </td>
+                            {% for group in groups %}
+                            <td class="px-6 py-4 text-center">
+                                {% if perm in group.permissions.all %}
+                                <span class="inline-flex items-center justify-center w-8 h-8 bg-green-100 text-green-700 rounded-full font-bold">
+                                    ✓
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center justify-center w-8 h-8 bg-gray-100 text-gray-400 rounded-full">
+                                    —
+                                </span>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Легенда -->
+    <div class="mt-6 p-6 bg-blue-50 rounded-xl">
+        <h3 class="font-bold text-gray-900 mb-3">💡 Как пользоваться:</h3>
+        <ul class="space-y-2 text-sm text-gray-700">
+            <li>• <span class="font-semibold">✓</span> — группа имеет это разрешение</li>
+            <li>• <span class="font-semibold">—</span> — группа НЕ имеет этого разрешения</li>
+            <li>• Для изменения прав используйте Django Admin → Группы</li>
+            <li>• Суперпользователи имеют все права автоматически</li>
+        </ul>
+    </div>
+
+</div>
+{% endblock %}

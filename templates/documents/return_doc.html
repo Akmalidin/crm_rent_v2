@@ -1,128 +1,162 @@
 <!-- templates/documents/return_doc.html -->
 {% extends 'documents/base_document.html' %}
 
+{% block title %}Накладная на возврат № {{ order.order_code|default:order.id }}{% endblock %}
+
+{% block header %}
+    <h1>НАКЛАДНАЯ НА ВОЗВРАТ</h1>
+    <p class="doc-number">к Договору аренды № {{ order.order_code|default:order.id }} от {{ order.created_at|date:"d.m.Y" }}</p>
+{% endblock %}
+
 {% block content %}
-<!-- Шапка -->
-<div class="doc-header">
-    <div class="company-name">🏢 CRM Аренда</div>
-    <div class="doc-title">НАКЛАДНАЯ НА ВОЗВРАТ</div>
-    <div class="doc-number">к Договору аренды № {{ order.id }} от {{ order.created_at|date:"d.m.Y" }}</div>
-</div>
-
-<!-- Информация -->
-<div class="info-block">
-    <div class="info-row">
-        <span class="info-label">Арендатор:</span>
-        <span class="info-value"><strong>{{ client.get_full_name }}</strong></span>
-    </div>
-    {% for phone in client.phones.all %}
-    <div class="info-row">
-        <span class="info-label">Телефон:</span>
-        <span class="info-value">{{ phone.phone_number }}</span>
-    </div>
-    {% endfor %}
-    <div class="info-row">
-        <span class="info-label">Заказ №:</span>
-        <span class="info-value"><strong>{{ order.id }}</strong> от {{ order.created_at|date:"d.m.Y" }}</span>
-    </div>
-    <div class="info-row">
-        <span class="info-label">Дата возврата:</span>
-        <span class="info-value"><strong>{% now "d.m.Y H:i" %}</strong></span>
-    </div>
-</div>
-
-<p style="margin: 15px 0;">Арендатор вернул следующий инструмент:</p>
-
-<!-- Таблица возвращённых товаров -->
-<table>
-    <thead>
+    <table class="info-table">
         <tr>
-            <th>#</th>
-            <th>Наименование</th>
-            <th>Кол-во</th>
-            <th>Факт. дней</th>
-            <th>Факт. часов</th>
-            <th>Цена/день</th>
-            <th>Итого</th>
-            <th>Состояние</th>
+            <td>Арендодатель:</td>
+            <td>{{ company.company_name }}</td>
         </tr>
-    </thead>
-    <tbody>
-        {% for ret in returned_items %}
         <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>{{ ret.order_item.product.name }}</td>
-            <td>{{ ret.quantity }} шт</td>
-            <td>{{ ret.actual_days }} дн</td>
-            <td>{{ ret.actual_hours }} ч</td>
-            <td>{{ ret.order_item.price_per_day|floatformat:0 }} сом</td>
-            <td class="highlight">{{ ret.calculated_cost|floatformat:0 }} сом</td>
-            <td>_____________</td>
+            <td>Арендатор:</td>
+            <td>{{ client.get_full_name }}</td>
         </tr>
-        {% empty %}
         <tr>
-            <td colspan="8" style="text-align: center; color: #888;">Нет возвращённых товаров</td>
+            <td>Телефон:</td>
+            <td>{{ client.phones.all|join:", " }}</td>
         </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        <tr>
+            <td>Заказ №:</td>
+            <td>{{ order.order_code|default:order.id }} от {{ order.created_at|date:"d.m.Y" }}</td>
+        </tr>
+        <tr>
+            <td>Дата возврата:</td>
+            <td>{{ now|date:"d.m.Y H:i" }}</td>
+        </tr>
+    </table>
 
-<!-- Итого -->
-{% with total_return=0 %}
-<div class="total-block">
-    <div class="total-label">Оригинальная стоимость заказа:</div>
-    <div style="font-size: 13pt; color: #666;">{{ order.get_original_total|floatformat:0 }} сом</div>
-    <div class="total-label" style="margin-top: 8px;">Фактическая стоимость после возвратов:</div>
-    <div class="total-amount">{{ order.get_current_total|floatformat:0 }} сом</div>
-    {% if order.get_original_total != order.get_current_total %}
-    <div style="color: #059669; font-size: 12pt; margin-top: 5px;">
-        Экономия: {{ order.get_original_total|floatformat:0 }} - {{ order.get_current_total|floatformat:0 }} сом
-    </div>
-    {% endif %}
-</div>
-{% endwith %}
+    <p>Арендатор вернул следующий инструмент:</p>
 
-<!-- Состояние товаров -->
-<div style="margin-top: 20px;">
-    <p><strong>СОСТОЯНИЕ ВОЗВРАЩЁННОГО ИНСТРУМЕНТА:</strong></p>
-    <table style="margin-top: 10px;">
+    {% if returned_items %}
+    <table class="items-table">
         <thead>
             <tr>
+                <th>#</th>
                 <th>Наименование</th>
-                <th>Состояние при выдаче</th>
-                <th>Состояние при возврате</th>
-                <th>Замечания</th>
+                <th>Кол-во</th>
+                <th>Факт. дней</th>
+                <th>Факт. часов</th>
+                <th>Цена/день</th>
+                <th>Итого</th>
             </tr>
         </thead>
         <tbody>
-            {% for ret in returned_items %}
+            {% for order_item, ret in returned_items %}
             <tr>
-                <td>{{ ret.order_item.product.name }}</td>
-                <td>Исправен</td>
-                <td>_______________</td>
-                <td>_______________</td>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ order_item.product.name }}</td>
+                <td>{{ ret.quantity }} шт</td>
+                <td>{{ ret.actual_days }}</td>
+                <td>{{ ret.actual_hours }}</td>
+                <td>{{ order_item.price_per_day|floatformat:0 }} {{ company.currency }}</td>
+                <td class="amount">{{ ret.calculated_cost|floatformat:0 }} {{ company.currency }}</td>
             </tr>
             {% endfor %}
         </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="6" class="text-right"><strong>Всего возвращено на сумму:</strong></td>
+                <td class="amount">{{ total_return_cost|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+        </tfoot>
     </table>
-</div>
+    {% else %}
+    <p class="no-items">Нет возвращённых товаров</p>
+    {% endif %}
 
-<!-- Подписи -->
-<div class="signatures">
-    <div class="signature-block">
-        <div class="signature-title">ПРИНЯЛ (Арендодатель):</div>
-        <div class="signature-line">Подпись: _______________________</div>
-        <div style="margin-top: 10px; font-size: 10pt; color: #666;">Дата: __________________________</div>
+    <!-- ИТОГОВАЯ СВОДКА ПО ЗАКАЗУ -->
+    <div class="debt-summary final">
+        <h3>ИТОГО ПО ЗАКАЗУ</h3>
+        
+        <table class="summary-table">
+            <tr>
+                <td>Оригинальная стоимость заказа:</td>
+                <td class="amount">{{ order.get_original_total|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            <tr>
+                <td>Фактическая стоимость (после возвратов):</td>
+                <td class="amount">{{ order.get_current_total|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            
+            {% if savings > 0 %}
+            <tr class="savings">
+                <td>Экономия клиента:</td>
+                <td class="amount">-{{ savings|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            {% endif %}
+            
+            {% if total_overdue > 0 %}
+            <tr class="overdue">
+                <td>⚠️ В т.ч. просрочка:</td>
+                <td class="amount">+{{ total_overdue|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            {% endif %}
+            
+            <tr class="separator">
+                <td colspan="2"></td>
+            </tr>
+            
+            <tr>
+                <td>Оплачено:</td>
+                <td class="amount paid">{{ total_paid|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            
+            {% if remaining_debt > 0 %}
+            <tr class="debt-row highlight">
+                <td><strong>ОСТАЛОСЬ ОПЛАТИТЬ:</strong></td>
+                <td class="amount debt">{{ remaining_debt|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            {% elif remaining_debt < 0 %}
+            <tr class="credit-row">
+                <td><strong>К ВОЗВРАТУ КЛИЕНТУ:</strong></td>
+                <td class="amount credit">{{ remaining_debt|abs|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            {% else %}
+            <tr class="paid-row">
+                <td colspan="2" class="center">✅ ЗАКАЗ ПОЛНОСТЬЮ ОПЛАЧЕН</td>
+            </tr>
+            {% endif %}
+        </table>
     </div>
-    <div class="signature-block">
-        <div class="signature-title">СДАЛ (Арендатор):</div>
-        <div class="signature-line">Подпись: _______________________</div>
-        <div style="margin-top: 10px; font-size: 10pt; color: #666;">ФИО: {{ client.get_full_name }}</div>
-        <div style="margin-top: 10px; font-size: 10pt; color: #666;">Дата: __________________________</div>
-    </div>
-</div>
 
-<div class="doc-footer">
-    Накладная сформирована автоматически системой CRM Аренда
-</div>
+    {% if unreturned_items %}
+    <div class="unreturned-warning">
+        <h4>⚠️ НЕВОЗВРАЩЁННЫЕ ТОВАРЫ:</h4>
+        <ul>
+            {% for item in unreturned_items %}
+            <li>
+                {{ item.product.name }} — {{ item.quantity_remaining }} шт 
+                (возврат до: {{ item.planned_return_date|date:"d.m.Y H:i" }})
+                {% if item.is_overdue %}
+                    <span class="overdue-badge">ПРОСРОЧЕНО на {{ item.overdue_days }} дн!</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+{% endblock %}
+
+{% block signatures %}
+    <div class="signatures">
+        <div>
+            <p><strong>ПРИНЯЛ (Арендодатель):</strong></p>
+            <p>{{ company.short_name|default:company.company_name }}</p>
+            <p>Подпись: ______________________</p>
+            <p>Дата: ________________________</p>
+        </div>
+        <div>
+            <p><strong>СДАЛ (Арендатор):</strong></p>
+            <p>{{ client.get_full_name }}</p>
+            <p>Подпись: ______________________</p>
+            <p>Дата: ________________________</p>
+        </div>
+    </div>
 {% endblock %}
