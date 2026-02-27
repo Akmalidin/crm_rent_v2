@@ -44,6 +44,11 @@
             top: 120px;
             z-index: 10;
         }
+
+        /* Переключатель по часам */
+        .by-hours-toggle:checked ~ .toggle-track { background-color: #7c3aed; }
+        .by-hours-toggle:checked ~ .toggle-thumb { transform: translateX(16px); }
+        .toggle-thumb { position: absolute; top: 2px; left: 2px; }
     </style>
 {% endblock %}
 
@@ -103,7 +108,7 @@
                     </div>
                     
                     <div class="mt-4">
-                        <a href="/clients/create/" class="inline-flex items-center gap-2 text-blue-700 hover:text-blue-800 font-semibold">
+                        <a href="/clients/create/" data-turbo="false" class="inline-flex items-center gap-2 text-blue-700 hover:text-blue-800 font-semibold">
                             <span class="text-xl">➕</span>
                             <span>Добавить нового клиента</span>
                         </a>
@@ -149,43 +154,54 @@
                                 <!-- Количество -->
                                 <div class="md:col-span-2">
                                     <label class="block text-sm font-bold text-gray-700 mb-2">Кол-во</label>
-                                    <input 
-                                        type="number" 
-                                        name="quantities[]" 
-                                        value="1" 
-                                        min="1" 
+                                    <input
+                                        type="number"
+                                        name="quantities[]"
+                                        value="1"
+                                        min="1"
                                         required
-                                        onchange="calculateTotal()"
+                                        oninput="validateQuantity(this); calculateTotal()"
                                         class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                                     />
+                                    <p class="qty-available-hint hidden text-xs text-gray-500 mt-1">Доступно: <span>0</span> шт</p>
                                 </div>
                                 
-                                <!-- Дней -->
-                                <div class="md:col-span-2">
-                                    <label class="block text-sm font-bold text-gray-700 mb-2">Дней</label>
-                                    <input 
-                                        type="number" 
-                                        name="days[]" 
-                                        value="3" 
-                                        min="0" 
-                                        required
-                                        onchange="calculateTotal()"
-                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                                    />
-                                </div>
-                                
-                                <!-- Часов -->
-                                <div class="md:col-span-2">
-                                    <label class="block text-sm font-bold text-gray-700 mb-2">Часов</label>
-                                    <input 
-                                        type="number" 
-                                        name="hours[]" 
-                                        value="0" 
-                                        min="0" 
-                                        max="23"
-                                        onchange="calculateTotal()"
-                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                                    />
+                                <!-- Длительность + переключатель -->
+                                <div class="md:col-span-4">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <label class="duration-label block text-sm font-bold text-gray-700">Дней</label>
+                                        <label class="flex items-center gap-1.5 cursor-pointer select-none" title="Переключить на учёт по часам">
+                                            <span class="text-xs text-gray-500 by-hours-hint">по дням</span>
+                                            <div class="relative">
+                                                <input type="checkbox" class="by-hours-toggle sr-only" onchange="toggleHoursMode(this)">
+                                                <div class="toggle-track w-9 h-5 bg-gray-300 rounded-full transition-colors duration-200"></div>
+                                                <div class="toggle-thumb absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"></div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    <!-- По дням (показан по умолчанию) -->
+                                    <div class="days-field">
+                                        <input
+                                            type="number"
+                                            name="days[]"
+                                            value="3"
+                                            min="1"
+                                            required
+                                            oninput="calculateTotal()"
+                                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                        />
+                                    </div>
+                                    <!-- По часам (скрыт по умолчанию, value=0 когда не активен) -->
+                                    <div class="hours-field hidden">
+                                        <input
+                                            type="number"
+                                            name="hours[]"
+                                            value="0"
+                                            min="0"
+                                            oninput="calculateTotal()"
+                                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                        />
+                                    </div>
                                 </div>
                                 
                                 <!-- Удалить -->
@@ -229,7 +245,7 @@
                         ✅ Создать заказ
                     </button>
                     <a 
-                        href="/orders/"
+                        href="/rental/orders/"
                         class="px-12 py-5 bg-gray-300 text-gray-800 rounded-2xl font-bold text-xl hover:bg-gray-400 transition"
                     >
                         Отмена
@@ -446,6 +462,94 @@ function addItemAlternative() {
 
 let itemIndex = 0;
 
+function toggleHoursMode(checkbox) {
+    const row = checkbox.closest('.item-row');
+    const daysField = row.querySelector('.days-field');
+    const hoursField = row.querySelector('.hours-field');
+    const label = row.querySelector('.duration-label');
+    const hint = row.querySelector('.by-hours-hint');
+    const daysInput = daysField.querySelector('input[name="days[]"]');
+    const hoursInput = hoursField.querySelector('input[name="hours[]"]');
+
+    if (checkbox.checked) {
+        // Режим "по часам"
+        daysField.classList.add('hidden');
+        hoursField.classList.remove('hidden');
+        label.textContent = 'Часов';
+        hint.textContent = 'по часам';
+        daysInput.value = '0';
+        daysInput.setAttribute('min', '0');
+        daysInput.removeAttribute('required');
+        hoursInput.setAttribute('min', '1');
+        hoursInput.setAttribute('required', '');
+        if (!hoursInput.value || parseInt(hoursInput.value) <= 0) hoursInput.value = '1';
+    } else {
+        // Режим "по дням"
+        daysField.classList.remove('hidden');
+        hoursField.classList.add('hidden');
+        label.textContent = 'Дней';
+        hint.textContent = 'по дням';
+        hoursInput.value = '0';
+        hoursInput.setAttribute('min', '0');
+        hoursInput.removeAttribute('required');
+        daysInput.setAttribute('min', '1');
+        daysInput.setAttribute('required', '');
+        if (!daysInput.value || parseInt(daysInput.value) <= 0) daysInput.value = '3';
+    }
+    calculateTotal();
+}
+
+function initProductSelect(selectEl) {
+    $(selectEl).select2({
+        placeholder: '🔍 Поиск товара...',
+        allowClear: true,
+        width: '100%'
+    }).on('select2:select', function(e) {
+        const row = this.closest('.item-row');
+        const option = this.options[this.selectedIndex];
+        const available = parseInt(option.dataset.available) || 0;
+        const qtyInput = row.querySelector('input[name="quantities[]"]');
+        const hint = row.querySelector('.qty-available-hint');
+        qtyInput.max = available;
+        hint.querySelector('span').textContent = available;
+        hint.classList.remove('hidden');
+        if (parseInt(qtyInput.value) > available) {
+            qtyInput.value = available;
+        }
+        validateQuantity(qtyInput);
+        calculateTotal();
+    }).on('select2:clear', function() {
+        const row = this.closest('.item-row');
+        const qtyInput = row.querySelector('input[name="quantities[]"]');
+        const hint = row.querySelector('.qty-available-hint');
+        qtyInput.removeAttribute('max');
+        hint.classList.add('hidden');
+        validateQuantity(qtyInput);
+        calculateTotal();
+    });
+}
+
+function validateQuantity(input) {
+    const max = parseInt(input.max);
+    const val = parseInt(input.value) || 0;
+    if (max > 0 && val > max) {
+        input.classList.add('border-red-500', 'bg-red-50');
+        input.classList.remove('border-gray-300');
+        let errEl = input.parentNode.querySelector('.qty-error');
+        if (!errEl) {
+            errEl = document.createElement('p');
+            errEl.className = 'qty-error text-xs text-red-600 font-semibold mt-1';
+            input.parentNode.appendChild(errEl);
+        }
+        errEl.textContent = `Максимум: ${max} шт`;
+    } else {
+        input.classList.remove('border-red-500', 'bg-red-50');
+        input.classList.add('border-gray-300');
+        const errEl = input.parentNode.querySelector('.qty-error');
+        if (errEl) errEl.remove();
+    }
+}
+
 $(document).ready(function() {
     // Инициализация Select2 для клиента
     $('#client').select2({
@@ -453,13 +557,13 @@ $(document).ready(function() {
         allowClear: true,
         width: '100%'
     });
-    
+
     // Показ информации о клиенте
     $('#client').on('select2:select', function(e) {
         var $option = $(this).find('option:selected');
         var balance = parseFloat($option.data('balance') || 0);
         var phone = $option.data('phone') || '';
-        
+
         var html = '';
         if (balance < 0) {
             html = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
@@ -477,60 +581,85 @@ $(document).ready(function() {
                 ${phone ? `<p class="text-sm text-blue-600 mt-1">📞 ${phone}</p>` : ''}
             </div>`;
         }
-        
+
         $('#clientInfo').html(html).removeClass('hidden');
-        
+
         // Автопереход к товару
         setTimeout(() => $('.product-select').first().select2('open'), 300);
     });
-    
+
     // Инициализация первого товара
-    $('.product-select').select2({
-        placeholder: '🔍 Поиск товара...',
-        allowClear: true,
-        width: '100%'
-    });
-    
+    initProductSelect(document.querySelector('.product-select'));
+
     calculateTotal();
+
+    // Валидация перед отправкой формы
+    document.getElementById('orderForm').addEventListener('submit', function(e) {
+        let hasError = false;
+        document.querySelectorAll('input[name="quantities[]"]').forEach(function(input) {
+            const max = parseInt(input.max);
+            const val = parseInt(input.value) || 0;
+            if (max > 0 && val > max) {
+                hasError = true;
+                validateQuantity(input);
+            }
+        });
+        if (hasError) {
+            e.preventDefault();
+            alert('Количество товара превышает доступное. Исправьте ошибки.');
+        }
+    });
 });
 
 function addItem() {
     itemIndex++;
     const container = document.getElementById('items-container');
     const firstItem = container.querySelector('.item-row');
-    
+
     // КРИТИЧНО: Уничтожаем Select2 перед клонированием
     const originalSelect = firstItem.querySelector('.product-select');
     $(originalSelect).select2('destroy');
-    
+
     // Клонируем
     const newItem = firstItem.cloneNode(true);
-    
+
     // Восстанавливаем оригинал
-    $(originalSelect).select2({
-        placeholder: '🔍 Поиск товара...',
-        allowClear: true,
-        width: '100%'
-    });
-    
+    initProductSelect(originalSelect);
+
     // Настраиваем клон
     newItem.setAttribute('data-index', itemIndex);
-    newItem.querySelector('.product-select').selectedIndex = 0;
-    newItem.querySelectorAll('input[name="quantities[]"]').forEach(i => i.value = '1');
-    newItem.querySelectorAll('input[name="days[]"]').forEach(i => i.value = '3');
-    newItem.querySelectorAll('input[name="hours[]"]').forEach(i => i.value = '0');
+    const newSelect = newItem.querySelector('.product-select');
+    newSelect.selectedIndex = 0;
+    const newQtyInput = newItem.querySelector('input[name="quantities[]"]');
+    newQtyInput.value = '1';
+    newQtyInput.removeAttribute('max');
+    newQtyInput.classList.remove('border-red-500', 'bg-red-50');
+    newQtyInput.classList.add('border-gray-300');
+    const qtyError = newItem.querySelector('.qty-error');
+    if (qtyError) qtyError.remove();
+    const hint = newItem.querySelector('.qty-available-hint');
+    if (hint) hint.classList.add('hidden');
+    // Сбрасываем переключатель по часам
+    const byHoursToggle = newItem.querySelector('.by-hours-toggle');
+    if (byHoursToggle) byHoursToggle.checked = false;
+    newItem.querySelector('.days-field').classList.remove('hidden');
+    newItem.querySelector('.hours-field').classList.add('hidden');
+    newItem.querySelector('.duration-label').textContent = 'Дней';
+    newItem.querySelector('.by-hours-hint').textContent = 'по дням';
+    newItem.querySelector('.days-field input[name="days[]"]').value = '3';
+    newItem.querySelector('.days-field input[name="days[]"]').setAttribute('required', '');
+    newItem.querySelector('.days-field input[name="days[]"]').setAttribute('min', '1');
+    newItem.querySelector('.hours-field input[name="hours[]"]').value = '0';
+    newItem.querySelector('.hours-field input[name="hours[]"]').removeAttribute('required');
+    newItem.querySelector('.hours-field input[name="hours[]"]').setAttribute('min', '0');
     newItem.querySelector('.item-cost').textContent = '0 сом';
     newItem.querySelector('.remove-btn').classList.remove('hidden');
-    
+
     container.appendChild(newItem);
-    
+
     // Инициализируем Select2 на клоне
-    $(newItem).find('.product-select').select2({
-        placeholder: '🔍 Поиск товара...',
-        allowClear: true,
-        width: '100%'
-    });
-    
+    initProductSelect(newItem.querySelector('.product-select'));
+
     updateRemoveButtons();
     calculateTotal();
 }
@@ -573,19 +702,21 @@ function calculateTotal() {
             const option = select.options[select.selectedIndex];
             const priceDay = parseFloat(option.dataset.priceDay) || 0;
             const priceHour = parseFloat(option.dataset.priceHour) || (priceDay / 24);
-            
+            const byHours = row.querySelector('.by-hours-toggle') && row.querySelector('.by-hours-toggle').checked;
+
             const cost = quantity * (priceDay * days + priceHour * hours);
-            
+            const durationLabel = byHours ? `${hours} ч` : `${days} дн`;
+
             row.querySelector('.item-cost').textContent = `${Math.round(cost)} сом`;
-            
+
             totalCost += cost;
             totalItems++;
-            
+
             summaryHTML += `
                 <div class="p-3 bg-gray-50 rounded-lg">
                     <p class="font-semibold text-gray-800 text-sm">${option.text.split('(')[0].trim()}</p>
                     <div class="flex justify-between mt-1">
-                        <span class="text-xs text-gray-500">${quantity} шт × ${days}д ${hours}ч</span>
+                        <span class="text-xs text-gray-500">${quantity} шт × ${durationLabel}</span>
                         <span class="font-bold text-purple-600">${Math.round(cost)} сом</span>
                     </div>
                 </div>

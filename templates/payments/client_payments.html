@@ -12,18 +12,42 @@
                class="text-blue-600 hover:text-blue-700 font-semibold mb-2 inline-block">
                 ← Назад к клиенту
             </a>
-            <h1 class="text-4xl font-bold text-gray-900">💰 Платежи клиента</h1>
+            <h1 class="text-4xl font-bold text-gray-900">
+                💰
+                {% if order_id %}
+                    Квитанции по заказу #{{ order_id }}
+                {% else %}
+                    Платежи клиента
+                {% endif %}
+            </h1>
             <p class="text-gray-600 mt-2">{{ client.get_full_name }}</p>
         </div>
         
         <!-- Баланс -->
-        <div class="text-right">
-            <div class="text-sm text-gray-600">Баланс кошелька</div>
-            <div class="text-3xl font-bold {% if wallet_balance >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                {{ wallet_balance|floatformat:0 }} сом
+        <div class="text-right space-y-2">
+            <div>
+                <div class="text-sm text-gray-600">Баланс кошелька</div>
+                <div class="text-3xl font-bold {% if wallet_balance >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    {{ wallet_balance|floatformat:0 }} сом
+                </div>
+                <div class="text-sm text-gray-500 mt-1">
+                    Всего оплачено: {{ total_paid|floatformat:0 }} сом
+                </div>
             </div>
-            <div class="text-sm text-gray-500 mt-1">
-                Всего оплачено: {{ total_paid|floatformat:0 }} сом
+
+            <div class="flex flex-col gap-2 items-end">
+                {% if order_id %}
+                <a href="{% url 'main:client_payments' client.id %}"
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-100">
+                    Показать все платежи клиента
+                </a>
+                {% endif %}
+
+                <a href="{% url 'main:print_receipts_bulk' client.id %}{% if order_id %}?order={{ order_id }}{% endif %}"
+                   target="_blank"
+                   class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">
+                    ⬇️ Скачать все квитанции
+                </a>
             </div>
         </div>
     </div>

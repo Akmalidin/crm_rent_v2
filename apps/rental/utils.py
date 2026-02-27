@@ -40,16 +40,7 @@ def get_order_groups_for_client(client, now):
     for order in client.rental_orders.all().order_by('-created_at'):
         order_events = []
         
-        # 1. Создание заказа
-        order_events.append({
-            'type': 'order_created',
-            'date': order.created_at,
-            'description': 'Создан заказ',
-            'items': list(order.items.all()),
-            'total': float(order.get_original_total()),
-        })
-        
-        # 2. Возвраты
+        # 1. Возвраты
         for order_item in order.items.all():
             for return_item in order_item.returns.all():
                 order_events.append({
@@ -59,7 +50,7 @@ def get_order_groups_for_client(client, now):
                     'return_item': return_item,
                 })
         
-        # 3. Оплаты
+        # 2. Оплаты
         for payment in client.payments.all():
             if payment.notes and f'#{order.id}' in payment.notes:
                 payment_for_order = None
@@ -81,7 +72,53 @@ def get_order_groups_for_client(client, now):
                         'is_partial': 'частично' in payment.notes.lower(),
                     })
         
-        # 4. Просрочки
+        # 3. Изменения дат из notes заказа
+        date_change_events = []
+        total_date_change_diff = 0
+        if order.notes:
+            date_change_pattern = re.compile(
+                r'\[(\d{2}\.\d{2}\.\d{4} \d{2}:\d{2})\] (\S+): Изменил дату возврата (.+?) x(\d+) '
+                r'с (\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}) на (\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}) \(([+\-]?\d+) сом\)'
+            )
+            for match in date_change_pattern.finditer(order.notes):
+                try:
+                    change_dt = timezone.make_aware(
+                        timezone.datetime.strptime(match.group(1), '%d.%m.%Y %H:%M')
+                    )
+                except ValueError:
+                    continue
+                
+                cost_diff = int(match.group(7))
+                total_date_change_diff += cost_diff
+                
+                date_change_events.append({
+                    'type': 'date_change',
+                    'date': change_dt,
+                    'description': 'Изменение даты возврата',
+                    'username': match.group(2),
+                    'product_name': match.group(3),
+                    'quantity': int(match.group(4)),
+                    'old_date': match.group(5),
+                    'new_date': match.group(6),
+                    'cost_diff': cost_diff,
+                })
+
+        # 4. Создание заказа (ИЗНАЧАЛЬНАЯ стоимость на момент создания)
+        # Текущее значение get_original_total уже учитывает все изменения дат.
+        # Чтобы показать сумму при создании, вычитаем сумму всех последующих изменений.
+        initial_total = float(order.get_original_total()) - float(total_date_change_diff)
+        order_events.append({
+            'type': 'order_created',
+            'date': order.created_at,
+            'description': 'Создан заказ',
+            'items': list(order.items.all()),
+            'total': initial_total,
+        })
+
+        # Добавляем события изменения дат в общую ленту
+        order_events.extend(date_change_events)
+
+        # 5. Просрочки
         if order.status == 'open':
             for item in order.items.all():
                 if item.quantity_remaining > 0 and item.planned_return_date < now:

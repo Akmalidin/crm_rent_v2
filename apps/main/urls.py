@@ -40,9 +40,10 @@ urlpatterns = [
     
     # Оплаты
     path('payment/', views.accept_payment, name='accept_payment'),
+    path('payment/client-orders/<int:client_id>/', views.client_orders_json, name='client_orders_json'),
     path('orders/<int:order_id>/apply-credit/', views.apply_credit_to_order, name='apply_credit_to_order'),
     path('orders/<int:order_id>/close/', views.close_order, name='close_order'),
-    path('orders/<int:order_id>/edit-dates/', views.edit_order_dates, name='edit_order_dates'),
+    path('orders/<int:order_id>/edit-dates/', views.edit_order_dates_with_log, name='edit_order_dates'),
     
     # Отчёты
     path('reports/', reports_views.reports_main, name='reports_main'),
@@ -56,6 +57,7 @@ urlpatterns = [
     path('orders/<int:order_id>/print/acceptance/', pdf_views.print_acceptance, name='print_acceptance'),
     path('orders/<int:order_id>/print/return/', pdf_views.print_return, name='print_return'),
     path('payments/<int:payment_id>/print/receipt/', pdf_views.print_receipt, name='print_receipt'),
+    path('clients/<int:client_id>/payments/print/receipts/', pdf_views.print_receipts_bulk, name='print_receipts_bulk'),
     path('orders/<int:order_id>/notify/', views.send_overdue_notification, name='send_notification'),
 
     # Управление пользователями

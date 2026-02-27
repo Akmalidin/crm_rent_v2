@@ -11,7 +11,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Table, TableStyle,
-    Spacer, HRFlowable
+    Spacer, HRFlowable, PageBreak
 )
 from django.utils import timezone
 from decimal import Decimal
@@ -577,6 +577,150 @@ def print_receipt(request, payment_id):
     
     response = HttpResponse(buf.getvalue(), content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="receipt_{payment.id}.pdf"'
+    return response
+
+
+def _build_receipt_elements(styles, company, client, payment):
+    """Собрать элементы одной квитанции для мульти-печати"""
+    elements = []
+
+    elements += build_header(
+        styles,
+        'КВИТАНЦИЯ ОБ ОПЛАТЕ',
+        f'№ {payment.id} от {payment.payment_date.strftime("%d.%m.%Y")}',
+        company_name=company.company_name
+    )
+
+    phones = ' | '.join([p.phone_number for p in client.phones.all()])
+    info_rows = [
+        ('Плательщик:', client.get_full_name()),
+        ('Телефон:', phones or '—'),
+        ('Дата оплаты:', payment.payment_date.strftime('%d.%m.%Y %H:%M')),
+        ('Способ оплаты:', payment.get_payment_method_display()),
+    ]
+    elements.append(build_info_table(info_rows))
+    elements.append(Spacer(1, 0.5*cm))
+
+    amount_elements = []
+    amount_elements.append(Paragraph('Принято от клиента:', styles['total_label']))
+    amount_elements.append(Spacer(1, 0.2*cm))
+    amount_elements.append(Paragraph(f"{int(payment.amount):,} {company.currency}".replace(',', ' '), styles['big_amount']))
+    amount_elements.append(Spacer(1, 0.7*cm))
+    amount_elements.append(
+        Paragraph(
+            f'<font color="gray" size="9">{payment.get_payment_method_display()}</font>',
+            styles['center']
+        )
+    )
+
+    amount_box = Table([[amount_elements]], colWidths=[16*cm])
+    amount_box.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 2, BLUE),
+        ('BACKGROUND', (0, 0), (-1, -1), LIGHT_BLUE),
+        ('TOPPADDING', (0, 0), (-1, -1), 15),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
+        ('LEFTPADDING', (0, 0), (-1, -1), 20),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 20),
+    ]))
+    elements.append(amount_box)
+    elements.append(Spacer(1, 0.5*cm))
+
+    if payment.notes:
+        elements.append(Paragraph('<b>Назначение платежа:</b>', styles['heading']))
+        elements.append(Paragraph(payment.notes.replace('\n', '<br/>'), styles['normal']))
+        elements.append(Spacer(1, 0.3*cm))
+
+    total_paid = client.get_total_paid()
+    total_debt = client.get_total_debt()
+    wallet_balance = client.get_wallet_balance()
+
+    balance_data = [
+        ['Всего оплачено клиентом:', f"{int(total_paid):,} {company.currency}".replace(',', ' ')],
+        ['Общий долг клиента:', f"{int(total_debt):,} {company.currency}".replace(',', ' ')],
+        ['Баланс кошелька:', f"{int(wallet_balance):,} {company.currency}".replace(',', ' ')],
+    ]
+
+    balance_table = Table(balance_data, colWidths=[10*cm, 8*cm])
+    balance_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'MainFont'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('FONTNAME', (0, 0), (0, -1), 'MainFont-Bold'),
+        ('FONTNAME', (-1, -1), (-1, -1), 'MainFont-Bold'),
+        ('FONTSIZE', (-1, -1), (-1, -1), 12),
+        ('ALIGN', (-1, 0), (-1, -1), 'RIGHT'),
+        ('TEXTCOLOR', (-1, 0), (-1, 0), GREEN),
+        ('TEXTCOLOR', (-1, 1), (-1, 1), RED),
+        ('TEXTCOLOR', (-1, 2), (-1, 2), GREEN if wallet_balance >= 0 else RED),
+        ('BACKGROUND', (0, 2), (-1, 2), LIGHT_BLUE),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
+    elements.append(balance_table)
+    elements.append(Spacer(1, 0.5*cm))
+
+    elements.append(build_signatures(
+        styles,
+        'ПРИНЯЛ (Кассир):',
+        'ОПЛАТИЛ:',
+        left_name=company.short_name or company.company_name,
+        right_name=client.get_full_name()
+    ))
+
+    footer_text = ''
+    if company.footer_text:
+        footer_text = company.footer_text + '\n'
+    footer_text += f'Квитанция сформирована системой {company.company_name} • {payment.payment_date.strftime("%d.%m.%Y")}'
+    elements += build_footer(styles, footer_text)
+
+    return elements
+
+
+def print_receipts_bulk(request, client_id):
+    """Скачать одним PDF все квитанции клиента (или по конкретному заказу)"""
+    from apps.rental.models import Payment
+    from apps.clients.models import Client
+    import re
+
+    client = get_object_or_404(Client, id=client_id)
+    company = CompanyProfile.get_company()
+
+    order_id = request.GET.get('order')
+    payments_qs = client.payments.all()
+
+    order_id_int = None
+    if order_id:
+        try:
+            order_id_int = int(order_id)
+        except (TypeError, ValueError):
+            order_id_int = None
+
+    if order_id_int:
+        payments_qs = payments_qs.filter(notes__icontains=f'#{order_id_int}')
+
+    payments = payments_qs.order_by('payment_date')
+
+    if not payments.exists():
+        return HttpResponse('Нет квитанций для печати', status=404)
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=2*cm, rightMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
+
+    styles = get_styles()
+    elements = []
+
+    for idx, payment in enumerate(payments):
+        elements += _build_receipt_elements(styles, company, client, payment)
+        if idx < (payments.count() - 1):
+            elements.append(PageBreak())
+
+    doc.build(elements)
+
+    suffix = f"_order_{order_id_int}" if order_id_int else ""
+    response = HttpResponse(buf.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="receipts_client_{client.id}{suffix}.pdf"'
     return response
 
 # ============================================================

@@ -1,0 +1,717 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CRM Аренда{% endblock %}</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8.0.4/dist/turbo.es2017-esm.js" type="module"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        /* ══════════════════════════════════════
+           THEME VARIABLES
+        ══════════════════════════════════════ */
+        :root, [data-theme="dark"] {
+            --bg:       #13142a;
+            --sidebar:  #1a1b35;
+            --card:     #1e2048;
+            --card2:    #252850;
+            --border:   rgba(255,255,255,0.07);
+            --text1:    #e2e8f0;
+            --text2:    #8892b0;
+            --text3:    #4a5270;
+            --accent:   #7c3aed;
+            --accent2:  #06b6d4;
+            --shadow:   0 4px 28px rgba(0,0,0,0.5);
+            --grid:     rgba(255,255,255,0.05);
+        }
+        [data-theme="light"] {
+            --bg:       #f0f2fa;
+            --sidebar:  #ffffff;
+            --card:     #ffffff;
+            --card2:    #f4f5ff;
+            --border:   rgba(0,0,0,0.08);
+            --text1:    #1a1b2e;
+            --text2:    #555b80;
+            --text3:    #9ca3af;
+            --accent:   #7c3aed;
+            --accent2:  #0284c7;
+            --shadow:   0 4px 20px rgba(0,0,0,0.09);
+            --grid:     rgba(0,0,0,0.05);
+        }
+
+        /* ══════════════════════════════════════
+           RESET & BASE
+        ══════════════════════════════════════ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body {
+            background: var(--bg);
+            color: var(--text1);
+            font-family: 'Space Grotesk', 'DejaVu Sans', Arial, sans-serif;
+            transition: background .3s, color .3s;
+            overflow: hidden;
+        }
+
+        /* ══════════════════════════════════════
+           APP LAYOUT
+        ══════════════════════════════════════ */
+        .app {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ══════════════════════════════════════
+           SIDEBAR
+        ══════════════════════════════════════ */
+        .sidebar {
+            width: 230px;
+            flex-shrink: 0;
+            background: var(--sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            transition: transform .3s, background .3s, border .3s;
+            z-index: 100;
+            scrollbar-width: none;
+        }
+        .sidebar::-webkit-scrollbar { display: none; }
+
+        /* Logo */
+        .sb-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 24px 20px 20px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .sb-logo-icon {
+            width: 40px; height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #7c3aed, #c026d3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(124,58,237,.4);
+        }
+        .sb-logo-text {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text1);
+            line-height: 1.2;
+        }
+        .sb-logo-sub {
+            font-size: 10px;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Nav section label */
+        .sb-section {
+            padding: 16px 20px 6px;
+        }
+        .sb-section-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text3);
+        }
+
+        /* Nav links */
+        .sb-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px 10px 20px;
+            margin: 2px 10px;
+            border-radius: 12px;
+            color: var(--text2);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all .2s;
+            position: relative;
+        }
+        .sb-link:hover {
+            background: rgba(124,58,237,.12);
+            color: var(--text1);
+        }
+        .sb-link.active {
+            background: rgba(124,58,237,.18);
+            color: #a78bfa;
+        }
+        .sb-link.active::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 50%;
+            transform: translateY(-50%);
+            width: 3px; height: 20px;
+            border-radius: 0 3px 3px 0;
+            background: linear-gradient(to bottom, #7c3aed, #c026d3);
+        }
+        .sb-icon {
+            font-size: 18px;
+            width: 22px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        /* Sidebar bottom */
+        .sb-bottom {
+            margin-top: auto;
+            padding: 16px 20px 20px;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .sb-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: var(--card2);
+            margin-bottom: 10px;
+        }
+        .sb-avatar {
+            width: 34px; height: 34px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #7c3aed, #06b6d4);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .sb-username {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text1);
+        }
+        .sb-role {
+            font-size: 11px;
+            color: var(--text2);
+        }
+        .sb-logout {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            border-radius: 10px;
+            background: rgba(239,68,68,.1);
+            color: #ef4444;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background .2s;
+        }
+        .sb-logout:hover { background: rgba(239,68,68,.18); }
+
+        /* ══════════════════════════════════════
+           MAIN AREA
+        ══════════════════════════════════════ */
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        /* Top bar */
+        .topbar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 28px;
+            background: var(--sidebar);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            transition: background .3s, border .3s;
+        }
+
+        /* Hamburger (mobile) */
+        .hamburger {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 8px;
+            color: var(--text2);
+            flex-shrink: 0;
+        }
+        .hamburger:hover { background: var(--card2); color: var(--text1); }
+
+        /* Search */
+        .topbar-search {
+            flex: 1;
+            max-width: 480px;
+            position: relative;
+        }
+        .topbar-search input {
+            width: 100%;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 9px 16px 9px 40px;
+            font-size: 13px;
+            color: var(--text1);
+            font-family: inherit;
+            outline: none;
+            transition: border .2s, background .3s;
+        }
+        .topbar-search input::placeholder { color: var(--text3); }
+        .topbar-search input:focus { border-color: rgba(124,58,237,.4); }
+        .topbar-search .s-icon {
+            position: absolute;
+            left: 13px; top: 50%;
+            transform: translateY(-50%);
+            color: var(--text3);
+            pointer-events: none;
+        }
+
+        /* Search results */
+        #search-results {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            width: 100%;
+            min-width: 380px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            z-index: 200;
+            max-height: 460px;
+            overflow-y: auto;
+        }
+        #search-results a {
+            display: block;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            text-decoration: none;
+            color: var(--text1);
+            transition: background .15s;
+        }
+        #search-results a:hover { background: var(--card2); }
+        #search-results .sr-section-hdr {
+            padding: 8px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text3);
+            background: var(--card2);
+        }
+
+        /* Topbar right */
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-left: auto;
+        }
+
+        /* Theme toggle */
+        .theme-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: 20px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text2);
+            font-family: inherit;
+            transition: all .2s;
+        }
+        .theme-btn:hover { border-color: rgba(124,58,237,.4); color: var(--text1); }
+        .theme-track {
+            width: 34px; height: 18px;
+            border-radius: 9px;
+            background: var(--text3);
+            position: relative;
+            transition: background .3s;
+        }
+        [data-theme="light"] .theme-track { background: #7c3aed; }
+        .theme-knob {
+            position: absolute;
+            top: 2px; left: 2px;
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            transition: transform .3s;
+            box-shadow: 0 1px 4px rgba(0,0,0,.3);
+        }
+        [data-theme="light"] .theme-knob { transform: translateX(16px); }
+
+        /* Page content scroll area */
+        .page-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 28px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--text3) transparent;
+        }
+        .page-scroll::-webkit-scrollbar { width: 5px; }
+        .page-scroll::-webkit-scrollbar-track { background: transparent; }
+        .page-scroll::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 3px; }
+
+        /* Sidebar overlay (mobile) */
+        .sb-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.6);
+            z-index: 99;
+            opacity: 0;
+            transition: opacity .3s;
+        }
+        .sb-overlay.show { opacity: 1; }
+
+        /* ══════════════════════════════════════
+           MOBILE
+        ══════════════════════════════════════ */
+        @media (max-width: 900px) {
+            .sidebar {
+                position: fixed;
+                left: 0; top: 0;
+                transform: translateX(-100%);
+            }
+            .sidebar.open { transform: translateX(0); }
+            .sb-overlay { display: block; }
+            .hamburger { display: flex; align-items: center; justify-content: center; }
+        }
+
+        /* ══════════════════════════════════════
+           TURBO PROGRESS BAR
+        ══════════════════════════════════════ */
+        #turbo-bar {
+            position: fixed;
+            top: 0; left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #7c3aed, #06b6d4);
+            width: 0%;
+            display: none;
+            z-index: 9999;
+            transition: width .3s;
+        }
+
+        {% block extra_css %}{% endblock %}
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+<div id="turbo-bar"></div>
+
+<!-- Mobile overlay -->
+<div class="sb-overlay" id="sbOverlay"></div>
+
+<div class="app">
+
+    <!-- ══════════════════════
+         SIDEBAR
+    ══════════════════════ -->
+    <aside class="sidebar" id="sidebar">
+
+        <!-- Logo -->
+        <div class="sb-logo">
+            <div class="sb-logo-icon">🔧</div>
+            <div>
+                <div class="sb-logo-text">CRM Аренда</div>
+                <div class="sb-logo-sub">Управление</div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav style="padding: 12px 0; flex: 1;">
+
+            <div class="sb-section">
+                <div class="sb-section-label">Главное</div>
+            </div>
+            <a href="/" data-turbo="false"
+               class="sb-link {% if request.path == '/' %}active{% endif %}">
+                <span class="sb-icon">🏠</span>
+                <span>Главная</span>
+            </a>
+
+            <div class="sb-section" style="margin-top:8px;">
+                <div class="sb-section-label">Клиенты и Заказы</div>
+            </div>
+            <a href="/clients/"
+               class="sb-link {% if 'clients' in request.path %}active{% endif %}">
+                <span class="sb-icon">👥</span>
+                <span>Клиенты</span>
+            </a>
+            <a href="/rental/orders/"
+               class="sb-link {% if 'orders' in request.path or 'create' in request.path %}active{% endif %}">
+                <span class="sb-icon">📦</span>
+                <span>Заказы</span>
+            </a>
+            <a href="/rental/returns/"
+               class="sb-link {% if 'returns' in request.path %}active{% endif %}">
+                <span class="sb-icon">↩️</span>
+                <span>Возвраты</span>
+            </a>
+
+            <div class="sb-section" style="margin-top:8px;">
+                <div class="sb-section-label">Финансы</div>
+            </div>
+            <a href="/payment/" data-turbo="false"
+               class="sb-link {% if 'payment' in request.path %}active{% endif %}">
+                <span class="sb-icon">💰</span>
+                <span>Оплаты</span>
+            </a>
+
+            <div class="sb-section" style="margin-top:8px;">
+                <div class="sb-section-label">Аналитика</div>
+            </div>
+            <a href="/history/"
+               class="sb-link {% if 'history' in request.path %}active{% endif %}">
+                <span class="sb-icon">📋</span>
+                <span>История</span>
+            </a>
+            <a href="/reports/"
+               class="sb-link {% if 'reports' in request.path %}active{% endif %}">
+                <span class="sb-icon">📊</span>
+                <span>Отчёты</span>
+            </a>
+            <a href="/calendar/"
+               class="sb-link {% if 'calendar' in request.path %}active{% endif %}">
+                <span class="sb-icon">📅</span>
+                <span>Календарь</span>
+            </a>
+
+            {% if user.is_staff or user.is_superuser %}
+            <div class="sb-section" style="margin-top:8px;">
+                <div class="sb-section-label">Администрация</div>
+            </div>
+            <a href="{% url 'main:users_management' %}"
+               class="sb-link {% if 'users' in request.path %}active{% endif %}">
+                <span class="sb-icon">⚙️</span>
+                <span>Пользователи</span>
+            </a>
+            <a href="{% url 'main:create_backup' %}" data-turbo="false"
+               class="sb-link">
+                <span class="sb-icon">🗄️</span>
+                <span>Бэкап</span>
+            </a>
+            {% endif %}
+        </nav>
+
+        <!-- Bottom: user + logout -->
+        <div class="sb-bottom">
+            <div class="sb-user">
+                <div class="sb-avatar">{{ user.username|slice:":1"|upper }}</div>
+                <div>
+                    <div class="sb-username">{{ user.username }}</div>
+                    <div class="sb-role">
+                        {% if user.is_superuser %}Администратор
+                        {% elif user.is_staff %}Сотрудник
+                        {% else %}Пользователь{% endif %}
+                    </div>
+                </div>
+            </div>
+            <a href="/logout/" class="sb-logout">
+                <span>🚪</span> Выйти
+            </a>
+        </div>
+
+    </aside><!-- /sidebar -->
+
+    <!-- ══════════════════════
+         MAIN AREA
+    ══════════════════════ -->
+    <div class="main-area">
+
+        <!-- Top bar -->
+        <div class="topbar">
+            <!-- Mobile hamburger -->
+            <button class="hamburger" id="hamburger" type="button" aria-label="Меню">
+                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                    <line x1="3" y1="6"  x2="19" y2="6"/>
+                    <line x1="3" y1="11" x2="19" y2="11"/>
+                    <line x1="3" y1="16" x2="19" y2="16"/>
+                </svg>
+            </button>
+
+            <!-- Search -->
+            <div class="topbar-search" id="global-search-container">
+                <span class="s-icon">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <circle cx="7" cy="7" r="5"/>
+                        <line x1="11" y1="11" x2="15" y2="15"/>
+                    </svg>
+                </span>
+                <input type="text" id="global-search-input"
+                       placeholder="Поиск клиентов, заказов, товаров...   Ctrl+K"
+                       autocomplete="off"/>
+                <div id="search-spinner" class="hidden"
+                     style="position:absolute;right:12px;top:50%;transform:translateY(-50%);">
+                    <svg class="animate-spin" width="14" height="14" fill="none" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/>
+                        <path fill="currentColor" class="opacity-75"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                </div>
+                <!-- Search results dropdown -->
+                <div id="search-results" class="hidden"></div>
+            </div>
+
+            <!-- Right side -->
+            <div class="topbar-right">
+                <!-- Theme toggle -->
+                <button class="theme-btn" id="themeToggle" type="button">
+                    <span id="themeIcon">🌙</span>
+                    <div class="theme-track"><div class="theme-knob"></div></div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Page content -->
+        <div class="page-scroll">
+            {% block content %}{% endblock %}
+        </div>
+
+    </div><!-- /main-area -->
+</div><!-- /app -->
+
+<!-- ══════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════ -->
+<script>
+/* ── THEME ── */
+const _html = document.documentElement;
+const _savedTheme = localStorage.getItem('crmTheme') || 'dark';
+_html.setAttribute('data-theme', _savedTheme);
+document.getElementById('themeIcon').textContent = _savedTheme === 'dark' ? '🌙' : '☀️';
+
+document.getElementById('themeToggle').addEventListener('click', () => {
+    const next = _html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    _html.setAttribute('data-theme', next);
+    localStorage.setItem('crmTheme', next);
+    document.getElementById('themeIcon').textContent = next === 'dark' ? '🌙' : '☀️';
+    document.dispatchEvent(new CustomEvent('crmThemeChange', { detail: { theme: next } }));
+});
+
+/* ── MOBILE SIDEBAR ── */
+const _sidebar   = document.getElementById('sidebar');
+const _sbOverlay = document.getElementById('sbOverlay');
+const _hamburger = document.getElementById('hamburger');
+
+function openSidebar()  { _sidebar.classList.add('open'); _sbOverlay.classList.add('show'); }
+function closeSidebar() { _sidebar.classList.remove('open'); _sbOverlay.classList.remove('show'); }
+
+_hamburger.addEventListener('click', openSidebar);
+_sbOverlay.addEventListener('click', closeSidebar);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar(); });
+
+/* ── GLOBAL SEARCH ── */
+(function() {
+    const inp   = document.getElementById('global-search-input');
+    const box   = document.getElementById('search-results');
+    const spin  = document.getElementById('search-spinner');
+    if (!inp) return;
+
+    let timer;
+
+    function showResults(data, q) {
+        box.innerHTML = '';
+        const total = (data.clients?.length||0)+(data.orders?.length||0)+(data.products?.length||0);
+        if (total === 0) {
+            box.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:13px;">😔 Ничего не найдено</div>';
+            box.classList.remove('hidden'); return;
+        }
+        function section(icon, label, items) {
+            if (!items?.length) return;
+            const hdr = document.createElement('div');
+            hdr.className = 'sr-section-hdr';
+            hdr.textContent = icon + ' ' + label;
+            box.appendChild(hdr);
+            items.forEach(it => {
+                const a = document.createElement('a');
+                a.href = it.url;
+                a.innerHTML = `<div style="font-weight:600;font-size:13px;">${it.title}</div>`
+                    + (it.subtitle ? `<div style="font-size:12px;color:var(--text2);margin-top:2px;">${it.subtitle}</div>` : '');
+                a.addEventListener('click', hideResults);
+                box.appendChild(a);
+            });
+        }
+        section('👥', 'Клиенты',  data.clients);
+        section('📦', 'Заказы',   data.orders);
+        section('🔧', 'Товары',   data.products);
+        box.classList.remove('hidden');
+    }
+
+    function hideResults() { box.classList.add('hidden'); }
+
+    inp.addEventListener('input', function() {
+        const q = this.value.trim();
+        if (q.length < 2) { hideResults(); return; }
+        clearTimeout(timer);
+        spin.classList.remove('hidden');
+        timer = setTimeout(() => {
+            fetch('/search/?q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(d => { spin.classList.add('hidden'); showResults(d, q); })
+                .catch(() => { spin.classList.add('hidden'); });
+        }, 280);
+    });
+
+    document.addEventListener('click', e => {
+        if (!inp.contains(e.target) && !box.contains(e.target)) hideResults();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') hideResults();
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); inp.focus(); }
+    });
+})();
+
+/* ── TURBO PROGRESS ── */
+(function() {
+    const bar = document.getElementById('turbo-bar');
+    document.addEventListener('turbo:before-fetch-request', () => {
+        bar.style.display = 'block'; bar.style.width = '25%';
+    });
+    document.addEventListener('turbo:before-fetch-response', () => { bar.style.width = '70%'; });
+    document.addEventListener('turbo:load', () => {
+        bar.style.width = '100%';
+        setTimeout(() => { bar.style.display = 'none'; bar.style.width = '0%'; }, 300);
+    });
+})();
+
+/* ── TOASTIFY ── */
+document.addEventListener('DOMContentLoaded', function() {
+    {% if messages %}{% for message in messages %}
+    Toastify({
+        text: "{{ message|escapejs }}",
+        duration: 5000, close: true,
+        gravity: "top", position: "right",
+        style: { borderRadius: '12px', fontFamily: 'Space Grotesk, sans-serif', fontSize: '14px' },
+        backgroundColor: "{% if message.tags == 'error' %}#ef4444{% elif message.tags == 'success' %}#10b981{% elif message.tags == 'warning' %}#f59e0b{% else %}#7c3aed{% endif %}",
+    }).showToast();
+    {% endfor %}{% endif %}
+});
+</script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

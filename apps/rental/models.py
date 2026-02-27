@@ -4,7 +4,8 @@ from django.utils import timezone
 from django.db.models import Sum
 from apps.clients.models import Client
 from apps.inventory.models import Product
-
+from decimal import Decimal
+import math
 
 class RentalOrder(models.Model):
     """Заказ аренды"""
@@ -81,21 +82,18 @@ class RentalOrder(models.Model):
             return f"#{self.order_number} ({self.order_code})"
         return f"#{self.id}"
     
-    def get_original_total(self):
-        """Изначальная сумма"""
-        total = self.items.aggregate(total=Sum('original_total_cost'))['total']
-        return float(total or 0)
-    
     def get_current_total(self):
-        "Текущая стоимость заказа с учётом возвратов и просрочки"
-        from decimal import Decimal
-        
+        """Получить текущую стоимость заказа с учётом просрочки"""
         total = Decimal('0')
-        
         for item in self.items.all():
-            # Используем метод get_actual_cost который учитывает всё
             total += item.get_actual_cost()
-        
+        return total
+    
+    def get_original_total(self):
+        """Получить оригинальную стоимость заказа (БЕЗ просрочки)"""
+        total = Decimal('0')
+        for item in self.items.all():
+            total += Decimal(str(item.original_total_cost))
         return total
 
     def get_saved_amount(self):
@@ -145,71 +143,147 @@ class OrderItem(models.Model):
     def __str__(self):
         return f"{self.product.name} ({self.quantity_taken} шт)"
     
+    def calculate_cost_from_duration(self, days, hours, quantity):
+        """
+        Рассчитать стоимость на основе дней, часов и количества
+        
+        Args:
+            days: количество дней аренды
+            hours: количество часов аренды
+            quantity: количество единиц товара
+            
+        Returns:
+            Decimal: стоимость
+        """
+        price_per_day = Decimal(str(self.price_per_day))
+        price_per_hour = Decimal(str(self.price_per_hour))
+        
+        # Если нет цены за час, считаем как price_per_day / 24
+        if price_per_hour == 0:
+            price_per_hour = price_per_day / 24
+        
+        days_cost = Decimal(str(days)) * price_per_day * Decimal(str(quantity))
+        hours_cost = Decimal(str(hours)) * price_per_hour * Decimal(str(quantity))
+        
+        return days_cost + hours_cost
+    
     def calculate_original_cost(self):
-        return float(self.quantity_taken * (float(self.price_per_day) * self.rental_days + float(self.price_per_hour) * self.rental_hours))
+        """Рассчитать оригинальную стоимость"""
+        return self.calculate_cost_from_duration(
+            self.rental_days, 
+            self.rental_hours, 
+            self.quantity_taken
+        )
+    
+    def recalculate_from_dates(self):
+        """
+        Пересчитать rental_days, rental_hours и стоимость на основе дат
+        
+        Используется при изменении planned_return_date
+        """
+        if not self.issued_date or not self.planned_return_date:
+            return
+        
+        # Вычисляем разницу
+        time_diff = self.planned_return_date - self.issued_date
+        total_seconds = max(0, time_diff.total_seconds())
+
+        # Если у товара нет цены за час, аренда считается ТОЛЬКО по дням:
+        # любое положительное время = минимум 1 день, округляем вверх по суткам.
+        product_hour_price = getattr(self.product, 'price_per_hour', None)
+        is_daily_pricing = not (product_hour_price and product_hour_price > 0)
+
+        if is_daily_pricing:
+            self.rental_days = max(1, int(math.ceil(total_seconds / 86400))) if total_seconds > 0 else 0
+            self.rental_hours = 0
+        else:
+            # Почасовая тарификация: округляем вверх до часа, чтобы не получать 0 при 10-30 мин.
+            total_hours = int(math.ceil(total_seconds / 3600)) if total_seconds > 0 else 0
+            self.rental_days = total_hours // 24
+            self.rental_hours = total_hours % 24
+        
+        # Пересчитываем стоимость
+        self.original_total_cost = self.calculate_original_cost()
+        self.current_total_cost = self.original_total_cost
+    
     
     def save(self, *args, **kwargs):
-        if not self.pk:
+        if not self.pk:  # ТОЛЬКО при создании
             self.quantity_remaining = self.quantity_taken
             if not self.original_total_cost:
                 self.original_total_cost = self.calculate_original_cost()
             if not self.current_total_cost:
                 self.current_total_cost = self.original_total_cost
+        
+        # При обновлении НИЧЕГО не пересчитываем автоматически!
         super().save(*args, **kwargs)
     
     def get_actual_cost(self):
-        '''Фактическая стоимость с учётом возвратов и просрочки'''
-        from decimal import Decimal
+        """
+        Получить актуальную стоимость с учётом просрочки
         
-        # Если всё возвращено - используем сохранённую фактическую стоимость
+        Returns:
+            Decimal: текущая стоимость + просрочка (если есть)
+        """
+        now = timezone.now()
+        
+        # Базовая стоимость (оригинальная, БЕЗ просрочки)
+        base_cost = Decimal(str(self.original_total_cost))
+        
+        # Если товар полностью возвращён - возвращаем базовую стоимость
         if self.quantity_remaining == 0:
-            if self.actual_cost is not None:
-                return Decimal(str(self.actual_cost))
-            # Fallback если actual_cost не сохранён
-            return Decimal(str(self.current_total_cost))
+            return base_cost
         
-        # Если есть невозвращённые товары
-        if self.quantity_remaining > 0:
-            now = timezone.now()
-            
-            # Стоимость возвращённых товаров (если есть)
-            returned_qty = self.quantity_taken - self.quantity_remaining
-            returned_cost = Decimal('0')
-            
-            if returned_qty > 0 and self.actual_cost is not None:
-                # Пропорционально от фактической стоимости возвращённых
-                cost_per_item = Decimal(str(self.actual_cost)) / self.quantity_taken
-                returned_cost = cost_per_item * returned_qty
-            
-            # Стоимость невозвращённых товаров
-            unreturned_cost = Decimal('0')
-            
-            # Если просрочено
-            if now > self.planned_return_date:
-                overdue_time = now - self.planned_return_date
-                
-                # Плановая стоимость оставшихся товаров
-                cost_per_item = Decimal(str(self.current_total_cost)) / self.quantity_taken
-                planned_cost = cost_per_item * self.quantity_remaining
-                
-                # Стоимость просрочки
-                if overdue_time.total_seconds() < 86400:  # Меньше суток
-                    overdue_hours = overdue_time.total_seconds() / 3600
-                    hourly_rate = Decimal(str(self.price_per_day)) / 24
-                    overdue_cost = Decimal(str(overdue_hours)) * hourly_rate * self.quantity_remaining
-                else:
-                    overdue_days = overdue_time.days
-                    overdue_cost = Decimal(str(overdue_days)) * Decimal(str(self.price_per_day)) * self.quantity_remaining
-                
-                unreturned_cost = planned_cost + overdue_cost
-            else:
-                # Ещё не просрочено - плановая стоимость
-                cost_per_item = Decimal(str(self.current_total_cost)) / self.quantity_taken
-                unreturned_cost = cost_per_item * self.quantity_remaining
-            
-            return returned_cost + unreturned_cost
+        # Если нет просрочки - возвращаем базовую стоимость
+        if self.planned_return_date >= now:
+            return base_cost
         
-        return Decimal(str(self.current_total_cost))
+        # Есть просрочка - считаем доплату
+        overdue_time = now - self.planned_return_date
+        overdue_days = overdue_time.days
+        overdue_hours = overdue_time.seconds // 3600
+        
+        # Стоимость просрочки
+        price_per_day = Decimal(str(self.price_per_day))
+        
+        if overdue_time.total_seconds() < 86400:
+            # Менее суток - считаем по часам
+            overdue_cost = (price_per_day / 24) * Decimal(str(overdue_hours)) * Decimal(str(self.quantity_remaining))
+        else:
+            # Больше суток - считаем по дням
+            overdue_cost = price_per_day * Decimal(str(overdue_days)) * Decimal(str(self.quantity_remaining))
+        
+        return base_cost + overdue_cost
+    
+    @property
+    def is_overdue(self):
+        """Проверка просрочен ли товар"""
+        return self.quantity_remaining > 0 and self.planned_return_date < timezone.now()
+    
+    @property
+    def overdue_days(self):
+        """Количество дней просрочки"""
+        if not self.is_overdue:
+            return 0
+        overdue_time = timezone.now() - self.planned_return_date
+        return overdue_time.days
+    
+    @property
+    def overdue_hours(self):
+        """Количество часов просрочки (остаток)"""
+        if not self.is_overdue:
+            return 0
+        overdue_time = timezone.now() - self.planned_return_date
+        return overdue_time.seconds // 3600
+    
+    @property
+    def overdue_cost(self):
+        """Стоимость просрочки"""
+        if not self.is_overdue:
+            return Decimal('0')
+        
+        return self.get_actual_cost() - Decimal(str(self.original_total_cost))
+
 
 
 class ReturnDocument(models.Model):
@@ -283,7 +357,6 @@ class ReturnItem(models.Model):
         self.order_item.save()
         self.order_item.product.quantity_available += self.quantity
         self.order_item.product.save()
-        self.order_item.order.update_status()
         
         super().save(*args, **kwargs)
 

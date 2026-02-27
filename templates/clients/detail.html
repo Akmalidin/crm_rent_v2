@@ -19,7 +19,7 @@
             <a href="/admin/clients/client/{{ client.id }}/change/" class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition">
                 ✏️ Редактировать
             </a>
-            <a href="/rental/create/?client={{ client.id }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+            <a href="/rental/create/?client={{ client.id }}" data-turbo="false" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
                 ➕ Новый заказ
             </a>
         </div>
@@ -55,7 +55,7 @@
         
         {% if debt > 0 %}
         <div class="mt-6">
-            <a href="/payment/?client={{ client.id }}" class="bg-white text-blue-600 px-6 py-3 rounded-lg hover:bg-blue-50 transition font-semibold inline-block">
+            <a href="/payment/?client={{ client.id }}" data-turbo="false" class="bg-white text-blue-600 px-6 py-3 rounded-lg hover:bg-blue-50 transition font-semibold inline-block">
                 💵 Принять оплату
             </a>
         </div>
@@ -278,7 +278,7 @@
             <!-- Оплата -->
             {% if group.debt > 0 %}
             <a 
-                href="/payment/?client={{ group.order.client.id }}"
+                href="/payment/?client={{ group.order.client.id }}" data-turbo="false"
                 class="block px-4 py-3 hover:bg-yellow-50 text-sm text-gray-700 border-b"
                 onclick="event.stopPropagation()"
             >
@@ -319,13 +319,15 @@
             {% endif %}
             
             <!-- Закрыть заказ -->
-            <a 
-                href="/orders/{{ group.order.id }}/close/"
-                class="block px-4 py-3 hover:bg-gray-50 text-sm text-gray-700"
-                onclick="event.stopPropagation(); return confirm('Закрыть заказ #{{ group.order.order_number }} от ({{ group.order.client.get_full_name }}) ? Это действие нельзя отменить!')"
-            >
-                🔒 Закрыть заказ
-            </a>
+            <form method="post" action="/orders/{{ group.order.id }}/close/" onclick="event.stopPropagation()">
+                {% csrf_token %}
+                <button type="submit"
+                    onclick="return confirm('Закрыть заказ #{{ group.order.order_number }} от ({{ group.order.client.get_full_name }})? Это действие нельзя отменить!')"
+                    class="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm text-gray-700"
+                >
+                    🔒 Закрыть заказ
+                </button>
+            </form>
         </div>
     </div>
     
@@ -373,12 +375,12 @@
                 <div class="text-xs text-gray-500">При возврате товара</div>
             </div>
         </a>
-        <a href="{% url 'main:client_payments' client.id %}" 
+        <a href="{% url 'main:client_payments' client.id %}?order={{ group.order.id }}" 
         class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 border-t-2 bg-green-50">
             <span class="text-2xl">💰</span>
             <div>
-                <div class="font-semibold text-green-700">Все платежи клиента</div>
-                <div class="text-xs text-gray-500">{{ client.payments.count }} квитанций</div>
+                <div class="font-semibold text-green-700">Квитанции по заказу</div>
+                <div class="text-xs text-gray-500">{{ client.id.payments.count }} квитанций всего</div>
             </div>
         </a>
     </div>
@@ -427,6 +429,7 @@ document.addEventListener('turbo:load', function() {
              style="display: none; position: absolute; top: 100%; left: 0; z-index: 100; 
                     background: white; border: 1px solid #ddd; border-radius: 8px; 
                     box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 220px; margin-top: 4px;">
+            
             <a 
                 href="/orders/{{ group.order.id }}/print/contract/"
                 target="_blank"
@@ -435,6 +438,7 @@ document.addEventListener('turbo:load', function() {
             >
                 📄 Договор аренды
             </a>
+            
             <a 
                 href="/orders/{{ group.order.id }}/print/acceptance/"
                 target="_blank"
@@ -443,18 +447,32 @@ document.addEventListener('turbo:load', function() {
             >
                 📋 Акт приёма-передачи
             </a>
+            
             <a 
                 href="/orders/{{ group.order.id }}/print/return/"
                 target="_blank"
-                class="block px-4 py-3 hover:bg-gray-50 text-sm text-gray-700"
+                class="block px-4 py-3 hover:bg-gray-50 text-sm text-gray-700 border-b"
                 onclick="event.stopPropagation()"
             >
                 📦 Накладная на возврат
             </a>
+            
+            <!-- КВИТАНЦИИ ПО КОНКРЕТНОМУ ЗАКАЗУ -->
+            <a 
+                href="{% url 'main:client_payments' client.id %}?order={{ group.order.id }}" 
+                class="flex items-center gap-3 px-4 py-3 hover:bg-green-50 bg-green-50 border-t-2"
+                onclick="event.stopPropagation()"
+            >
+                <span class="text-2xl">💰</span>
+                <div>
+                    <div class="font-semibold text-green-700">Квитанции по заказу</div>
+                    <div class="text-xs text-gray-500">{{ client.payments.count }} квитанций всего</div>
+                </div>
+            </a>
         </div>
     </div>
 </div>
-{% endif %}
+{% endif %} 
 
 <script>
 function toggleActionMenu(orderId) {
@@ -593,6 +611,7 @@ document.addEventListener('click', function(e) {
                                 {% if event.type == 'order_created' %}border-blue-500
                                 {% elif event.type == 'payment' %}border-green-500
                                 {% elif event.type == 'overdue_charge' %}border-red-500
+                                {% elif event.type == 'date_change' %}border-yellow-500
                                 {% else %}border-purple-500{% endif %}">
                         
                         <!-- Icon & Date -->
@@ -608,6 +627,10 @@ document.addEventListener('click', function(e) {
                             {% elif event.type == 'overdue_charge' %}
                                 <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
                                     <span class="text-xl">⏰</span>
+                                </div>
+                            {% elif event.type == 'date_change' %}
+                                <div class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                                    <span class="text-xl">📅</span>
                                 </div>
                             {% else %}
                                 <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
@@ -658,6 +681,20 @@ document.addEventListener('click', function(e) {
                                             {% endif %}
                                         </p>
                                     
+                                    {% elif event.type == 'date_change' %}
+                                        <!-- Date Change Details -->
+                                        <div class="mt-2">
+                                            <p class="text-sm text-gray-600">
+                                                • {{ event.product_name }} - {{ event.quantity }} шт
+                                            </p>
+                                            <p class="text-xs text-gray-500">
+                                                Было: {{ event.old_date }} → Стало: {{ event.new_date }}
+                                            </p>
+                                            <p class="text-xs text-gray-500">
+                                                Менеджер: {{ event.username }}
+                                            </p>
+                                        </div>
+
                                     {% elif event.type == 'overdue_charge' %}
                                         <!-- Overdue Charge Details -->
                                         <div class="mt-2">
@@ -682,30 +719,17 @@ document.addEventListener('click', function(e) {
                                     <p class="text-xl font-bold text-green-600 ml-4">+{{ event.amount|floatformat:0 }} сом</p>
                                 {% elif event.type == 'overdue_charge' %}
                                     <p class="text-xl font-bold text-red-600 ml-4">+{{ event.overdue_cost|floatformat:0 }} сом</p>
+                                {% elif event.type == 'date_change' %}
+                                    {% if event.cost_diff > 0 %}
+                                        <p class="text-xl font-bold text-red-600 ml-4">+{{ event.cost_diff }} сом</p>
+                                    {% elif event.cost_diff < 0 %}
+                                        <p class="text-xl font-bold text-green-600 ml-4">{{ event.cost_diff }} сом</p>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                         </div>
                     </div>
                     {% endfor %}
-
-                    <!-- Date Changes History (from order.notes) -->
-                    {% if group.order.notes and "Изменение даты" in group.order.notes %}
-                    <div class="flex gap-4 p-4 bg-orange-50 rounded-lg border-l-4 border-orange-500">
-                        <!-- Icon -->
-                        <div class="flex-shrink-0 text-center">
-                            <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                                <span class="text-xl">📅</span>
-                            </div>
-                        </div>
-                        <!-- Content -->
-                        <div class="flex-1">
-                            <p class="font-bold text-gray-800">📅 История изменений дат возврата:</p>
-                            <div class="text-sm text-gray-700 mt-2">
-                                {{ group.order.notes|linebreaks }}
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
 
                     <!-- Order Summary -->
                     <div class="p-4 bg-blue-50 rounded-lg border border-blue-200 mt-4">

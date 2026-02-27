@@ -3,18 +3,62 @@
 
 {% block title %}Принять оплату - CRM Аренда{% endblock %}
 
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 50px !important;
+        padding: 10px 12px !important;
+        border: 1px solid #d1d5db !important;
+        border-radius: 8px !important;
+        font-size: 15px !important;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 28px !important;
+        padding-left: 0 !important;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 48px !important;
+    }
+    .select2-dropdown {
+        border: 2px solid #3b82f6 !important;
+        border-radius: 8px !important;
+    }
+    .select2-search--dropdown .select2-search__field {
+        border: 1px solid #d1d5db !important;
+        border-radius: 6px !important;
+        padding: 8px !important;
+    }
+    .select2-results__option--highlighted {
+        background-color: #3b82f6 !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="space-y-6">
     
     <!-- Header -->
-    <div>
-        <h1 class="text-3xl font-bold text-gray-800">💰 Принять оплату</h1>
-        <p class="text-gray-600">Пополнение кошелька клиента</p>
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-lg">
+        <div class="absolute inset-0 opacity-20" style="background: radial-gradient(circle at 20% 20%, white, transparent 45%);"></div>
+        <div class="relative p-8">
+            <div class="flex items-start justify-between gap-6">
+                <div>
+                    <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">💰 Принять оплату</h1>
+                    <p class="text-white/90 mt-2">Пополнение кошелька клиента и распределение по долгам заказов</p>
+                </div>
+                <div class="hidden md:block text-right">
+                    <div class="text-xs uppercase tracking-widest text-white/70">Подсказка</div>
+                    <div class="font-semibold text-white/95 mt-1">Сначала выбери клиента → сумма автоматически</div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <!-- Payment Form -->
-    <div class="max-w-2xl bg-white rounded-lg shadow-lg p-8">
-        <form method="post" class="space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,720px)_minmax(0,1fr)] gap-6">
+        <div class="bg-white rounded-2xl shadow-lg border border-gray-100">
+            <form method="post" class="p-6 md:p-8 space-y-6">
             {% csrf_token %}
             
             <!-- Клиент -->
@@ -22,31 +66,38 @@
                 <label class="block text-sm font-semibold text-gray-700 mb-2">
                     👤 Клиент *
                 </label>
-                <select name="client_id" required 
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        onchange="updateBalance(this)">
-                    <option value="">Выберите клиента...</option>
+                <select name="client_id" required
+                        id="client-select"
+                        style="width: 100%;">
+                    <option value="">🔍 Поиск по имени или телефону...</option>
                     {% for item in clients_with_debt %}
-                        <option value="{{ item.client.id }}" data-debt="{{ item.debt }}">
-                            {{ item.client.get_full_name }} - Долг: {{ item.debt|floatformat:0 }} сом
+                        <option value="{{ item.client.id }}"
+                                data-debt="{{ item.debt }}"
+                                data-phone="{% for phone in item.client.phones.all|slice:':1' %}{{ phone.phone_number }}{% endfor %}">
+                            ⚠️ {{ item.client.get_full_name }}{% for phone in item.client.phones.all|slice:':1' %} ({{ phone.phone_number }}){% endfor %} — Долг: {{ item.debt|floatformat:0 }} сом
                         </option>
                     {% endfor %}
-                    <optgroup label="Все клиенты">
-                        {% for client in clients %}
-                            <option value="{{ client.id }}">{{ client.get_full_name }}</option>
-                        {% endfor %}
-                    </optgroup>
+                    {% for client in clients %}
+                        {% if client.id not in clients_with_debt_ids %}
+                        <option value="{{ client.id }}"
+                                data-phone="{% for phone in client.phones.all|slice:':1' %}{{ phone.phone_number }}{% endfor %}">
+                            {{ client.get_full_name }}{% for phone in client.phones.all|slice:':1' %} ({{ phone.phone_number }}){% endfor %}
+                        </option>
+                        {% endif %}
+                    {% endfor %}
                 </select>
             </div>
             
-            <!-- Сумма -->
-            <div>
+            <!-- Сумма + инфо -->
+            <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-end">
+                <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">
                     💵 Сумма оплаты (сом) *
                 </label>
                 <input 
                     type="number" 
                     name="amount" 
+                    id="payment-amount"
                     required 
                     min="1"
                     step="1"
@@ -58,45 +109,90 @@
                         <strong>Долг клиента:</strong> <span id="debt-amount">0</span> сом
                     </p>
                 </div>
+                </div>
+                <div class="md:text-right">
+                    <button type="button"
+                            id="fill-debt-btn"
+                            class="w-full md:w-auto px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold text-gray-700">
+                        Заполнить долг
+                    </button>
+                </div>
             </div>
-            {% if selected_client and selected_client_orders %}
-<div>
-    <label class="block text-sm font-semibold text-gray-700 mb-2">
-        📦 Выберите заказы для оплаты (опционально)
-    </label>
-    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-        <p class="text-sm text-gray-600 mb-3">
-            Выберите заказы, которые хотите оплатить. Если не выбрать - система автоматически оплатит заказы по порядку.
-        </p>
-        
-        <div class="space-y-2">
-            {% for order in selected_client_orders %}
-            <label class="flex items-center p-3 bg-white rounded border hover:bg-blue-50 cursor-pointer transition">
-                <input 
-                    type="checkbox" 
-                    name="selected_orders" 
-                    value="{{ order.id }}"
-                    class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                />
-                <div class="ml-3 flex-1">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="font-semibold text-gray-800">Заказ #{{ order.id }}</p>
-                            <p class="text-xs text-gray-500">{{ order.created_at|date:"d.m.Y H:i" }} • {{ order.items.count }} товар{{ order.items.count|pluralize:",,ов" }}</p>
-                        </div>
-                        <p class="font-bold text-lg text-blue-600">{{ order.get_current_total|floatformat:0 }} сом</p>
+
+            <!-- Оригинальный QR MBANK / ELQR (для удобства) -->
+            <div class="rounded-2xl border border-emerald-200 bg-gradient-to-b from-emerald-50 to-white p-5 md:p-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                        <p class="font-extrabold text-gray-900">📱 Оригинальный QR MBANK</p>
+                        <p class="text-sm text-gray-600 mt-1">
+                            Загрузите фото вашего QR из приложения MBANK.
+                            Система сохранит его локально в браузере и будет показывать QR для сканирования.
+                        </p>
                     </div>
                 </div>
-            </label>
-            {% endfor %}
-        </div>
-        
-        <div class="mt-3 p-3 bg-blue-50 rounded text-sm text-blue-800">
-            <strong>💡 Совет:</strong> Если ничего не выбрать, оплата распределится автоматически, начиная с самого старого заказа.
-        </div>
-    </div>
-</div>
-{% endif %}
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <!-- LEFT: big QR -->
+                    <div class="bg-white rounded-xl border border-gray-200 p-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-sm font-semibold text-gray-700">QR для сканирования</p>
+                            <span id="mbank-qr-decode-status" class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">
+                                Ожидает фото
+                            </span>
+                        </div>
+                        <div id="mbank-qr-left"
+                             class="mt-3 w-full aspect-square max-w-[360px] mx-auto bg-gray-50 rounded-2xl border border-gray-200 flex items-center justify-center text-xs text-gray-400 overflow-hidden">
+                            Загрузите фото QR
+                        </div>
+                        <p class="text-xs text-gray-500 mt-3">
+                            Данные QR не отправляются на сервер — сохраняются только в этом браузере.
+                        </p>
+                    </div>
+
+                    <!-- RIGHT: controls (без текста QR) -->
+                    <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Загрузить QR (фото)</label>
+                            <input type="file"
+                                   id="mbank-qr-image"
+                                   accept="image/*"
+                                   class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+                            <div class="flex gap-2 mt-3">
+                                <button type="button"
+                                        id="mbank-qr-clear"
+                                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold text-sm">
+                                    Очистить
+                                </button>
+                                <!--
+                                <a href="#"
+                                   id="mbank-qr-open"
+                                   class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold text-sm text-center">
+                                    Открыть
+                                </a>
+                                -->
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            Если QR не распознаётся, попробуй загрузить исходный скрин без сильного сжатия.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <!-- Заказы клиента (загружается динамически через AJAX) -->
+            <div id="orders-section" class="hidden">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    📦 Выберите заказы для оплаты (опционально)
+                </label>
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <p class="text-sm text-gray-600 mb-3">
+                        Выберите заказы, которые хотите оплатить. Если не выбрать — система автоматически оплатит по порядку.
+                    </p>
+                    <div id="orders-list" class="space-y-2"></div>
+                    <div class="mt-3 p-3 bg-blue-50 rounded text-sm text-blue-800">
+                        <strong>💡 Совет:</strong> Если ничего не выбрать, оплата распределится автоматически, начиная с самого старого заказа.
+                    </div>
+                </div>
+            </div>
             <!-- Способ оплаты -->
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">
@@ -158,64 +254,304 @@
                 </a>
             </div>
         </form>
-    </div>
-    
-    <!-- Клиенты с долгами -->
-    {% if clients_with_debt %}
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">⚠️ Клиенты с задолженностью</h2>
-        <div class="grid gap-3">
-            {% for item in clients_with_debt|slice:":10" %}
-            <div class="flex justify-between items-center p-4 bg-red-50 rounded-lg">
-                <div>
-                    <a href="/clients/{{ item.client.id }}/" class="font-bold text-gray-800 hover:text-blue-600">
-                        {{ item.client.get_full_name }}
-                    </a>
-                    {% for phone in item.client.phones.all|slice:":1" %}
-                        <p class="text-sm text-gray-600">{{ phone.phone_number }}</p>
-                    {% endfor %}
-                </div>
-                <div class="text-right">
-                    <p class="text-xl font-bold text-red-600">-{{ item.debt|floatformat:0 }} сом</p>
-                    <button 
-                        onclick="selectClient({{ item.client.id }}, {{ item.debt }})"
-                        class="text-sm text-blue-600 hover:underline"
-                    >
-                        Выбрать →
+        </div>
+        
+        <!-- Right column: быстрые действия -->
+        <div class="space-y-6">
+            <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                <p class="font-extrabold text-gray-900">⚡ Быстрые действия</p>
+                <p class="text-sm text-gray-600 mt-1">Быстро перейти к форме и подставить сумму долга.</p>
+                <div class="mt-4 flex flex-col gap-2">
+                    <button type="button"
+                            onclick="window.scrollTo({ top: 0, behavior: 'smooth' });"
+                            class="px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold text-gray-700">
+                        Поднять к форме
+                    </button>
+                    <button type="button"
+                            id="fill-debt-btn-sidebar"
+                            class="px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold">
+                        Подставить сумму долга
                     </button>
                 </div>
             </div>
-            {% endfor %}
+
+            <!-- Клиенты с долгами -->
+            {% if clients_with_debt %}
+            <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                <h2 class="text-xl font-extrabold text-gray-900 mb-4">⚠️ Клиенты с задолженностью</h2>
+                <div class="grid gap-3">
+                    {% for item in clients_with_debt|slice:":10" %}
+                    <div class="flex justify-between items-center p-4 bg-red-50 rounded-xl border border-red-100">
+                        <div>
+                            <a href="/clients/{{ item.client.id }}/" class="font-bold text-gray-800 hover:text-blue-600">
+                                {{ item.client.get_full_name }}
+                            </a>
+                            {% for phone in item.client.phones.all|slice:":1" %}
+                                <p class="text-sm text-gray-600">{{ phone.phone_number }}</p>
+                            {% endfor %}
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xl font-extrabold text-red-600">-{{ item.debt|floatformat:0 }} сом</p>
+                            <button 
+                                onclick="selectClient({{ item.client.id }}, {{ item.debt }})"
+                                class="text-sm text-blue-600 hover:underline font-semibold"
+                            >
+                                Выбрать →
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
-    {% endif %}
     
 </div>
 
+<!-- jQuery + Select2 -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
 <script>
-function updateBalance(select) {
-    const debt = select.options[select.selectedIndex].dataset.debt;
+// Распознаём QR из фото в браузере (jsQR).
+// Если CDN недоступен — распознавание не сработает, но форма оплаты продолжит работать.
+const qrReadScript = document.createElement('script');
+qrReadScript.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+qrReadScript.async = true;
+document.head.appendChild(qrReadScript);
+
+function updateBalance(selectEl) {
+    if (!selectEl) return;
+    const option = selectEl.options[selectEl.selectedIndex];
+    const debtAttr = option ? option.getAttribute('data-debt') : null;
+    const debt = debtAttr ? parseFloat(debtAttr) : 0;
     const debtInfo = document.getElementById('debt-info');
     const debtAmount = document.getElementById('debt-amount');
-    
-    if (debt && debt > 0) {
+    const amountInput = document.getElementById('payment-amount');
+
+    if (!isNaN(debt) && debt > 0) {
         debtAmount.textContent = parseFloat(debt).toFixed(0);
         debtInfo.classList.remove('hidden');
+        if (amountInput && !amountInput.value) {
+            amountInput.value = Math.round(debt);
+        }
     } else {
         debtInfo.classList.add('hidden');
     }
 }
 
+function loadClientOrders(clientId) {
+    const section = document.getElementById('orders-section');
+    const list = document.getElementById('orders-list');
+    if (!clientId) {
+        section.classList.add('hidden');
+        list.innerHTML = '';
+        return;
+    }
+    list.innerHTML = '<p class="text-sm text-gray-400 py-2">Загрузка...</p>';
+    section.classList.remove('hidden');
+
+    fetch(`/payment/client-orders/${clientId}/`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.orders || data.orders.length === 0) {
+                section.classList.add('hidden');
+                list.innerHTML = '';
+                return;
+            }
+            list.innerHTML = data.orders.map(order => `
+                <label class="flex items-center p-3 bg-white rounded border hover:bg-blue-50 cursor-pointer transition">
+                    <input type="checkbox" name="selected_orders" value="${order.id}"
+                           class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500" />
+                    <div class="ml-3 flex-1">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold text-gray-800">Заказ #${order.id}</p>
+                                <p class="text-xs text-gray-500">${order.created_at} • ${order.items_count} товар • ${order.status_display}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500">К оплате</p>
+                                <p class="font-bold text-lg text-blue-600">${order.due} сом</p>
+                            </div>
+                        </div>
+                    </div>
+                </label>
+            `).join('');
+        })
+        .catch(() => {
+            section.classList.add('hidden');
+            list.innerHTML = '';
+        });
+}
+
 function selectClient(clientId, debt) {
-    const select = document.querySelector('select[name="client_id"]');
-    select.value = clientId;
-    updateBalance(select);
-    
-    // Заполняем сумму равную долгу
-    document.querySelector('input[name="amount"]').value = Math.round(debt);
-    
-    // Прокручиваем к форме
+    $('#client-select').val(String(clientId)).trigger('change');
+    const amountInput = document.getElementById('payment-amount');
+    if (amountInput && debt) {
+        amountInput.value = Math.round(debt);
+    }
+    loadClientOrders(String(clientId));
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+function setDecodeStatus(text, variant = 'gray') {
+    const el = document.getElementById('mbank-qr-decode-status');
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'text-xs px-2 py-1 rounded ' + (
+        variant === 'ok' ? 'bg-emerald-100 text-emerald-800' :
+        variant === 'warn' ? 'bg-yellow-100 text-yellow-800' :
+        variant === 'err' ? 'bg-red-100 text-red-800' :
+        'bg-gray-100 text-gray-700'
+    );
+}
+
+function renderExtractedQr(payload) {
+    const left = document.getElementById('mbank-qr-left');
+
+    const renderTo = (el, size, emptyText) => {
+        if (!el) return;
+        el.innerHTML = '';
+        if (!payload) {
+            el.textContent = emptyText;
+            return;
+        }
+        const img = document.createElement('img');
+        img.alt = 'MBANK QR';
+        img.width = size;
+        img.height = size;
+        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=' +
+                  encodeURIComponent(size + 'x' + size) +
+                  '&data=' + encodeURIComponent(payload);
+        img.style.objectFit = 'contain';
+        el.appendChild(img);
+    };
+
+    renderTo(left, 340, 'Загрузите фото QR');
+    // Кнопка "Открыть" временно отключена по просьбе пользователя
+}
+
+async function decodeQrFromDataUrl(dataUrl) {
+    if (!dataUrl) return null;
+    if (!window.jsQR) return null;
+
+    return await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth || img.width;
+                canvas.height = img.naturalHeight || img.height;
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(img, 0, 0);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = window.jsQR(imageData.data, imageData.width, imageData.height);
+                resolve(code?.data || null);
+            } catch (e) {
+                resolve(null);
+            }
+        };
+        img.onerror = () => resolve(null);
+        img.src = dataUrl;
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Инициализация Select2 для поиска клиента
+    $('#client-select').select2({
+        placeholder: '🔍 Поиск по имени или телефону...',
+        allowClear: true,
+        width: '100%',
+        language: {
+            noResults: function() { return 'Клиент не найден'; },
+            searching: function() { return 'Поиск...'; }
+        }
+    }).on('select2:select', function(e) {
+        updateBalance(this);
+        loadClientOrders(String(e.params.data.id));
+    }).on('select2:clear', function() {
+        document.getElementById('debt-info').classList.add('hidden');
+        const amountInput = document.getElementById('payment-amount');
+        if (amountInput) amountInput.value = '';
+        loadClientOrders(null);
+    });
+
+    // Если клиент уже выбран через URL-параметр (?client=...) — загрузить заказы сразу
+    const preselectedClient = '{{ selected_client_id|default:"" }}';
+    if (preselectedClient) {
+        $('#client-select').val(preselectedClient).trigger('change');
+        loadClientOrders(preselectedClient);
+    }
+
+    const qrImageInput = document.getElementById('mbank-qr-image');
+    const clearBtn = document.getElementById('mbank-qr-clear');
+
+    const savedPayload = localStorage.getItem('mbank_original_qr_payload') || '';
+    renderExtractedQr(savedPayload);
+    setDecodeStatus(savedPayload ? 'QR сохранён' : 'Ожидает фото', savedPayload ? 'ok' : 'gray');
+
+    if (qrImageInput) {
+        qrImageInput.addEventListener('change', () => {
+            const file = qrImageInput.files && qrImageInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const dataUrl = String(reader.result || '');
+
+                if (!window.jsQR) {
+                    setDecodeStatus('Не загрузилась библиотека распознавания', 'warn');
+                    return;
+                }
+
+                setDecodeStatus('Распознаю...', 'gray');
+                const payload = await decodeQrFromDataUrl(dataUrl);
+                if (!payload) {
+                    setDecodeStatus('Не удалось распознать QR', 'err');
+                    renderExtractedQr('');
+                    return;
+                }
+
+                localStorage.setItem('mbank_original_qr_payload', payload);
+                setDecodeStatus('QR распознан', 'ok');
+                renderExtractedQr(payload);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            localStorage.removeItem('mbank_original_qr_payload');
+            if (qrImageInput) qrImageInput.value = '';
+            renderExtractedQr('');
+            setDecodeStatus('Очищено', 'gray');
+        });
+    }
+
+    const fillDebt = () => {
+        const select = document.querySelector('select[name="client_id"]');
+        const amountInput = document.getElementById('payment-amount');
+        if (!select || !amountInput) return;
+        const option = select.options[select.selectedIndex];
+        const debtAttr = option ? option.getAttribute('data-debt') : null;
+        const debt = debtAttr ? parseFloat(debtAttr) : 0;
+        if (!isNaN(debt) && debt > 0) {
+            amountInput.value = Math.round(debt);
+        }
+    };
+
+    const fillBtn = document.getElementById('fill-debt-btn');
+    if (fillBtn) {
+        fillBtn.addEventListener('click', fillDebt);
+    }
+    const fillSidebarBtn = document.getElementById('fill-debt-btn-sidebar');
+    if (fillSidebarBtn) {
+        fillSidebarBtn.addEventListener('click', () => {
+            fillDebt();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
+});
 </script>
 {% endblock %}

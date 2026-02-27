@@ -129,9 +129,8 @@
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-xl font-bold text-gray-800 mb-4">➕ Добавить товар в заказ</h2>
             
-            <form method="post" class="bg-green-50 rounded-lg p-4 border-2 border-green-200">
-                {% csrf_token %}
-                
+            <div class="bg-green-50 rounded-lg p-4 border-2 border-green-200">
+
                 <div class="grid grid-cols-4 gap-4">
                     <!-- Product Selection -->
                     <div class="col-span-2">
@@ -213,7 +212,6 @@
                 <div class="mt-3 p-3 bg-blue-50 rounded border border-blue-200 text-sm text-blue-800">
                     <strong>💡 Совет:</strong> Новый товар будет добавлен в заказ с указанным периодом аренды.
                 </div>
-            </form>
         </div>
 
 

@@ -10,7 +10,7 @@ import json, os
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import JsonResponse, FileResponse, Http404
-from apps.rental.utils import get_order_groups_for_client
+from apps.rental.utils import get_order_groups_for_client, calculate_order_debt
 from config import settings
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User, Group, Permission
@@ -239,6 +239,15 @@ def dashboard(request):
         for p in products_stats
     ]
     
+    # === ЗАКАЗЫ ПО ДНЯМ НЕДЕЛИ ===
+    weekday_names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+    weekday_counts = [0] * 7
+    for order in RentalOrder.objects.all():
+        wd = order.created_at.weekday()  # 0=Mon, 6=Sun
+        weekday_counts[wd] += 1
+    weekday_labels = json.dumps(weekday_names)
+    weekday_data = json.dumps(weekday_counts)
+
     # === ПРОСРОЧЕННЫЕ ЗАКАЗЫ ===
     overdue_orders = []
     for order in RentalOrder.objects.filter(status='open').prefetch_related('items__product', 'client')[:50]:
@@ -409,15 +418,26 @@ def client_detail(request, client_id):
 def client_payments(request, client_id):
     """Все платежи клиента"""
     client = get_object_or_404(Client, id=client_id)
-    
-    # Получаем все платежи клиента, сортируем по дате (новые первые)
-    payments = client.payments.all().order_by('-payment_date')
-    
+
+    order_id = request.GET.get('order')
+
+    # Получаем платежи клиента, при необходимости фильтруем по конкретному заказу
+    payments_query = client.payments.all()
+    if order_id:
+        try:
+            order_id_int = int(order_id)
+        except (TypeError, ValueError):
+            order_id_int = None
+        if order_id_int:
+            payments_query = payments_query.filter(notes__icontains=f'#{order_id_int}')
+    payments = payments_query.order_by('-payment_date')
+
     context = {
         'client': client,
         'payments': payments,
         'total_paid': client.get_total_paid(),
         'wallet_balance': client.get_wallet_balance(),
+        'order_id': order_id,
     }
     
     return render(request, 'payments/client_payments.html', context)
@@ -486,7 +506,7 @@ def create_order(request):
                 if product.quantity_available < quantity:
                     messages.error(request, f'Недостаточно товара "{product.name}". Доступно: {product.quantity_available}')
                     order.delete()
-                    return redirect('create_order')
+                    return redirect('main:create_order')
                 
                 # Дата выдачи - сейчас
                 issued_date = timezone.now()
@@ -496,7 +516,7 @@ def create_order(request):
                 
                 # Цены
                 price_per_day = product.price_per_day
-                price_per_hour = product.price_per_hour if hasattr(product, 'price_per_hour') else (price_per_day / 24)
+                price_per_hour = product.price_per_hour if (hasattr(product, 'price_per_hour') and product.price_per_hour) else (price_per_day / 24)
                 
                 # Изначальная стоимость
                 original_cost = quantity * (price_per_day * rental_days + price_per_hour * rental_hours)
@@ -516,7 +536,8 @@ def create_order(request):
                     original_total_cost=original_cost,
                     current_total_cost=original_cost,
                 )
-                
+
+                product.update_available_quantity()
                 # Уменьшаем доступное количество товара
                 product.quantity_available -= quantity
                 product.save()
@@ -634,6 +655,33 @@ def orders_list(request):
 
 def accept_payment(request):
     """Принять оплату с отслеживанием заказов"""
+
+    import re
+
+    def _distribution_amount_for_order(notes_text: str, order_id_int: int):
+        if not notes_text:
+            return None
+        if 'Распределение:' in notes_text:
+            for line in notes_text.split('\n'):
+                pattern = rf'Заказ\s*#{order_id_int}\s*:\s*(\d+(?:[\.,]\d+)?)\s*сом'
+                match = re.search(pattern, line)
+                if match:
+                    return float(match.group(1).replace(',', '.'))
+        return None
+
+    def _paid_for_order(client_obj, order_id_int: int) -> float:
+        paid = 0.0
+        for p in client_obj.payments.all():
+            amt = _distribution_amount_for_order(p.notes or '', order_id_int)
+            if amt is not None:
+                paid += amt
+                continue
+
+            # Фолбэк для старых платежей без блока "Распределение"
+            if p.notes and (f'Заказ #{order_id_int}' in p.notes or f'#{order_id_int}' in p.notes):
+                # Если явно указан заказ в тексте — считаем весь платёж относящимся к нему
+                paid += float(p.amount)
+        return paid
     
     if request.method == 'POST':
         client_id = request.POST.get('client_id')
@@ -654,10 +702,10 @@ def accept_payment(request):
                 orders_to_pay = RentalOrder.objects.filter(
                     id__in=selected_orders,
                     client=client,
-                    status='open'
                 ).order_by('created_at')
             else:
-                orders_to_pay = client.rental_orders.filter(status='open').order_by('created_at')
+                # Важно: распределяем не только по open, но и по closed, если там остался долг
+                orders_to_pay = client.rental_orders.all().order_by('created_at')
             
             # Распределяем оплату
             remaining_payment = payment_amount
@@ -667,13 +715,16 @@ def accept_payment(request):
             for order in orders_to_pay:
                 if remaining_payment <= 0:
                     break
-                
-                order_cost = float(order.get_current_total())
-                
-                if remaining_payment >= order_cost:
+
+                already_paid = _paid_for_order(client, order.id)
+                order_due = float(order.get_current_total()) - already_paid
+                if order_due <= 0:
+                    continue
+
+                if remaining_payment >= order_due:
                     # Полностью оплачен
-                    paid_amount = order_cost
-                    remaining_payment -= order_cost
+                    paid_amount = order_due
+                    remaining_payment -= order_due
                     payment_distribution.append(f'Заказ #{order.id}: {paid_amount:.0f} сом (полностью)')
                     paid_orders.append(str(order.id))
                 else:
@@ -690,8 +741,12 @@ def accept_payment(request):
                     full_notes = f"{order_note}\n{notes}\n\nРаспределение:\n" + '\n'.join(payment_distribution)
                 else:
                     full_notes = f"{order_note}\n\nРаспределение:\n" + '\n'.join(payment_distribution)
+
+                # Если остался остаток — это аванс
+                if remaining_payment > 0:
+                    full_notes += f"\n\nАванс: {remaining_payment:.0f} сом"
             else:
-                full_notes = notes if notes else 'Аванс (нет открытых заказов)'
+                full_notes = notes if notes else 'Аванс (нет долгов по заказам)'
             
             # Создаём оплату
             Payment.objects.create(
@@ -714,13 +769,19 @@ def accept_payment(request):
     for client in clients:
         debt = client.get_debt()
         if debt > 0:
-            open_orders = client.rental_orders.filter(status='open').order_by('created_at')
+            open_orders = client.rental_orders.all().order_by('created_at')
             orders_list = []
             for order in open_orders:
+                already_paid = _paid_for_order(client, order.id)
+                order_due = float(order.get_current_total()) - already_paid
+                if order_due <= 0:
+                    continue
                 orders_list.append({
                     'id': order.id,
                     'created_at': order.created_at,
                     'total': float(order.get_current_total()),
+                    'due': order_due,
+                    'status': order.status,
                     'items_count': order.items.count(),
                 })
             
@@ -738,25 +799,75 @@ def accept_payment(request):
     if selected_client_id:
         try:
             selected_client = Client.objects.get(id=selected_client_id)
-            for order in selected_client.rental_orders.filter(status='open').order_by('created_at'):
+            for order in selected_client.rental_orders.all().order_by('created_at'):
+                already_paid = _paid_for_order(selected_client, order.id)
+                order_due = float(order.get_current_total()) - already_paid
+                if order_due <= 0:
+                    continue
                 selected_client_orders.append({
                     'id': order.id,
                     'created_at': order.created_at,
                     'total': float(order.get_current_total()),
+                    'due': order_due,
+                    'status': order.status,
                     'items_count': order.items.count(),
                 })
         except Client.DoesNotExist:
             pass
     
+    clients_with_debt_ids = [d['client'].id for d in clients_with_debt]
+
     context = {
         'clients': clients,
         'clients_with_debt': clients_with_debt,
+        'clients_with_debt_ids': clients_with_debt_ids,
         'selected_client': selected_client,
         'selected_client_id': selected_client_id,
         'selected_client_orders': selected_client_orders,
     }
     
     return render(request, 'rental/payment.html', context)
+
+
+@login_required
+def client_orders_json(request, client_id):
+    """AJAX: вернуть список заказов клиента с суммами к оплате"""
+    import json as _json
+    client = get_object_or_404(Client, id=client_id)
+
+    def _paid_for_order_local(client_obj, order_id_int):
+        import re
+        paid = 0.0
+        for p in client_obj.payments.all():
+            notes_text = p.notes or ''
+            if 'Распределение:' in notes_text:
+                for line in notes_text.split('\n'):
+                    m = re.search(rf'Заказ\s*#{order_id_int}\s*:\s*(\d+(?:[\.,]\d+)?)\s*сом', line)
+                    if m:
+                        paid += float(m.group(1).replace(',', '.'))
+                        break
+            elif f'Заказ #{order_id_int}' in notes_text or f'#{order_id_int}' in notes_text:
+                paid += float(p.amount)
+        return paid
+
+    orders_data = []
+    for order in client.rental_orders.filter(status='open').order_by('created_at'):
+        already_paid = _paid_for_order_local(client, order.id)
+        due = float(order.get_current_total()) - already_paid
+        if due <= 0:
+            continue
+        orders_data.append({
+            'id': order.id,
+            'created_at': order.created_at.strftime('%d.%m.%Y %H:%M'),
+            'items_count': order.items.count(),
+            'status': order.status,
+            'status_display': 'открыт' if order.status == 'open' else 'закрыт',
+            'due': round(due),
+            'total': round(float(order.get_current_total())),
+        })
+
+    return JsonResponse({'orders': orders_data})
+
 
 @login_required
 def returns_page(request):
@@ -793,6 +904,11 @@ def returns_page(request):
                             )
                             has_returns = True
                             total_cost += float(return_item.calculated_cost)
+                            
+                            # ✅ ВАЖНО: ОБНОВЛЯЕМ ДОСТУПНОСТЬ ТОВАРА
+                            product = order_item.product
+                            product.update_available_quantity()
+                            
                     except OrderItem.DoesNotExist:
                         pass
         
@@ -810,9 +926,11 @@ def returns_page(request):
             except (ValueError, TypeError):
                 pass
             
+            messages.success(request, '✅ Товары возвращены и инвентарь обновлён!')
             return redirect('main:client_detail', client_id=client_id)
         else:
             return_doc.delete()
+            messages.warning(request, '⚠️ Нет товаров для возврата')
             return redirect(f'/rental/returns/?client_id={client_id}')
     
     # GET запрос
@@ -965,7 +1083,7 @@ def edit_order(request, order_id):
                             original_total_cost=total_cost,
                             current_total_cost=total_cost,
                         )
-                        
+                        product.update_available_quantity()
                         return redirect('main:edit_order', order_id=order.id)
                 except Product.DoesNotExist:
                     pass
@@ -1149,12 +1267,49 @@ def close_order(request, order_id):
     from apps.rental.models import ReturnDocument, ReturnItem
     from django.utils import timezone
     from decimal import Decimal
-    
+    import re
+
+    if request.method != 'POST':
+        return redirect('main:client_detail', client_id=get_object_or_404(RentalOrder, id=order_id).client.id)
+
     order = get_object_or_404(RentalOrder, id=order_id)
-    
+
     if order.status != 'open':
+        messages.warning(request, 'Заказ уже закрыт')
         return redirect('main:client_detail', client_id=order.client.id)
-    
+
+    client = order.client
+
+    # === Проверяем долг по заказу перед закрытием ===
+    # Текущая стоимость заказа (с учётом просрочек/изменений)
+    current_cost = float(order.get_current_total())
+
+    # Сколько уже оплачено по этому заказу (по распределениям в примечаниях платежей)
+    total_paid_for_order = 0.0
+    for payment in client.payments.all():
+        if payment.notes and f'#{order.id}' in payment.notes:
+            if 'Распределение:' in payment.notes:
+                for line in payment.notes.split('\n'):
+                    pattern = rf'Заказ\s*#{order.id}\s*:\s*(\d+(?:[\.,]\d+)?)\s*сом'
+                    match = re.search(pattern, line)
+                    if match:
+                        total_paid_for_order += float(match.group(1).replace(',', '.'))
+            else:
+                # Старые платежи могли быть без блока "Распределение"
+                # В этом случае считаем, что весь платёж относится к заказу
+                total_paid_for_order += float(payment.amount)
+
+    client_balance = client.get_wallet_balance()
+    order_debt = float(calculate_order_debt(order, total_paid_for_order, client_balance))
+
+    if order_debt > 0:
+        messages.error(
+            request,
+            f'Нельзя закрыть заказ, пока есть долг по заказу: {order_debt:.0f} сом. '
+            'Сначала примите оплату или зачтите аванс.'
+        )
+        return redirect('main:client_detail', client_id=client.id)
+
     now = timezone.now()
     items_to_return = list(order.items.filter(quantity_remaining__gt=0))
     
@@ -1185,22 +1340,23 @@ def close_order(request, order_id):
                 calculated_cost=calculated_cost
             )
             
-            # Обновляем OrderItem полностью
+            # Обновляем OrderItem
             item.quantity_returned += item.quantity_remaining
             item.quantity_remaining = 0
             item.actual_cost = calculated_cost
-            item.current_total_cost = calculated_cost  # <-- ИСПРАВЛЕНИЕ
+            item.current_total_cost = calculated_cost
             item.save()
             
+            # ✅ ОБНОВЛЯЕМ ИНВЕНТАРЬ
             product = item.product
-            product.quantity_available += item.quantity_taken
-            product.save()
+            product.update_available_quantity()
     
     order.status = 'closed'
     order.save()
     
-    messages.success(request, f'Заказ #{order.id} закрыт. Все товары возвращены на склад.')
+    messages.success(request, f'✅ Заказ #{order.id} закрыт. Все товары возвращены на склад.')
     return redirect('main:client_detail', client_id=order.client.id)
+
 
 from django.db.models.functions import Lower
 
@@ -1432,141 +1588,72 @@ def send_overdue_notification(request, order_id):
 
 
 
-@admin_required
-def edit_order_dates(request, order_id):
-    """Изменить даты возврата товаров в заказе (можно выбрать несколько) с отслеживанием в истории"""
-    from apps.rental.models import RentalOrder, OrderItem
-    from decimal import Decimal
-    from datetime import timedelta
-
+@login_required
+def edit_order_dates_with_log(request, order_id):
+    """Изменить даты возврата с логированием в notes"""
     order = get_object_or_404(RentalOrder, id=order_id)
-
-    # Получаем все невозвращённые товары в заказе
-    items = order.items.filter(quantity_remaining__gt=0)
-
+    
+    if not request.user.is_staff:
+        messages.error(request, '🔒 Нет прав')
+        return redirect('main:client_detail', client_id=order.client.id)
+    
     if request.method == 'POST':
-        # Получаем выбранные товары
-        selected_items = request.POST.getlist('items')  # Список ID товаров
-        new_date_str = request.POST.get('new_date')
-
-        if not selected_items:
-            messages.error(request, 'Выберите хотя бы один товар')
-            return redirect(request.path)
-
-        if not new_date_str:
-            messages.error(request, 'Укажите новую дату')
-            return redirect(request.path)
-
-        try:
-            # Парсим дату
-            new_date = datetime.strptime(new_date_str, '%Y-%m-%dT%H:%M')
-            new_date = timezone.make_aware(new_date)
-
-            # Обновляем даты для выбранных товаров и собираем информацию об изменениях
-            updated_count = 0
-            changes_log = []  # Список изменений для истории
-
-            for item_id in selected_items:
+        changes_log = []
+        
+        for item in order.items.all():
+            new_date_str = request.POST.get(f'return_date_{item.id}')
+            
+            if new_date_str:
                 try:
-                    item = OrderItem.objects.get(id=int(item_id), order=order)
-                    old_date = item.planned_return_date
-
-                    # Вычисляем старую и новую стоимость
-                    # Используем quantity_taken (взятое количество), а не quantity_remaining
-                    quantity = Decimal(item.quantity_taken)
-
-                    # Старая стоимость (по старой дате)
-                    old_delta = old_date - item.issued_date
-                    old_total_hours = int(old_delta.total_seconds() / 3600)
-                    old_days = old_total_hours // 24
-                    old_hours = old_total_hours % 24
-                    old_cost = quantity * (
-                        Decimal(item.price_per_day) * old_days +
-                        Decimal(item.price_per_hour) * old_hours
-                    )
-
-                    # Новая стоимость (по новой дате)
-                    new_delta = new_date - item.issued_date
-                    new_total_hours = int(new_delta.total_seconds() / 3600)
-                    new_days = new_total_hours // 24
-                    new_hours = new_total_hours % 24
-                    new_cost = quantity * (
-                        Decimal(item.price_per_day) * new_days +
-                        Decimal(item.price_per_hour) * new_hours
-                    )
-
-                    # Разница стоимости
-                    cost_difference = new_cost - old_cost
-
-                    # Обновляем дату И стоимость
-                    item.planned_return_date = new_date
-                    item.current_total_cost = new_cost  # Обновляем сумму!
-                    item.save()
-                    updated_count += 1
-
-                    # Формируем информацию об изменении для истории
-                    old_date_str = old_date.strftime('%d.%m.%Y %H:%M')
-                    new_date_str_formatted = new_date.strftime('%d.%m.%Y %H:%M')
-
-                    change_info = {
-                        'product_name': item.product.name,
-                        'quantity': item.quantity_remaining,
-                        'old_date': old_date_str,
-                        'new_date': new_date_str_formatted,
-                        'old_cost': float(old_cost),
-                        'new_cost': float(new_cost),
-                        'cost_difference': float(cost_difference),
-                    }
-                    changes_log.append(change_info)
-
-                    print(f"✅ Обновлён товар {item.product.name}: {old_date} → {new_date}, разница: {cost_difference:.0f} сом")
-                except OrderItem.DoesNotExist:
-                    print(f"❌ Товар {item_id} не найден")
-
-            # Добавляем информацию об изменениях в историю (в notes заказа)
-            if changes_log:
-                # Формируем текст истории
-                history_lines = []
-                total_diff = 0
-                for change in changes_log:
-                    diff_symbol = '+' if change['cost_difference'] >= 0 else ''
-                    history_lines.append(
-                        f"📅 Изменение даты: {change['product_name']} x{change['quantity']} - "
-                        f"с {change['old_date']} на {change['new_date']} "
-                        f"(сумма: {diff_symbol}{change['cost_difference']:.0f} сом)"
-                    )
-                    total_diff += change['cost_difference']
-
-                # Добавляем в notes заказа
-                history_text = "\n".join(history_lines)
-                if order.notes:
-                    order.notes = f"{order.notes}\n\n{history_text}"
-                else:
-                    order.notes = history_text
-                order.save()
-
-                # Сообщение пользователю
-                diff_symbol = '+' if total_diff >= 0 else ''
-                messages.success(
-                    request,
-                    f'Дата возврата обновлена для {updated_count} товаров на {new_date.strftime("%d.%m.%Y %H:%M")}. '
-                    f'Итоговая корректировка суммы: {diff_symbol}{total_diff:.0f} сом'
+                    new_date = timezone.datetime.strptime(new_date_str, '%Y-%m-%dT%H:%M')
+                    new_date = timezone.make_aware(new_date)
+                except ValueError:
+                    continue
+                
+                # Сравниваем без секунд (форма не отправляет секунды)
+                if new_date == item.planned_return_date.replace(second=0, microsecond=0):
+                    continue
+                
+                old_date = item.planned_return_date
+                old_cost = item.original_total_cost
+                
+                # Пересчёт
+                item.planned_return_date = new_date
+                item.recalculate_from_dates()
+                item.save()
+                
+                # Логируем изменение
+                cost_diff = item.original_total_cost - old_cost
+                local_now = timezone.localtime()
+                log_entry = (
+                    f"[{local_now.strftime('%d.%m.%Y %H:%M')}] "
+                    f"{request.user.username}: "
+                    f"Изменил дату возврата {item.product.name} x{item.quantity_taken} "
+                    f"с {old_date.strftime('%d.%m.%Y %H:%M')} "
+                    f"на {new_date.strftime('%d.%m.%Y %H:%M')} "
+                    f"({cost_diff:+.0f} сом)"
                 )
+                changes_log.append(log_entry)
+        
+        if changes_log:
+            # Добавляем в notes заказа
+            if order.notes:
+                order.notes += '\n\n' + '\n'.join(changes_log)
             else:
-                messages.success(request, f'Дата возврата обновлена для {updated_count} товаров на {new_date.strftime("%d.%m.%Y %H:%M")}')
-
-            return redirect('main:client_detail', client_id=order.client.id)
-
-        except ValueError as e:
-            messages.error(request, f'Неверный формат даты: {e}')
-
+                order.notes = '\n'.join(changes_log)
+            order.save()
+            
+            messages.success(request, '✅ Даты обновлены и записаны в историю заказа')
+        else:
+            messages.info(request, 'ℹ️ Изменений не было')
+        
+        return redirect('main:client_detail', client_id=order.client.id)
+    
     context = {
         'order': order,
         'client': order.client,
-        'items': items,
     }
-
-    return render(request, 'rental/edit_item_date.html', context)
+    return render(request, 'rental/edit_item_date.html', context)   
 
 @manager_required
 def create_product(request):

@@ -1,484 +1,490 @@
-
-{% extends 'base.html' %}
+{% extends 'base_dark.html' %}
 {% load static %}
 
 {% block title %}Главная панель{% endblock %}
 
 {% block extra_css %}
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* ── METRIC CARDS ── */
+.mc {
+    border-radius: 20px;
+    padding: 26px 26px 20px;
+    position: relative;
+    overflow: hidden;
+    min-height: 152px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.mc-pink {
+    background: linear-gradient(135deg, #f472b6 0%, #c026d3 45%, #7c3aed 100%);
+    box-shadow: 0 10px 36px rgba(192,38,211,.42);
+}
+.mc-cyan {
+    background: linear-gradient(135deg, #67e8f9 0%, #06b6d4 38%, #0284c7 72%, #3b82f6 100%);
+    box-shadow: 0 10px 36px rgba(6,182,212,.35);
+}
+.mc::before {
+    content:''; position:absolute; top:-34px; right:-34px;
+    width:130px; height:130px; border-radius:50%;
+    background:rgba(255,255,255,.09); pointer-events:none;
+}
+.mc::after {
+    content:''; position:absolute; bottom:-52px; right:42px;
+    width:105px; height:105px; border-radius:50%;
+    background:rgba(255,255,255,.05); pointer-events:none;
+}
+.mc-lbl { font-size:12px; color:rgba(255,255,255,.72); text-transform:uppercase; letter-spacing:1.1px; margin-bottom:5px; }
+.mc-val { font-size:40px; font-weight:700; font-family:'JetBrains Mono',monospace; color:#fff; line-height:1.1; }
+.mc-val span { font-size:17px; font-weight:400; opacity:.72; margin-left:4px; }
+.mc-badge {
+    display:inline-flex; align-items:center; gap:4px;
+    background:rgba(255,255,255,.2); border-radius:999px;
+    padding:3px 12px; font-size:12px; font-weight:600; color:#fff;
+}
 
-    :root {
-        --dark-bg: #0f172a;
-        --card-bg: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        --card-border: rgba(148, 163, 184, 0.1);
-        --text-primary: #f1f5f9;
-        --text-secondary: #94a3b8;
-        --accent-blue: #3b82f6;
-        --accent-purple: #8b5cf6;
-        --accent-green: #10b981;
-        --accent-red: #ef4444;
-        --accent-orange: #f59e0b;
-    }
+/* ── STAT CARDS ── */
+.sc {
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:20px 22px;
+    box-shadow:var(--shadow);
+    transition:background .3s, border .3s;
+    display:flex; flex-direction:column;
+    justify-content:space-between;
+    min-height:152px;
+}
+.sc-icon {
+    width:42px; height:42px; border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:19px; flex-shrink:0;
+}
+.si-p { background:linear-gradient(135deg,rgba(244,114,182,.22),rgba(192,38,211,.1)); }
+.si-c { background:linear-gradient(135deg,rgba(6,182,212,.22),rgba(59,130,246,.1)); }
+.sc-val { font-size:30px; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--text1); }
+.sc-lbl { font-size:12px; color:var(--text2); margin-top:3px; }
+.bp { background:rgba(16,185,129,.17); color:#10b981; border-radius:999px; padding:2px 9px; font-size:11px; font-weight:600; }
+.bn { background:rgba(239,68,68,.17); color:#ef4444; border-radius:999px; padding:2px 9px; font-size:11px; font-weight:600; }
 
-    body {
-        background: var(--dark-bg);
-        font-family: 'Space Grotesk', sans-serif;
-        color: var(--text-primary);
-    }
+/* ── CHART CARDS ── */
+.cc {
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:22px;
+    box-shadow:var(--shadow);
+    transition:background .3s, border .3s;
+}
+.ct { font-size:15px; font-weight:600; color:var(--text1); }
+.cs { font-size:12px; color:var(--text2); margin-top:2px; margin-bottom:14px; }
 
-    .gradient-card {
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        border-radius: 20px;
-        padding: 24px;
-        position: relative;
-        overflow: hidden;
-        transition: all 0.3s ease;
-    }
+/* legend */
+.ld { width:10px; height:10px; border-radius:50%; display:inline-block; flex-shrink:0; }
 
-    .gradient-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 50%);
-        opacity: 0;
-        transition: opacity 0.3s ease;
-        pointer-events: none;
-    }
+/* ── OVERDUE ── */
+.ov {
+    background:rgba(239,68,68,.07);
+    border-left:3px solid #ef4444;
+    padding:12px 14px;
+    border-radius:12px;
+    margin-bottom:9px;
+    transition:all .2s;
+    display:block; text-decoration:none;
+}
+.ov:hover { background:rgba(239,68,68,.13); transform:translateX(4px); }
 
-    .gradient-card:hover {
-        transform: translateY(-4px);
-        border-color: rgba(148, 163, 184, 0.3);
-    }
-
-    .gradient-card:hover::before {
-        opacity: 1;
-    }
-
-    .stat-value {
-        font-size: 48px;
-        font-weight: 700;
-        line-height: 1;
-        background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    .stat-label {
-        font-size: 14px;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-top: 8px;
-    }
-
-    .chart-card {
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        border-radius: 20px;
-        padding: 28px;
-        height: 100%;
-    }
-
-    .chart-title {
-        font-size: 18px;
-        font-weight: 600;
-        margin-bottom: 20px;
-        color: var(--text-primary);
-    }
-
-    .overdue-item {
-        background: rgba(239, 68, 68, 0.1);
-        border-left: 3px solid var(--accent-red);
-        padding: 16px;
-        border-radius: 12px;
-        margin-bottom: 12px;
-        transition: all 0.2s ease;
-    }
-
-    .overdue-item:hover {
-        background: rgba(239, 68, 68, 0.15);
-        transform: translateX(4px);
-    }
-
-    .top-product {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 12px 0;
-        border-bottom: 1px solid var(--card-border);
-    }
-
-    .product-bar {
-        height: 8px;
-        background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
-        border-radius: 4px;
-        transition: width 0.5s ease;
-    }
-
-    .icon-wrapper {
-        width: 56px;
-        height: 56px;
-        border-radius: 16px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 28px;
-        position: absolute;
-        top: 24px;
-        right: 24px;
-    }
-
-    .icon-blue {
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.05));
-    }
-
-    .icon-purple {
-        background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.05));
-    }
-
-    .icon-green {
-        background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.05));
-    }
-
-    .icon-red {
-        background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.05));
-    }
-
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .animate-in {
-        animation: fadeInUp 0.6s ease-out backwards;
-    }
-
-    .animate-in:nth-child(1) { animation-delay: 0.1s; }
-    .animate-in:nth-child(2) { animation-delay: 0.2s; }
-    .animate-in:nth-child(3) { animation-delay: 0.3s; }
-    .animate-in:nth-child(4) { animation-delay: 0.4s; }
-</style>
+/* ── ANIMATIONS ── */
+@keyframes fu { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+.an { animation: fu .5s ease-out backwards; }
+.an:nth-child(1){animation-delay:.04s}
+.an:nth-child(2){animation-delay:.10s}
+.an:nth-child(3){animation-delay:.16s}
+.an:nth-child(4){animation-delay:.22s}
 {% endblock %}
 
 {% block content %}
-<div class="space-y-8">
-    
-    <!-- Header -->
-    <div class="flex justify-between items-center">
-        <div>
-            <h1 class="text-4xl font-bold mb-2" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                Главная панель
-            </h1>
-            <p class="text-gray-400">Обзор системы аренды • {{ now|date:"d.m.Y H:i" }}</p>
-        </div>
+<div style="max-width:1400px; margin:0 auto;">
+<div style="display:flex; flex-direction:column; gap:22px;">
+
+    <!-- ── PAGE HEADER ── -->
+    <div>
+        <h1 style="font-size:28px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.2;">
+            Главная панель
+        </h1>
+        <p style="color:var(--text2);font-size:13px;margin-top:4px;">
+            {{ now|date:"d.m.Y" }} • {{ now|date:"H:i" }}
+        </p>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        
-        <!-- Всего клиентов -->
-        <div class="gradient-card animate-in">
-            <div class="icon-wrapper icon-blue">👥</div>
-            <div class="stat-value">{{ total_clients }}</div>
-            <div class="stat-label">Всего клиентов</div>
-            <div class="mt-4 text-sm text-gray-400">
-                <span class="text-green-400">↑ {{ new_clients_week }}</span> за неделю
-            </div>
-        </div>
+    <!-- ── ROW 1: 2 Big cards + 2 stat cards ── -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;">
 
-        <!-- Активных заказов -->
-        <div class="gradient-card animate-in">
-            <div class="icon-wrapper icon-purple">📦</div>
-            <div class="stat-value">{{ active_orders }}</div>
-            <div class="stat-label">Активных заказов</div>
-            <div class="mt-4 text-sm text-gray-400">
-                <span class="text-blue-400">{{ total_orders }}</span> всего
-            </div>
-        </div>
-
-        <!-- Общий долг -->
-        <div class="gradient-card animate-in">
-            <div class="icon-wrapper icon-red">💰</div>
-            <div class="stat-value text-red-400">{{ total_debt|floatformat:0 }}</div>
-            <div class="stat-label">Общий долг (сом)</div>
-            <div class="mt-4 text-sm text-gray-400">
-                <span class="text-red-400">⚠️ {{ debtors_count }}</span> должников
-            </div>
-        </div>
-
-        <!-- Доход за месяц -->
-        <div class="gradient-card animate-in">
-            <div class="icon-wrapper icon-green">📈</div>
-            <div class="stat-value text-green-400">{{ revenue_month|floatformat:0 }}</div>
-            <div class="stat-label">Доход за месяц (сом)</div>
-            <div class="mt-4 text-sm text-gray-400">
-                <span class="text-green-400">↑ {{ revenue_growth }}%</span> к прошлому месяцу
-            </div>
-        </div>
-
-    </div>
-
-<!-- Charts Row 1 -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    
-    <!-- График доходов -->
-    <div class="chart-card">
-        <h3 class="chart-title">📈 Доходы за последние 7 дней</h3>
-        <div style="position: relative; height: 300px;">
-            <canvas id="revenueChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Круговая диаграмма -->
-    <div class="chart-card">
-        <h3 class="chart-title">📊 Оплаты vs Долги</h3>
-        <div style="position: relative; height: 300px;">
-            <canvas id="paymentsChart"></canvas>
-        </div>
-    </div>
-
-</div>
-
-<!-- Charts Row 2 -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    
-    <!-- График заказов -->
-    <div class="chart-card">
-        <h3 class="chart-title">📦 Заказы (Открытые vs Закрытые)</h3>
-        <div style="position: relative; height: 300px;">
-            <canvas id="ordersChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Топ товаров -->
-    <div class="chart-card">
-        <h3 class="chart-title">🔥 Топ-5 популярных товаров</h3>
-        <div class="space-y-4 mt-4">
-            {% for product in top_products %}
+        <!-- Pink -->
+        <div class="mc mc-pink an">
             <div>
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-sm font-medium">{{ product.name }}</span>
-                    <span class="text-sm text-gray-400">{{ product.rental_count }} аренд</span>
-                </div>
-                <div class="product-bar" style="width: {{ product.percentage }}%;"></div>
+                <div class="mc-lbl">Активных заказов</div>
+                <div class="mc-val">{{ active_orders }}</div>
             </div>
-            {% endfor %}
+            <div><span class="mc-badge">📦 {{ total_orders }} всего</span></div>
         </div>
+
+        <!-- Cyan -->
+        <div class="mc mc-cyan an">
+            <div>
+                <div class="mc-lbl">Доход за месяц</div>
+                <div class="mc-val">{{ revenue_month|floatformat:0 }}<span>сом</span></div>
+            </div>
+            <div>
+                <span class="mc-badge">
+                    {% if revenue_growth >= 0 %}↑ +{% else %}↓ {% endif %}{{ revenue_growth }}%
+                </span>
+            </div>
+        </div>
+
+        <!-- Clients -->
+        <div class="sc an">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div class="sc-icon si-c">👥</div>
+                <span class="bp">+{{ new_clients_week }} нед.</span>
+            </div>
+            <div>
+                <div class="sc-val">{{ total_clients }}</div>
+                <div class="sc-lbl">Клиентов</div>
+            </div>
+        </div>
+
+        <!-- Debtors -->
+        <div class="sc an">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div class="sc-icon si-p">⚠️</div>
+                <span class="bn">{{ total_debt|floatformat:0 }} с</span>
+            </div>
+            <div>
+                <div class="sc-val">{{ debtors_count }}</div>
+                <div class="sc-lbl">Должников</div>
+            </div>
+        </div>
+
     </div>
 
-</div>
+    <!-- ── ROW 2: Main line chart + Mini revenue chart ── -->
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:18px;">
 
-    <!-- Просроченные заказы -->
-    <div class="chart-card">
-        <h3 class="chart-title">⚠️ Просроченные заказы ({{ overdue_orders|length }})</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <!-- Main line chart -->
+        <div class="cc">
+            <div style="display:flex;flex-wrap:wrap;align-items:start;justify-content:space-between;gap:10px;">
+                <div>
+                    <div class="ct">Заказы Создано vs Закрыто</div>
+                    <div class="cs">Динамика за последние 7 дней</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:18px;font-size:12px;color:var(--text2);margin-bottom:14px;">
+                    <span style="display:flex;align-items:center;gap:6px;">
+                        <span class="ld" style="background:#06b6d4;"></span>Создано
+                    </span>
+                    <span style="display:flex;align-items:center;gap:6px;">
+                        <span style="display:inline-block;width:20px;border-top:3px dotted #c026d3;margin-bottom:3px;flex-shrink:0;"></span>Закрыто
+                    </span>
+                </div>
+            </div>
+            <div style="position:relative;height:275px;">
+                <canvas id="ordersChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Mini revenue chart -->
+        <div class="cc" style="display:flex;flex-direction:column;justify-content:space-between;">
+            <div>
+                <div class="ct">Доходы</div>
+                <div class="cs">За последние 7 дней</div>
+                <div style="position:relative;height:188px;">
+                    <canvas id="miniChart"></canvas>
+                </div>
+            </div>
+            <div style="margin-top:14px;padding:12px 16px;border-radius:14px;
+                background:linear-gradient(135deg,rgba(6,182,212,.14),rgba(59,130,246,.08));
+                border:1px solid rgba(6,182,212,.2);
+                display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-size:12px;color:var(--text2);">Итого</span>
+                <span style="font-size:16px;font-weight:700;color:#06b6d4;font-family:'JetBrains Mono',monospace;">
+                    {{ revenue_month|floatformat:0 }} с
+                </span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── ROW 3: 3 bottom charts ── -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;">
+
+        <!-- Donut: Top products -->
+        <div class="cc">
+            <div class="ct">Топ товаров</div>
+            <div class="cs">По количеству аренд</div>
+            <div style="position:relative;height:225px;">
+                <canvas id="topChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Donut: Finance -->
+        <div class="cc">
+            <div class="ct">Финансы</div>
+            <div class="cs">Оплачено vs Долг</div>
+            <div style="position:relative;height:225px;">
+                <canvas id="finChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Bar: Weekday -->
+        <div class="cc">
+            <div class="ct">По дням недели</div>
+            <div class="cs">Количество заказов</div>
+            <div style="position:relative;height:225px;">
+                <canvas id="wdChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── ROW 4: Overdue orders ── -->
+    <div class="cc">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div class="ct">Просроченные заказы</div>
+            <span style="background:rgba(239,68,68,.15);color:#ef4444;border-radius:999px;padding:3px 14px;font-size:13px;font-weight:600;">
+                {{ overdue_orders|length }}
+            </span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
             {% for order in overdue_orders %}
-            <a href="/clients/{{ order.client.id }}/" class="overdue-item">
-                <div class="flex justify-between items-start">
+            <a href="/clients/{{ order.client.id }}/" class="ov">
+                <div style="display:flex;justify-content:space-between;align-items:start;">
                     <div>
-                        <div class="font-semibold text-white">Заказ #{{ order.id }}</div>
-                        <div class="text-sm text-gray-400 mt-1">{{ order.client.get_full_name }}</div>
-                        <div class="text-xs text-red-400 mt-2">
+                        <div style="font-weight:600;font-size:14px;color:var(--text1);">Заказ #{{ order.id }}</div>
+                        <div style="font-size:12px;color:var(--text2);margin-top:3px;">{{ order.client.get_full_name }}</div>
+                        <div style="font-size:12px;color:#ef4444;margin-top:3px;">
                             Просрочено: {{ order.days_overdue }} дн. • {{ order.overdue_items }} товаров
                         </div>
                     </div>
-                    <div class="text-right">
-                        <div class="text-lg font-bold text-red-400">{{ order.total|floatformat:0 }} сом</div>
+                    <div style="font-size:16px;font-weight:700;color:#ef4444;font-family:'JetBrains Mono',monospace;margin-left:12px;white-space:nowrap;">
+                        {{ order.total|floatformat:0 }} с
                     </div>
                 </div>
             </a>
             {% empty %}
-            <div class="col-span-2 text-center py-8 text-gray-500">
-                ✅ Нет просроченных заказов
+            <div style="grid-column:span 2;text-align:center;padding:32px;color:var(--text2);">
+                ✅ Просроченных заказов нет
             </div>
             {% endfor %}
         </div>
     </div>
 
-    <div class="flex justify-between mt-6">
-        <a href="/calendar/" data-turbo="false" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-semibold flex items-center gap-2">
-            <span>📅</span>
-            <span>Посмотреть календарь →</span>
-        </a>
-        {% if user.is_staff %}
-        <a href="/backup/create/" data-turbo="false" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-sm font-semibold flex items-center gap-2">
-            <span>🗄️</span>
-            <span>Резервные копии →</span>
-        </a>
-        {% endif %}
-        {% if user.is_superuser or user.groups.all.0.name == 'Администратор' %}
-        <a href="{% url 'main:users_management' %}" data-turbo="false" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold flex items-center gap-2">👥 Пользователи</a>
-        {% endif %}
+</div>
 </div>
 
-<!-- Chart.js -->
+<!-- CHART.JS -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-    // Общая конфигурация для всех графиков
-    Chart.defaults.color = '#94a3b8';
-    Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.1)';
-    Chart.defaults.font.family = "'Space Grotesk', sans-serif";
+Chart.defaults.font.family = "'Space Grotesk', sans-serif";
 
-    // График доходов
-    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-    new Chart(revenueCtx, {
-        type: 'line',
-        data: {
-            labels: {{ revenue_labels|safe }},
-            datasets: [{
-                label: 'Доход (сом)',
-                data: {{ revenue_data|safe }},
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.4,
-                pointBackgroundColor: '#3b82f6',
-                pointBorderColor: '#1e293b',
-                pointBorderWidth: 2,
-                pointRadius: 5,
-                pointHoverRadius: 7,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: '#1e293b',
-                    titleColor: '#f1f5f9',
-                    bodyColor: '#94a3b8',
-                    borderColor: 'rgba(148, 163, 184, 0.3)',
-                    borderWidth: 1,
-                    padding: 12,
-                    displayColors: false,
-                }
+/* ── helpers ── */
+function tv() {
+    const dark = document.documentElement.getAttribute('data-theme') !== 'light';
+    return {
+        text: dark ? '#8892b0' : '#555b80',
+        grid: dark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.055)',
+        tip:  dark ? '#1e2048' : '#ffffff',
+        tipT: dark ? '#e2e8f0' : '#1a1b2e',
+        tipB: dark ? '#8892b0' : '#555b80',
+    };
+}
+function tipCfg() {
+    const v = tv();
+    return {
+        backgroundColor: v.tip,
+        titleColor:      v.tipT,
+        bodyColor:       v.tipB,
+        borderColor:     'rgba(6,182,212,.28)',
+        borderWidth:     1,
+        padding:         12,
+        cornerRadius:    10,
+    };
+}
+function makeGrad(ctx, h, r,g,b, a0, a1) {
+    const gr = ctx.createLinearGradient(0,0,0,h);
+    gr.addColorStop(0, `rgba(${r},${g},${b},${a0})`);
+    gr.addColorStop(1, `rgba(${r},${g},${b},${a1})`);
+    return gr;
+}
+
+/* ── 1. MAIN LINE CHART ── */
+const lCtx = document.getElementById('ordersChart').getContext('2d');
+const lineChart = new Chart(lCtx, {
+    type: 'line',
+    data: {
+        labels: {{ orders_labels|safe }},
+        datasets: [
+            {
+                label: 'Создано',
+                data:  {{ orders_open_data|safe }},
+                borderColor: '#06b6d4',
+                backgroundColor: makeGrad(lCtx, 275, 6,182,212, .38, .02),
+                borderWidth: 2.5, fill: true, tension: 0.45,
+                pointBackgroundColor: '#06b6d4',
+                pointBorderColor: '#13142a', pointBorderWidth: 2,
+                pointRadius: 5, pointHoverRadius: 7,
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(148, 163, 184, 0.05)' },
-                    ticks: { color: '#94a3b8' }
-                },
-                x: {
-                    grid: { display: false },
-                    ticks: { color: '#94a3b8' }
-                }
-            }
-        }
-    });
-
-    // Круговая диаграмма
-    const paymentsCtx = document.getElementById('paymentsChart').getContext('2d');
-    new Chart(paymentsCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Оплачено', 'Долги', 'Аванс'],
-            datasets: [{
-                data: [{{ total_paid }}, {{ total_credit }}, {{ total_debt }}],
-                backgroundColor: [
-                    'rgba(16, 185, 129, 0.8)',
-                    'rgba(239, 68, 68, 0.8)',
-                    'rgba(139, 92, 246, 0.8)',
-                ],
-                borderColor: '#0f172a',
-                borderWidth: 3,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: '#94a3b8',
-                        padding: 20,
-                        font: { size: 13 }
-                    }
-                },
-                tooltip: {
-                    backgroundColor: '#1e293b',
-                    titleColor: '#f1f5f9',
-                    bodyColor: '#94a3b8',
-                    borderColor: 'rgba(148, 163, 184, 0.3)',
-                    borderWidth: 1,
-                    padding: 12,
-                    callbacks: {
-                        label: function(context) {
-                            return context.label + ': ' + context.parsed.toFixed(0) + ' сом';
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    // График заказов
-    const ordersCtx = document.getElementById('ordersChart').getContext('2d');
-    new Chart(ordersCtx, {
-        type: 'bar',
-        data: {
-            labels: {{ orders_labels|safe }},
-            datasets: [
-                {
-                    label: 'Открытые',
-                    data: {{ orders_open_data|safe }},
-                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                },
-                {
-                    label: 'Закрытые',
-                    data: {{ orders_closed_data|safe }},
-                    backgroundColor: 'rgba(148, 163, 184, 0.5)',
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: '#94a3b8',
-                        padding: 20,
-                        font: { size: 13 }
-                    }
-                },
-                tooltip: {
-                    backgroundColor: '#1e293b',
-                    titleColor: '#f1f5f9',
-                    bodyColor: '#94a3b8',
-                    borderColor: 'rgba(148, 163, 184, 0.3)',
-                    borderWidth: 1,
-                    padding: 12,
-                }
+            {
+                label: 'Закрыто',
+                data:  {{ orders_closed_data|safe }},
+                borderColor: '#c026d3',
+                backgroundColor: makeGrad(lCtx, 275, 192,38,211, .22, .02),
+                borderWidth: 2.5, fill: true, tension: 0.45,
+                borderDash: [1, 7], borderCapStyle: 'round',
+                pointBackgroundColor: '#c026d3',
+                pointBorderColor: '#13142a', pointBorderWidth: 2,
+                pointRadius: 5, pointHoverRadius: 7,
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(148, 163, 184, 0.05)' },
-                    ticks: { color: '#94a3b8' }
-                },
-                x: {
-                    grid: { display: false },
-                    ticks: { color: '#94a3b8' }
-                }
-            }
+        ],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+            legend: { display: false },
+            tooltip: { ...tipCfg(), callbacks: { label: c => '  '+c.dataset.label+': '+c.parsed.y } },
+        },
+        scales: {
+            y: { beginAtZero:true, grid:{color:tv().grid}, ticks:{color:tv().text,stepSize:1}, border:{display:false} },
+            x: { grid:{display:false}, ticks:{color:tv().text}, border:{display:false} },
+        },
+    },
+});
+
+/* ── 2. MINI REVENUE CHART ── */
+const mCtx = document.getElementById('miniChart').getContext('2d');
+const miniChart = new Chart(mCtx, {
+    type: 'line',
+    data: {
+        labels: {{ revenue_labels|safe }},
+        datasets: [{
+            data: {{ revenue_data|safe }},
+            borderColor: '#06b6d4',
+            backgroundColor: makeGrad(mCtx, 188, 6,182,212, .55, .02),
+            borderWidth: 2.5, fill: true, tension: 0.45,
+            pointBackgroundColor: '#06b6d4',
+            pointBorderColor: '#13142a', pointBorderWidth: 2,
+            pointRadius: 3, pointHoverRadius: 6,
+        }],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { ...tipCfg(), callbacks: { label: c => '  '+c.parsed.y.toFixed(0)+' сом' } },
+        },
+        scales: {
+            y: { beginAtZero:true, grid:{color:tv().grid}, ticks:{color:tv().text,maxTicksLimit:4}, border:{display:false} },
+            x: { grid:{display:false}, ticks:{color:tv().text}, border:{display:false} },
+        },
+    },
+});
+
+/* ── 3. TOP PRODUCTS DONUT ── */
+const tCtx = document.getElementById('topChart').getContext('2d');
+const topChart = new Chart(tCtx, {
+    type: 'doughnut',
+    data: {
+        labels: [{% for p in top_products %}"{{ p.name|truncatechars:14 }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            data: [{% for p in top_products %}{{ p.rental_count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            backgroundColor: ['#06b6d4','#3b82f6','#8b5cf6','#ec4899','#10b981'],
+            borderColor: 'transparent', borderWidth: 0, hoverOffset: 8,
+        }],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false, cutout: '67%',
+        plugins: {
+            legend: { position:'bottom', labels: { color:tv().text, padding:10, font:{size:11}, boxWidth:10, boxHeight:10 } },
+            tooltip: tipCfg(),
+        },
+    },
+});
+
+/* ── 4. FINANCE DONUT ── */
+const fCtx = document.getElementById('finChart').getContext('2d');
+const finChart = new Chart(fCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Оплачено','Долг'],
+        datasets: [{
+            data: [{{ total_paid|floatformat:0 }}, {{ total_debt|floatformat:0 }}],
+            backgroundColor: ['#06b6d4','#ec4899'],
+            borderColor: 'transparent', borderWidth: 0, hoverOffset: 8,
+        }],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false, cutout: '67%',
+        plugins: {
+            legend: { position:'bottom', labels: { color:tv().text, padding:10, font:{size:11}, boxWidth:10, boxHeight:10 } },
+            tooltip: { ...tipCfg(), callbacks: { label: c => '  '+c.label+': '+c.parsed.toFixed(0)+' сом' } },
+        },
+    },
+});
+
+/* ── 5. WEEKDAY BAR ── */
+const wCtx = document.getElementById('wdChart').getContext('2d');
+function makeBarGrad(ctx) {
+    const g = ctx.createLinearGradient(0,0,0,225);
+    g.addColorStop(0,  'rgba(6,182,212,.92)');
+    g.addColorStop(1,  'rgba(59,130,246,.42)');
+    return g;
+}
+const wdChart = new Chart(wCtx, {
+    type: 'bar',
+    data: {
+        labels: {{ weekday_labels|safe }},
+        datasets: [{
+            label: 'Заказов',
+            data:  {{ weekday_data|safe }},
+            backgroundColor: makeBarGrad(wCtx),
+            borderRadius: 8, borderSkipped: false,
+        }],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: tipCfg(),
+        },
+        scales: {
+            y: { beginAtZero:true, grid:{color:tv().grid}, ticks:{color:tv().text,stepSize:1}, border:{display:false} },
+            x: { grid:{display:false}, ticks:{color:tv().text}, border:{display:false} },
+        },
+    },
+});
+
+/* ── UPDATE ALL CHARTS ON THEME CHANGE ── */
+document.addEventListener('crmThemeChange', () => {
+    const v = tv();
+    [lineChart, miniChart, topChart, finChart, wdChart].forEach(ch => {
+        if (ch.options.scales) {
+            ['x','y'].forEach(ax => {
+                const s = ch.options.scales[ax];
+                if (!s) return;
+                s.ticks = { ...s.ticks, color: v.text };
+                if (s.grid && s.grid.display !== false) s.grid.color = v.grid;
+            });
         }
+        if (ch.options.plugins?.legend?.labels)
+            ch.options.plugins.legend.labels.color = v.text;
+        if (ch.options.plugins?.tooltip)
+            Object.assign(ch.options.plugins.tooltip, tipCfg());
+        ch.update();
     });
+});
+
+/* apply on load if saved as light */
+if (_savedTheme === 'light') {
+    document.dispatchEvent(new CustomEvent('crmThemeChange'));
+}
 </script>
 {% endblock %}
