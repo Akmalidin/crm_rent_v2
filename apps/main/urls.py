@@ -1,6 +1,7 @@
 from django.urls import path
 from . import telegram_webhook_complete, views, reports_views, pdf_views
 from apps.clients import views as clients_views
+from apps.inventory import views as inventory_views
 from django.contrib.auth import views as auth_views
 
 app_name = 'main'
@@ -72,4 +73,9 @@ urlpatterns = [
     # Бэкапы
     path('backup/download/', views.download_latest_backup, name='download_backup'),
     path('backup/create/', views.create_backup_now, name='create_backup'),
+
+    # Товары
+    path('products/', inventory_views.products_list, name='products_list'),
+    path('products/create/', inventory_views.create_product, name='create_product'),
+    path('products/<int:product_id>/edit/', inventory_views.edit_product, name='edit_product'),
 ]

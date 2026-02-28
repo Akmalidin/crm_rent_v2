@@ -1,7 +1,11 @@
 <!-- templates/dashboard/index.html -->
-{% extends 'base.html' %}
+{% extends 'base_dark.html' %}
 
 {% block title %}Главная - CRM Аренда{% endblock %}
+
+{% block extra_css %}
+.bg-white{background:var(--card)!important}.bg-gray-50,.bg-gray-100{background:var(--card2)!important}.text-gray-900,.text-gray-800,.text-gray-700{color:var(--text1)!important}.text-gray-600,.text-gray-500{color:var(--text2)!important}.border-t{border-color:var(--border)!important}.shadow,.shadow-sm,.shadow-lg{box-shadow:var(--shadow)!important}.hover\:bg-gray-50:hover,.hover\:bg-gray-100:hover{background:rgba(124,58,237,.08)!important}thead{background:var(--card2)!important}thead th{color:var(--text2)!important}.bg-blue-50{background:rgba(59,130,246,.1)!important}.hover\:bg-blue-100:hover{background:rgba(59,130,246,.15)!important}.bg-green-50{background:rgba(16,185,129,.1)!important}.hover\:bg-green-100:hover{background:rgba(16,185,129,.15)!important}.bg-yellow-50{background:rgba(245,158,11,.1)!important}.hover\:bg-yellow-100:hover{background:rgba(245,158,11,.15)!important}.bg-purple-50{background:rgba(124,58,237,.1)!important}.hover\:bg-purple-100:hover{background:rgba(124,58,237,.15)!important}.bg-green-100{background:rgba(16,185,129,.15)!important}.bg-gray-100{background:var(--card2)!important}
+{% endblock %}
 
 {% block content %}
 <div class="space-y-6">

@@ -1,5 +1,10 @@
 <!-- templates/reports/main.html -->
-{% extends 'base.html' %}
+{% extends 'base_dark.html' %}
+
+{% block extra_css %}
+.bg-white{background:var(--card)!important}.bg-gray-50,.bg-gray-100{background:var(--card2)!important}.text-gray-900,.text-gray-800,.text-gray-700{color:var(--text1)!important}.text-gray-600,.text-gray-500{color:var(--text2)!important}.shadow,.shadow-sm,.shadow-lg{box-shadow:var(--shadow)!important}.bg-blue-100{background:rgba(59,130,246,.15)!important}.bg-green-100{background:rgba(16,185,129,.15)!important}.bg-purple-100{background:rgba(124,58,237,.15)!important}.bg-yellow-100{background:rgba(245,158,11,.15)!important}.bg-blue-50{background:rgba(59,130,246,.08)!important}.bg-green-50{background:rgba(16,185,129,.08)!important}.bg-purple-50{background:rgba(124,58,237,.08)!important}.bg-yellow-50{background:rgba(245,158,11,.08)!important}.hover\:shadow-xl:hover{box-shadow:0 20px 60px rgba(0,0,0,.5)!important}
+{% endblock %}
+
 
 {% block title %}Отчёты - CRM Аренда{% endblock %}
 

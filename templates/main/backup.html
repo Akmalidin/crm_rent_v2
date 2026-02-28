@@ -1,36 +1,39 @@
-{% extends 'base.html' %}
+{% extends 'base_dark.html' %}
 {% block title %}Резервные копии{% endblock %}
 
+{% block extra_css %}
+.bk-card { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:32px; box-shadow:var(--shadow); }
+.bk-btn { display:inline-flex; align-items:center; gap:10px; padding:14px 24px; border-radius:12px; font-size:14px; font-weight:700; text-decoration:none; transition:opacity .2s; }
+.bk-btn:hover { opacity:.85; }
+{% endblock %}
+
 {% block content %}
-<div class="max-w-4xl mx-auto mt-8">
-    <h1 class="text-3xl font-bold text-gray-800 mb-6">🗄️ Резервные копии</h1>
-    
-    <div class="bg-white rounded-xl shadow-lg p-6">
-        <p class="text-gray-700 mb-4">Здесь вы можете создать новую резервную копию базы данных или скачать последнюю созданную.</p>
-        
-        <div class="flex gap-4">
-            <a href="{% url 'main:download_backup' %}" 
-               class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-semibold flex items-center gap-2">
-                <span>📥</span>
-                <span>Скачать последнюю резервную копию</span>
+<div style="max-width:680px;margin:0 auto;">
+    <h1 style="font-size:26px;font-weight:700;color:var(--text1);margin-bottom:24px;">🗄️ Резервные копии</h1>
+
+    <div class="bk-card">
+        <p style="color:var(--text2);margin-bottom:28px;line-height:1.6;">
+            Здесь вы можете создать новую резервную копию базы данных или скачать последнюю созданную.
+        </p>
+
+        <div style="display:flex;gap:14px;flex-wrap:wrap;">
+            <a href="{% url 'main:download_backup' %}"
+               class="bk-btn"
+               style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;">
+                📥 Скачать последнюю копию
             </a>
-            
-            <a href="{% url 'main:create_backup' %}" 
-               class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold flex items-center gap-2">
-                <span>⚡</span>
-                <span>Создать резервную копию сейчас</span>
+            <a href="{% url 'main:create_backup' %}"
+               class="bk-btn"
+               style="background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff;">
+                ⚡ Создать резервную копию
             </a>
+        </div>
+
+        <div style="margin-top:28px;padding:16px;background:var(--card2);border-radius:12px;border:1px solid var(--border);">
+            <p style="font-size:13px;color:var(--text2);line-height:1.6;">
+                💡 <strong style="color:var(--text1);">Как восстановить:</strong> Остановите сервер, скопируйте файл бэкапа в <code style="color:var(--accent2);">db.sqlite3</code>, запустите сервер.
+            </p>
         </div>
     </div>
 </div>
 {% endblock %}
-
-
-{% comment %} """
-# Остановить сервер
-# Скопировать бэкап:
-cp backups/db_backup_2026-02-21_15-30-00.sqlite3 db.sqlite3
-
-# Запустить сервер
-python manage.py runserver
-""" {% endcomment %}

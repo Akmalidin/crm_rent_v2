@@ -1,7 +1,11 @@
 <!-- templates/reports/monthly.html -->
-{% extends 'base.html' %}
+{% extends 'base_dark.html' %}
 
 {% block title %}Отчёт по месяцам - CRM Аренда{% endblock %}
+
+{% block extra_css %}
+.bg-white{background:var(--card)!important}.bg-gray-50,.bg-gray-100,.bg-gray-200{background:var(--card2)!important}.text-gray-900,.text-gray-800,.text-gray-700{color:var(--text1)!important}.text-gray-600,.text-gray-500{color:var(--text2)!important}.border-gray-200,.border-gray-300{border-color:var(--border)!important}.divide-y>*+*{border-color:var(--border)!important}.shadow,.shadow-sm,.shadow-lg{box-shadow:var(--shadow)!important}.hover\:bg-gray-50:hover{background:rgba(124,58,237,.08)!important}thead{background:var(--card2)!important}thead th{color:var(--text2)!important;border-color:var(--border)!important}tfoot{background:var(--card2)!important}tfoot td{color:var(--text1)!important;border-color:var(--border)!important}.bg-green-100{background:rgba(16,185,129,.15)!important;color:rgba(16,185,129,.9)!important}
+{% endblock %}
 
 {% block content %}
 <div class="space-y-6">

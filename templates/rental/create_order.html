@@ -1,5 +1,12 @@
-{% extends 'base.html' %}
+{% extends 'base_dark.html' %}
 {% block title %}Создать заказ{% endblock %}
+
+{% block extra_css %}
+.bg-white{background:var(--card)!important}.bg-gray-50,.bg-gray-100,.bg-gray-200{background:var(--card2)!important}.text-gray-900,.text-gray-800,.text-gray-700{color:var(--text1)!important}.text-gray-600,.text-gray-500{color:var(--text2)!important}.text-gray-400,.text-gray-300{color:var(--text3)!important}.border-gray-200,.border-gray-300,.border-gray-100{border-color:var(--border)!important}.shadow,.shadow-sm,.shadow-lg,.shadow-xl,.shadow-2xl{box-shadow:var(--shadow)!important}input[type=number],input[type=text],input::placeholder{color:var(--text1)!important}input[type=number],input[type=text]{background:var(--card2)!important;border-color:var(--border)!important}.bg-blue-50{background:rgba(59,130,246,.1)!important}.border-blue-200{border-color:rgba(59,130,246,.3)!important}.bg-purple-50{background:rgba(124,58,237,.1)!important}.border-purple-200{border-color:rgba(124,58,237,.3)!important}.bg-red-50{background:rgba(239,68,68,.1)!important}.border-red-200{border-color:rgba(239,68,68,.3)!important}.bg-green-50{background:rgba(16,185,129,.1)!important}.border-green-200{border-color:rgba(16,185,129,.3)!important}.bg-gradient-to-r.from-blue-50{background:var(--card2)!important}.border-blue-200{border-color:rgba(59,130,246,.3)!important}.bg-gradient-to-r.from-purple-50{background:var(--card2)!important}.border-purple-200{border-color:rgba(124,58,237,.3)!important}
+.item-row{background:var(--card2)!important;border-color:rgba(124,58,237,.25)!important}.item-cost{color:#a78bfa!important}
+/* Select2 dark */
+.select2-container--default .select2-selection--single{background:var(--card2)!important;border:1px solid var(--border)!important}.select2-container--default .select2-selection--single .select2-selection__rendered{color:var(--text1)!important}.select2-dropdown{background:var(--card)!important;border-color:var(--border)!important;box-shadow:var(--shadow)!important}.select2-results__option{background:var(--card)!important;color:var(--text1)!important}.select2-results__option--highlighted{background:rgba(124,58,237,.3)!important;color:#fff!important}.select2-search--dropdown .select2-search__field{background:var(--card2)!important;border-color:var(--border)!important;color:var(--text1)!important}.select2-results__option--disabled{color:var(--text3)!important}
+{% endblock %}
 
 {% block extra_head %}
     <!-- Select2 для поиска -->
@@ -69,7 +76,7 @@
         <!-- Левая колонка: Форма -->
         <div class="lg:col-span-2 space-y-8">
             
-            <form method="POST" action="{% url 'main:create_order' %}" id="orderForm">
+            <form method="POST" action="{% url 'main:create_order' %}" id="orderForm" enctype="multipart/form-data">
                 {% csrf_token %}
                 
                 <!-- ШАГ 1: Клиент -->
@@ -234,6 +241,35 @@
                     >
                         ➕ Добавить ещё товар
                     </button>
+                </div>
+
+                <!-- ШАГ 3: Доказательство (необязательно) -->
+                <div class="bg-gradient-to-r from-green-50 to-green-100 rounded-2xl p-8 border-2 border-green-200 shadow-lg mt-8">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white text-xl font-bold">3</div>
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900">Доказательство <span class="text-base font-normal text-gray-500">(необязательно)</span></h2>
+                            <p class="text-sm text-gray-500 mt-1">Фото, скриншот или голосовое сообщение от клиента</p>
+                        </div>
+                    </div>
+
+                    <div id="proof-zone"
+                         onclick="document.getElementById('proof-input').click()"
+                         style="border:2px dashed #86efac;border-radius:16px;min-height:100px;display:flex;align-items:center;gap:20px;padding:20px;cursor:pointer;background:rgba(255,255,255,.5);transition:border-color .2s;">
+                        <div id="proof-ph" style="display:flex;align-items:center;gap:16px;width:100%;">
+                            <div id="proof-icon" style="font-size:36px;flex-shrink:0;">📎</div>
+                            <div>
+                                <div id="proof-hint" style="font-size:14px;font-weight:600;color:#374151;">Нажмите для загрузки файла</div>
+                                <div style="font-size:12px;color:#6b7280;margin-top:4px;">Фото · Аудио · PDF / DOC</div>
+                            </div>
+                        </div>
+                        <audio id="proof-audio" controls style="display:none;width:100%;position:relative;z-index:2;" onclick="event.stopPropagation()"></audio>
+                    </div>
+                    <input type="file" id="proof-input" name="proof_file"
+                           accept="image/*,audio/*,.pdf,.doc,.docx"
+                           style="display:none"
+                           onchange="showOrderProof(this)">
+                    <p id="proof-label" style="font-size:11px;color:#6b7280;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></p>
                 </div>
 
                 <!-- Кнопка отправки -->
@@ -735,5 +771,24 @@ function calculateTotal() {
 }
 
 document.addEventListener('DOMContentLoaded', updateRemoveButtons);
+
+function showOrderProof(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const zone = document.getElementById('proof-zone');
+    zone.style.borderColor = '#22c55e';
+    document.getElementById('proof-label').textContent = '✓ ' + file.name;
+    document.getElementById('proof-hint').textContent = 'Нажмите для замены';
+    if (file.type.startsWith('audio/')) {
+        const audio = document.getElementById('proof-audio');
+        audio.src = URL.createObjectURL(file);
+        audio.style.display = 'block';
+        document.getElementById('proof-icon').textContent = '🎤';
+    } else if (file.type.startsWith('image/')) {
+        document.getElementById('proof-icon').textContent = '🖼';
+    } else {
+        document.getElementById('proof-icon').textContent = '📄';
+    }
+}
 </script>
 {% endblock %}

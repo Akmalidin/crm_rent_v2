@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py makemigrations clients)",
+      "Bash(xargs grep -l \"login\\\\|register\\\\|product\\\\|inventory\")",
+      "Bash(python manage.py check)",
+      "Bash(python manage.py makemigrations clients --name remove_proof_file)",
+      "Bash(python manage.py makemigrations rental --name add_proof_file_to_order)",
+      "Bash(python manage.py migrate)"
+    ]
+  }
+}

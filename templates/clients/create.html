@@ -1,48 +1,243 @@
-{% extends 'base.html' %}
+{% extends 'base_dark.html' %}
 {% block title %}Новый клиент{% endblock %}
 
+{% block extra_css %}
+.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 32px;box-shadow:var(--shadow);margin-bottom:20px}
+.sec-title{font-size:15px;font-weight:700;color:var(--text1);margin:0 0 20px;display:flex;align-items:center;gap:8px}
+.fi{margin-bottom:18px}
+.fi label{display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;letter-spacing:.4px;text-transform:uppercase}
+.fi input[type=text]{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;font-size:15px;color:var(--text1);font-family:inherit;outline:none;transition:border .2s,box-shadow .2s;box-sizing:border-box}
+.fi input[type=text]:focus{border-color:rgba(124,58,237,.5);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
+.fi input::placeholder{color:var(--text3)}
+
+/* Phone */
+.phone-wrap{display:flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card2);transition:border .2s,box-shadow .2s}
+.phone-wrap:focus-within{border-color:rgba(124,58,237,.5);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
+.country-btns{display:flex;border-right:1px solid var(--border)}
+.country-btn{background:transparent;border:none;padding:0 14px;font-size:13px;font-weight:700;color:var(--text3);cursor:pointer;transition:all .2s;white-space:nowrap;font-family:inherit}
+.country-btn.active{color:var(--text1);background:rgba(124,58,237,.15)}
+.country-btn:not(:last-child){border-right:1px solid var(--border)}
+.phone-input{flex:1;background:transparent;border:none;padding:12px 16px;font-size:15px;color:var(--text1);font-family:inherit;outline:none}
+.phone-input::placeholder{color:var(--text3)}
+
+/* Upload */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.upload-label-text{font-size:12px;font-weight:700;color:var(--text2);margin:0 0 8px;letter-spacing:.4px;text-transform:uppercase}
+.upload-zone{position:relative;border:2px dashed var(--border);border-radius:16px;aspect-ratio:3/2;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;overflow:hidden;background:var(--card2)}
+.upload-zone:hover{border-color:rgba(124,58,237,.6);background:rgba(124,58,237,.06)}
+.upload-zone.filled{border-style:solid;border-color:rgba(124,58,237,.5)}
+.upload-zone img.preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px}
+.upload-ph{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px;text-align:center;position:relative;z-index:1}
+.upload-zone.filled .upload-ph{background:rgba(0,0,0,.5);border-radius:10px}
+.upload-ph .icon{font-size:32px;line-height:1}
+.upload-ph .hint{font-size:12px;color:var(--text2);font-weight:600;line-height:1.4}
+.upload-ph .tags{display:flex;gap:6px;margin-top:4px}
+.upload-ph .tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;background:rgba(124,58,237,.2);color:#a78bfa}
+.upload-zone.filled .upload-ph .hint,.upload-zone.filled .upload-ph .tag{color:#fff}
+.upload-zone.filled .upload-ph .tag{background:rgba(255,255,255,.2)}
+
+/* Buttons */
+.btn-p{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff;border:none;border-radius:12px;padding:13px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s}
+.btn-p:hover{opacity:.85}
+.btn-s{display:inline-flex;align-items:center;gap:8px;background:var(--card2);color:var(--text2);border:1px solid var(--border);border-radius:12px;padding:13px 28px;font-size:15px;font-weight:600;text-decoration:none;transition:all .2s}
+.btn-s:hover{background:var(--card);color:var(--text1)}
+.err-msg{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:12px;padding:12px 16px;font-size:14px;margin-bottom:16px}
+{% endblock %}
+
 {% block content %}
-<div class="max-w-2xl mx-auto">
-    <h1 class="text-3xl font-bold mb-6">➕ Новый клиент</h1>
-    
-    <form method="POST" class="bg-white rounded-xl shadow p-6 space-y-4">
+<div style="max-width:600px;margin:0 auto;">
+
+    <div style="margin-bottom:28px;">
+        <a href="/clients/" style="color:var(--accent2);text-decoration:none;font-size:13px;font-weight:600;">← Клиенты</a>
+        <h1 style="font-size:26px;font-weight:700;color:var(--text1);margin-top:8px;">➕ Новый клиент</h1>
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div class="err-msg">⚠️ {{ msg }}</div>
+    {% endfor %}
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" id="createForm" novalidate>
         {% csrf_token %}
-        
-        <div>
-            <label class="block font-semibold mb-2">Фамилия *</label>
-            <input type="text" name="last_name" required 
-                   class="w-full px-4 py-2 border rounded-lg">
+
+        <!-- Личные данные -->
+        <div class="card">
+            <div class="sec-title">👤 Личные данные</div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="fi">
+                    <label>Фамилия <span style="color:#f87171">*</span></label>
+                    <input type="text" name="last_name" required placeholder="Иванов" autocomplete="family-name">
+                </div>
+                <div class="fi">
+                    <label>Имя <span style="color:#f87171">*</span></label>
+                    <input type="text" name="first_name" required placeholder="Иван" autocomplete="given-name">
+                </div>
+            </div>
+            <div class="fi">
+                <label>Отчество</label>
+                <input type="text" name="middle_name" placeholder="Иванович" autocomplete="additional-name">
+            </div>
+
+            <!-- Телефон с маской -->
+            <div class="fi">
+                <label>Телефон <span style="color:#f87171">*</span></label>
+                <div class="phone-wrap" id="phoneWrap">
+                    <div class="country-btns">
+                        <button type="button" class="country-btn active" id="btn996" onclick="setCountry('996')">🇰🇬 +996</button>
+                        <button type="button" class="country-btn" id="btn7" onclick="setCountry('7')">🇷🇺 +7</button>
+                    </div>
+                    <input type="tel" class="phone-input" id="phoneDisplay" placeholder="555 123 456" autocomplete="tel">
+                    <input type="hidden" name="phone" id="phoneHidden">
+                </div>
+                <div id="phoneHint" style="font-size:11px;color:var(--text3);margin-top:6px;">Формат: +996 XXX XXX XXX</div>
+            </div>
         </div>
-        
-        <div>
-            <label class="block font-semibold mb-2">Имя *</label>
-            <input type="text" name="first_name" required 
-                   class="w-full px-4 py-2 border rounded-lg">
+
+        <!-- Фото паспорта -->
+        <div class="card">
+            <div class="sec-title">🪪 Фото паспорта</div>
+            <p style="font-size:13px;color:var(--text3);margin:-12px 0 20px;">Нажмите на зону — выберите фото или откройте камеру</p>
+
+            <div class="upload-grid">
+                <!-- Лицевая -->
+                <div>
+                    <p class="upload-label-text">Лицевая сторона <span style="color:#f87171">*</span></p>
+                    <div class="upload-zone" id="zone-front" onclick="triggerUpload('inp-front')">
+                        <img class="preview" id="prev-front" style="display:none" alt="">
+                        <div class="upload-ph" id="ph-front">
+                            <div class="icon">🪪</div>
+                            <div class="hint">Нажмите для загрузки</div>
+                            <div class="tags">
+                                <span class="tag">📁 Файл</span>
+                                <span class="tag">📷 Камера</span>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="file" id="inp-front" name="passport_front" accept="image/*"
+                           required style="display:none"
+                           onchange="showPreview(this,'prev-front','zone-front','ph-front')">
+                    <p id="lbl-front" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></p>
+                </div>
+
+                <!-- Обратная -->
+                <div>
+                    <p class="upload-label-text">Обратная сторона <span style="color:#f87171">*</span></p>
+                    <div class="upload-zone" id="zone-back" onclick="triggerUpload('inp-back')">
+                        <img class="preview" id="prev-back" style="display:none" alt="">
+                        <div class="upload-ph" id="ph-back">
+                            <div class="icon">🔖</div>
+                            <div class="hint">Нажмите для загрузки</div>
+                            <div class="tags">
+                                <span class="tag">📁 Файл</span>
+                                <span class="tag">📷 Камера</span>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="file" id="inp-back" name="passport_back" accept="image/*"
+                           required style="display:none"
+                           onchange="showPreview(this,'prev-back','zone-back','ph-back')">
+                    <p id="lbl-back" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></p>
+                </div>
+            </div>
+
+            <!-- Подсказка про камеру -->
+            <p style="font-size:12px;color:var(--text3);margin-top:16px;text-align:center;">
+                📱 На мобильном устройстве при нажатии откроется выбор: <strong style="color:var(--text2)">Камера</strong> или <strong style="color:var(--text2)">Галерея</strong>
+            </p>
         </div>
-        
-        <div>
-            <label class="block font-semibold mb-2">Отчество</label>
-            <input type="text" name="middle_name" 
-                   class="w-full px-4 py-2 border rounded-lg">
-        </div>
-        
-        <div>
-            <label class="block font-semibold mb-2">Телефон *</label>
-            <input type="tel" name="phone" required 
-                   placeholder="+996 XXX XXX XXX"
-                   class="w-full px-4 py-2 border rounded-lg">
-        </div>
-        
-        <div class="flex gap-4">
-            <button type="submit" 
-                    class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">
-                Создать клиента
-            </button>
-            <a href="/clients/" 
-               class="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-semibold">
-                Отмена
-            </a>
+
+        <div style="display:flex;gap:12px;">
+            <button type="submit" class="btn-p">✓ Создать клиента</button>
+            <a href="/clients/" class="btn-s">Отмена</a>
         </div>
     </form>
 </div>
+
+<script>
+// ─── Phone mask ───────────────────────────────────────────────────────────────
+let country = '996';
+
+function setCountry(code) {
+    country = code;
+    document.getElementById('btn996').classList.toggle('active', code === '996');
+    document.getElementById('btn7').classList.toggle('active', code === '7');
+    const inp = document.getElementById('phoneDisplay');
+    inp.value = '';
+    inp.placeholder = code === '996' ? '555 123 456' : '912 345 67 89';
+    document.getElementById('phoneHint').textContent =
+        code === '996' ? 'Формат: +996 XXX XXX XXX' : 'Формат: +7 XXX XXX XX XX';
+    updateHidden();
+}
+
+document.getElementById('phoneDisplay').addEventListener('input', function () {
+    const maxDigits = country === '996' ? 9 : 10;
+    let digits = this.value.replace(/\D/g, '').slice(0, maxDigits);
+    let fmt = '';
+    if (country === '996') {
+        // XXX XXX XXX
+        if (digits.length > 6)      fmt = digits.slice(0,3)+' '+digits.slice(3,6)+' '+digits.slice(6);
+        else if (digits.length > 3) fmt = digits.slice(0,3)+' '+digits.slice(3);
+        else                        fmt = digits;
+    } else {
+        // XXX XXX XX XX
+        if (digits.length > 8)      fmt = digits.slice(0,3)+' '+digits.slice(3,6)+' '+digits.slice(6,8)+' '+digits.slice(8);
+        else if (digits.length > 6) fmt = digits.slice(0,3)+' '+digits.slice(3,6)+' '+digits.slice(6);
+        else if (digits.length > 3) fmt = digits.slice(0,3)+' '+digits.slice(3);
+        else                        fmt = digits;
+    }
+    this.value = fmt;
+    updateHidden();
+});
+
+function updateHidden() {
+    const digits = document.getElementById('phoneDisplay').value.replace(/\D/g, '');
+    document.getElementById('phoneHidden').value = digits ? '+' + country + digits : '';
+}
+
+// ─── Passport upload & preview ────────────────────────────────────────────────
+function triggerUpload(inputId) {
+    document.getElementById(inputId).click();
+}
+
+function showPreview(input, previewId, zoneId, phId) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    // Show filename
+    const lblId = zoneId === 'zone-front' ? 'lbl-front' : 'lbl-back';
+    document.getElementById(lblId).textContent = '✓ ' + file.name;
+    // Show image preview
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const img = document.getElementById(previewId);
+        img.src = e.target.result;
+        img.style.display = 'block';
+        document.getElementById(zoneId).classList.add('filled');
+        // Update hint text
+        document.getElementById(phId).querySelector('.hint').textContent = 'Нажмите для замены';
+    };
+    reader.readAsDataURL(file);
+}
+
+// ─── Form validation ──────────────────────────────────────────────────────────
+document.getElementById('createForm').addEventListener('submit', function (e) {
+    const phone = document.getElementById('phoneHidden').value;
+    const digits = phone.replace(/\D/g, '');
+    // +996 = 3 + 9 = 12 digits  |  +7 = 1 + 10 = 11 digits
+    const required = country === '996' ? 12 : 11;
+    if (digits.length < required) {
+        e.preventDefault();
+        const wrap = document.getElementById('phoneWrap');
+        wrap.style.borderColor = '#ef4444';
+        wrap.style.boxShadow = '0 0 0 3px rgba(239,68,68,.2)';
+        document.getElementById('phoneDisplay').focus();
+        setTimeout(() => {
+            wrap.style.borderColor = '';
+            wrap.style.boxShadow = '';
+        }, 2500);
+        return;
+    }
+});
+</script>
 {% endblock %}

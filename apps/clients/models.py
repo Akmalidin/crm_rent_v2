@@ -71,7 +71,7 @@ class Client(models.Model):
         return self.rental_orders.filter(status='open')
 
 class ClientPhone(models.Model):
-    phone_regex = RegexValidator(regex=r'^\+?996?\d{9,12}$')
+    phone_regex = RegexValidator(regex=r'^\+(996\d{9}|7\d{10})$', message='Введите номер в формате +996XXXXXXXXX или +7XXXXXXXXXX')
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='phones')
     phone_number = models.CharField('Номер', validators=[phone_regex], max_length=17)
     is_primary = models.BooleanField('Основной', default=False)

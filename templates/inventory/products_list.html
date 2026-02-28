@@ -1,0 +1,146 @@
+{% extends 'base_dark.html' %}
+{% block title %}Товары — CRM Аренда{% endblock %}
+
+{% block extra_css %}
+.bg-white{background:var(--card)!important}.bg-gray-50,.bg-gray-100{background:var(--card2)!important}.text-gray-900,.text-gray-800,.text-gray-700{color:var(--text1)!important}.text-gray-600,.text-gray-500{color:var(--text2)!important}.border-gray-200,.border-gray-300{border-color:var(--border)!important}.divide-y>*+*{border-color:var(--border)!important}.shadow,.shadow-lg,.shadow-xl{box-shadow:var(--shadow)!important}.hover\:bg-gray-50:hover{background:rgba(124,58,237,.08)!important}thead{background:var(--card2)!important}thead th{color:var(--text2)!important;border-color:var(--border)!important}select{background:var(--card2)!important;border-color:var(--border)!important;color:var(--text1)!important}.bg-green-100{background:rgba(16,185,129,.15)!important}.bg-orange-100{background:rgba(245,158,11,.15)!important}.bg-red-100{background:rgba(239,68,68,.15)!important}.bg-blue-100{background:rgba(59,130,246,.15)!important}.bg-purple-100{background:rgba(124,58,237,.15)!important}
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">🔧 Товары</h1>
+            <p class="text-gray-600">Инвентарь и оборудование для аренды</p>
+        </div>
+        <a href="{% url 'main:create_product' %}"
+           class="px-5 py-3 bg-gradient-to-r from-purple-600 to-cyan-500 text-white rounded-xl font-semibold hover:opacity-90 transition shadow">
+            ➕ Добавить товар
+        </a>
+    </div>
+
+    <!-- Stats row -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div style="background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:16px;padding:20px;color:#fff;box-shadow:0 8px 24px rgba(124,58,237,.35)">
+            <p style="font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.5px">Всего позиций</p>
+            <p style="font-size:36px;font-weight:700;margin-top:4px">{{ products|length }}</p>
+        </div>
+        <div style="background:linear-gradient(135deg,#10b981,#059669);border-radius:16px;padding:20px;color:#fff;box-shadow:0 8px 24px rgba(16,185,129,.35)">
+            <p style="font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.5px">Активных</p>
+            <p style="font-size:36px;font-weight:700;margin-top:4px">{{ products|length }}</p>
+        </div>
+        <div style="background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:16px;padding:20px;color:#fff;box-shadow:0 8px 24px rgba(245,158,11,.35)">
+            <p style="font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.5px">Категорий</p>
+            <p style="font-size:36px;font-weight:700;margin-top:4px">{{ categories|length }}</p>
+        </div>
+        <div style="background:linear-gradient(135deg,#06b6d4,#0284c7);border-radius:16px;padding:20px;color:#fff;box-shadow:0 8px 24px rgba(6,182,212,.35)">
+            <p style="font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.5px">В аренде</p>
+            <p style="font-size:36px;font-weight:700;margin-top:4px">{{ total_rented }}</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-xl shadow p-4 flex gap-3 flex-wrap items-center">
+        <form method="GET" class="flex gap-3 flex-wrap items-center flex-1">
+            <select name="category" onchange="this.form.submit()"
+                    class="px-3 py-2 border border-gray-300 rounded-lg text-sm" style="min-width:160px">
+                <option value="">Все категории</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if cat_filter == cat.id|stringformat:"s" %}selected{% endif %}>
+                    {{ cat.name }}
+                </option>
+                {% endfor %}
+            </select>
+            {% if cat_filter %}
+            <a href="{% url 'main:products_list' %}" class="text-sm text-gray-500 hover:text-gray-700 underline">Сбросить</a>
+            {% endif %}
+        </form>
+        <span class="text-sm text-gray-500">Найдено: <strong class="text-gray-800">{{ products|length }}</strong></span>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Товар</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Категория</th>
+                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Всего</th>
+                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Доступно</th>
+                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">В аренде</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Цена/день</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Цена/час</th>
+                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Статус</th>
+                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Действия</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                {% for product in products %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4">
+                        <span class="font-semibold text-gray-900">{{ product.name }}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold">
+                            {{ product.category.name }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-center font-semibold text-gray-800">
+                        {{ product.quantity_total }}
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        {% with av=product.get_available_quantity %}
+                        {% if av > 0 %}
+                        <span class="px-2 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold">{{ av }}</span>
+                        {% else %}
+                        <span class="px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold">0</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        {% with rented=product.quantity_rented %}
+                        {% if rented > 0 %}
+                        <span class="px-2 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-bold">{{ rented }}</span>
+                        {% else %}
+                        <span class="text-gray-400 text-sm">—</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="px-6 py-4 text-right font-semibold text-gray-800">
+                        {{ product.price_per_day|floatformat:0 }} сом
+                    </td>
+                    <td class="px-6 py-4 text-right text-gray-600">
+                        {% if product.price_per_hour %}{{ product.price_per_hour|floatformat:0 }} сом{% else %}—{% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        {% if product.is_active %}
+                        <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">✓ Активен</span>
+                        {% else %}
+                        <span class="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-semibold">Неактивен</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <a href="{% url 'main:edit_product' product.id %}"
+                           class="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-200 transition">
+                            ✏️ Изменить
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="px-6 py-16 text-center text-gray-500">
+                        <div style="font-size:48px;margin-bottom:12px;">📦</div>
+                        <p class="font-semibold">Товаров пока нет</p>
+                        <a href="{% url 'main:create_product' %}" class="text-purple-600 hover:underline text-sm mt-2 inline-block">
+                            Добавить первый товар →
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

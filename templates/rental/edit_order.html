@@ -1,5 +1,10 @@
 <!-- templates/rental/edit_order.html -->
-{% extends 'base.html' %}
+{% extends 'base_dark.html' %}
+
+{% block extra_css %}
+.bg-white{background:var(--card)!important}.bg-gray-50,.bg-gray-100,.bg-gray-200{background:var(--card2)!important}.text-gray-900,.text-gray-800,.text-gray-700{color:var(--text1)!important}.text-gray-600,.text-gray-500{color:var(--text2)!important}.text-gray-400,.text-gray-300{color:var(--text3)!important}.border-gray-200,.border-gray-300,.border-gray-100{border-color:var(--border)!important}.shadow,.shadow-sm,.shadow-lg,.shadow-xl{box-shadow:var(--shadow)!important}input[type=number],input[type=text],select,textarea{background:var(--card2)!important;border-color:var(--border)!important;color:var(--text1)!important}input::placeholder,textarea::placeholder{color:var(--text3)!important}.bg-blue-50{background:rgba(59,130,246,.1)!important}.border-blue-200{border-color:rgba(59,130,246,.3)!important}.bg-green-50{background:rgba(16,185,129,.1)!important}.border-green-200{border-color:rgba(16,185,129,.3)!important}.bg-yellow-50{background:rgba(245,158,11,.1)!important}.border-yellow-200{border-color:rgba(245,158,11,.3)!important}.bg-orange-50{background:rgba(249,115,22,.1)!important}.border-orange-300{border-color:rgba(249,115,22,.35)!important}
+{% endblock %}
+
 
 {% block title %}Редактировать заказ #{{ order.id }} - CRM Аренда{% endblock %}
 

@@ -1,0 +1,102 @@
+{% extends 'base_dark.html' %}
+{% block title %}Добавить товар{% endblock %}
+
+{% block extra_css %}
+.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 32px;box-shadow:var(--shadow);margin-bottom:20px}
+.sec-title{font-size:15px;font-weight:700;color:var(--text1);margin:0 0 20px}
+.fi{margin-bottom:18px}
+.fi label{display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;letter-spacing:.4px;text-transform:uppercase}
+.fi input[type=text],.fi input[type=number],.fi select{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;font-size:15px;color:var(--text1);font-family:inherit;outline:none;transition:border .2s,box-shadow .2s;box-sizing:border-box;-webkit-appearance:none}
+.fi input:focus,.fi select:focus{border-color:rgba(124,58,237,.5);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
+.fi input::placeholder{color:var(--text3)}
+.fi select option{background:var(--card);color:var(--text1)}
+.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.or-divider{display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--text3);font-size:12px}
+.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.btn-p{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff;border:none;border-radius:12px;padding:13px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s}
+.btn-p:hover{opacity:.85}
+.btn-s{display:inline-flex;align-items:center;gap:8px;background:var(--card2);color:var(--text2);border:1px solid var(--border);border-radius:12px;padding:13px 28px;font-size:15px;font-weight:600;text-decoration:none;transition:all .2s}
+.btn-s:hover{background:var(--card);color:var(--text1)}
+.hint-text{font-size:11px;color:var(--text3);margin-top:5px}
+{% endblock %}
+
+{% block content %}
+<div style="max-width:580px;margin:0 auto;">
+
+    <div style="margin-bottom:28px;">
+        <a href="{% url 'main:products_list' %}" style="color:var(--accent2);text-decoration:none;font-size:13px;font-weight:600;">← Товары</a>
+        <h1 style="font-size:26px;font-weight:700;color:var(--text1);margin-top:8px;">➕ Новый товар</h1>
+    </div>
+
+    <form method="POST" id="productForm">
+        {% csrf_token %}
+
+        <!-- Основное -->
+        <div class="card">
+            <div class="sec-title">📦 Информация о товаре</div>
+
+            <div class="fi">
+                <label>Название <span style="color:#f87171">*</span></label>
+                <input type="text" name="name" required placeholder="Перфоратор Bosch GBH 2-26" autofocus>
+            </div>
+
+            <!-- Категория -->
+            <div class="fi">
+                <label>Категория <span style="color:#f87171">*</span></label>
+                {% if categories %}
+                <select name="category" id="catSelect">
+                    <option value="">— Выберите из списка —</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="or-divider">или</div>
+                {% endif %}
+                <input type="text" name="new_category" id="newCat"
+                       placeholder="Введите новую категорию"
+                       {% if not categories %}autofocus{% endif %}>
+                <p class="hint-text">{% if categories %}Оставьте поле новой категории пустым, чтобы выбрать из списка{% else %}Будет создана новая категория{% endif %}</p>
+            </div>
+        </div>
+
+        <!-- Количество и цены -->
+        <div class="card">
+            <div class="sec-title">💰 Количество и цены</div>
+
+            <div class="fi">
+                <label>Количество единиц <span style="color:#f87171">*</span></label>
+                <input type="number" name="quantity_total" min="1" value="1" required placeholder="10">
+                <p class="hint-text">Общее количество в инвентаре</p>
+            </div>
+
+            <div class="price-grid">
+                <div class="fi">
+                    <label>Цена за день <span style="color:#f87171">*</span></label>
+                    <input type="number" name="price_per_day" min="0" step="0.01" required placeholder="500">
+                    <p class="hint-text">В сомах</p>
+                </div>
+                <div class="fi">
+                    <label>Цена за час</label>
+                    <input type="number" name="price_per_hour" min="0" step="0.01" placeholder="80" value="0">
+                    <p class="hint-text">0 — если не используется</p>
+                </div>
+            </div>
+        </div>
+
+        <div style="display:flex;gap:12px;">
+            <button type="submit" class="btn-p">✓ Добавить товар</button>
+            <a href="{% url 'main:products_list' %}" class="btn-s">Отмена</a>
+        </div>
+    </form>
+</div>
+
+<script>
+// If user types in new_category, clear category select and vice versa
+const catSel = document.getElementById('catSelect');
+const newCat = document.getElementById('newCat');
+if (catSel && newCat) {
+    catSel.addEventListener('change', () => { if (catSel.value) newCat.value = ''; });
+    newCat.addEventListener('input',  () => { if (newCat.value) catSel.value = ''; });
+}
+</script>
+{% endblock %}

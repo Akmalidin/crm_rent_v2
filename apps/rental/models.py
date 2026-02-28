@@ -35,6 +35,12 @@ class RentalOrder(models.Model):
         db_index=True
     )
 
+    proof_file = models.FileField(
+        'Доказательство (фото/аудио)',
+        upload_to='orders/proofs/',
+        blank=True,
+        null=True
+    )
 
     class Meta:
         verbose_name = 'Заказ аренды'
