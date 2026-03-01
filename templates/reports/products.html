@@ -1,10 +1,11 @@
 <!-- templates/reports/products.html -->
 {% extends 'base_dark.html' %}
+{% load static %}
 
 {% block title %}Отчёт по товарам - CRM Аренда{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/reports_products.css' %}">{% endblock %}
 
 {% block extra_css %}
-.bg-white{background:var(--card)!important}.bg-gray-50,.bg-gray-100{background:var(--card2)!important}.text-gray-900,.text-gray-800,.text-gray-700{color:var(--text1)!important}.text-gray-600,.text-gray-500{color:var(--text2)!important}.border-gray-200,.border-gray-300{border-color:var(--border)!important}.divide-y>*+*{border-color:var(--border)!important}.shadow,.shadow-sm,.shadow-lg{box-shadow:var(--shadow)!important}.hover\:bg-gray-50:hover{background:rgba(124,58,237,.08)!important}thead{background:var(--card2)!important}thead th{color:var(--text2)!important;border-color:var(--border)!important}.bg-gradient-to-r.from-green-50{background:linear-gradient(to right,rgba(16,185,129,.12),rgba(16,185,129,.04))!important}.bg-gradient-to-r.from-blue-50{background:linear-gradient(to right,rgba(59,130,246,.12),rgba(59,130,246,.04))!important}.border-green-100{border-color:rgba(16,185,129,.25)!important}.border-blue-100{border-color:rgba(59,130,246,.25)!important}.bg-blue-100{background:rgba(59,130,246,.15)!important;color:rgba(59,130,246,.95)!important}.bg-orange-100{background:rgba(245,158,11,.15)!important;color:rgba(245,158,11,.95)!important}.bg-green-100{background:rgba(16,185,129,.15)!important;color:rgba(16,185,129,.95)!important}.bg-red-100{background:rgba(239,68,68,.15)!important;color:rgba(239,68,68,.95)!important}
 {% endblock %}
 
 {% block content %}

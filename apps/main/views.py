@@ -16,6 +16,23 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User, Group, Permission
 from .decorators import admin_required, manager_required, cashier_required
 from django.contrib.auth import login, authenticate
+from apps.main.models import UserProfile
+
+
+def get_tenant_owner(user):
+    """
+    Возвращает суперпользователя-владельца тенанта для данного user.
+    Если user сам суперпользователь — возвращает себя.
+    Если user — сотрудник — возвращает owner из его UserProfile.
+    """
+    if user.is_superuser:
+        return user
+    try:
+        owner = user.profile.owner
+        return owner if owner else user
+    except Exception:
+        return user
+
 
 def register_view(request):
     """Страница регистрации"""
@@ -48,21 +65,60 @@ def register_view(request):
             password=password
         )
         
-        # Делаем первого пользователя администратором
-        if User.objects.count() == 1:
+        # Первый пользователь = создатель системы
+        is_first_user = not User.objects.filter(is_staff=True, is_superuser=True).exclude(id=user.id).exists()
+
+        if is_first_user:
+            # Создатель системы — полный доступ
             user.is_staff = True
             user.is_superuser = True
+            user.is_active = True
             admin_group, _ = Group.objects.get_or_create(name='Администратор')
             user.groups.add(admin_group)
             user.save()
-        
-        # Автоматический вход
-        login(request, user)
-        
-        messages.success(request, 'Регистрация успешна! Настройте профиль компании.')
-        return redirect('main:setup_company')
+            # UserProfile: owner=None → сам является владельцем своей компании
+            UserProfile.objects.get_or_create(user=user, defaults={'owner': None})
+        else:
+            # Новая компания — ждёт одобрения создателем системы
+            user.is_active = False
+            user.is_staff = False
+            user.is_superuser = False
+            user.save()
+            # Профиль: owner=None → станет владельцем своей компании после одобрения
+            UserProfile.objects.get_or_create(user=user, defaults={'owner': None})
+
+        # Уведомление администратора в Telegram о новой регистрации
+        try:
+            from apps.main.telegram_bot_complete import send_telegram_message
+            admin_chat_id = getattr(settings, 'TELEGRAM_ADMIN_CHAT_ID', None)
+            if admin_chat_id:
+                role_label = 'Администратор (первый пользователь)' if is_first_user else 'Новый пользователь (ожидает одобрения)'
+                tg_text = (
+                    f"🆕 <b>Новая регистрация</b>\n\n"
+                    f"👤 Имя пользователя: <code>{username}</code>\n"
+                    f"📧 Email: {email or '—'}\n"
+                    f"🏷️ Роль: {role_label}\n\n"
+                    f"⚠️ Перейдите в панель администратора чтобы одобрить пользователя."
+                )
+                send_telegram_message(admin_chat_id, tg_text)
+        except Exception:
+            pass
+
+        if is_first_user:
+            # Первый пользователь — входим сразу
+            login(request, user)
+            messages.success(request, 'Добро пожаловать! Вы зарегистрированы как администратор.')
+            return redirect('main:setup_company')
+        else:
+            # Обычный пользователь — ждёт одобрения
+            return redirect('main:pending_approval')
     
     return render(request, 'registration/register.html')
+
+
+def pending_approval(request):
+    """Страница ожидания одобрения аккаунта"""
+    return render(request, 'registration/pending_approval.html')
 
 
 @login_required
@@ -146,42 +202,45 @@ def dashboard(request):
     """Современный дашборд с графиками"""
     from django.db.models import Sum
     from decimal import Decimal
-    
+
+    owner = get_tenant_owner(request.user)
+
     now = timezone.now()
     week_ago = now - timedelta(days=7)
     month_ago = now - timedelta(days=30)
-    
+
     # === СТАТИСТИКА ===
-    total_clients = Client.objects.count()
-    new_clients_week = Client.objects.filter(created_at__gte=week_ago).count()
-    
-    active_orders = RentalOrder.objects.filter(status='open').count()
-    total_orders = RentalOrder.objects.count()
-    
+    total_clients = Client.objects.filter(owner=owner).count()
+    new_clients_week = Client.objects.filter(owner=owner, created_at__gte=week_ago).count()
+
+    active_orders = RentalOrder.objects.filter(status='open', client__owner=owner).count()
+    total_orders = RentalOrder.objects.filter(client__owner=owner).count()
+
     # === ДОЛГИ (правильный расчёт через клиентов) ===
     # Общий долг = сумма долгов всех клиентов
-    total_debt = sum(float(c.get_debt()) for c in Client.objects.all())
-    
+    total_debt = sum(float(c.get_debt()) for c in Client.objects.filter(owner=owner))
+
     # Должники (у кого баланс < 0)
-    debtors_count = sum(1 for c in Client.objects.all() if c.get_wallet_balance() < 0)
-    
+    debtors_count = sum(1 for c in Client.objects.filter(owner=owner) if c.get_wallet_balance() < 0)
+
     # === ДОХОД ===
-    total_payments = Payment.objects.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    total_payments = Payment.objects.filter(client__owner=owner).aggregate(total=Sum('amount'))['total'] or Decimal('0')
     revenue_month = float(total_payments)
-    
+
     # Рост дохода
     prev_month_start = month_ago - timedelta(days=30)
     revenue_prev_month = Payment.objects.filter(
+        client__owner=owner,
         payment_date__gte=prev_month_start,
         payment_date__lt=month_ago
     ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
-    
+
     revenue_prev_float = float(revenue_prev_month)
     if revenue_prev_float > 0:
         revenue_growth = int(((revenue_month - revenue_prev_float) / revenue_prev_float) * 100)
     else:
         revenue_growth = 100 if revenue_month > 0 else 0
-    
+
     # === ГРАФИК ДОХОДОВ ПО ДНЯМ ===
     revenue_labels = []
     revenue_data = []
@@ -189,21 +248,22 @@ def dashboard(request):
         day = now - timedelta(days=i)
         revenue_labels.append(day.strftime('%d.%m'))
         day_revenue = Payment.objects.filter(
+            client__owner=owner,
             payment_date__date=day.date()
         ).aggregate(total=Sum('amount'))['total'] or 0
         revenue_data.append(float(day_revenue))
-    
+
     # === КРУГОВАЯ ДИАГРАММА ===
     # Оплачено всего
     total_paid = float(total_payments)
-    
+
     # Аванс (переплата) = сумма кредитов всех клиентов
-    total_credit = sum(float(c.get_credit()) for c in Client.objects.all())
-    
+    total_credit = sum(float(c.get_credit()) for c in Client.objects.filter(owner=owner))
+
     # Для диаграммы: оплачено, долги, аванс
     # Но долги уже включены в "оплачено" как неоплаченная часть
     # Поэтому показываем: реально оплачено vs ещё должен
-    
+
     # === ГРАФИК ЗАКАЗОВ ===
     orders_labels = []
     orders_open_data = []
@@ -211,24 +271,26 @@ def dashboard(request):
     for i in range(6, -1, -1):
         day = now - timedelta(days=i)
         orders_labels.append(day.strftime('%d.%m'))
-        
+
         open_count = RentalOrder.objects.filter(
+            client__owner=owner,
             created_at__date=day.date(),
             status='open'
         ).count()
         closed_count = RentalOrder.objects.filter(
+            client__owner=owner,
             created_at__date=day.date(),
             status='closed'
         ).count()
-        
+
         orders_open_data.append(open_count)
         orders_closed_data.append(closed_count)
-    
+
     # === ТОП-5 ТОВАРОВ ===
-    products_stats = OrderItem.objects.values('product__name').annotate(
+    products_stats = OrderItem.objects.filter(order__client__owner=owner).values('product__name').annotate(
         rental_count=Count('id')
     ).order_by('-rental_count')[:5]
-    
+
     max_count = products_stats[0]['rental_count'] if products_stats else 1
     top_products = [
         {
@@ -238,11 +300,11 @@ def dashboard(request):
         }
         for p in products_stats
     ]
-    
+
     # === ЗАКАЗЫ ПО ДНЯМ НЕДЕЛИ ===
     weekday_names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
     weekday_counts = [0] * 7
-    for order in RentalOrder.objects.all():
+    for order in RentalOrder.objects.filter(client__owner=owner):
         wd = order.created_at.weekday()  # 0=Mon, 6=Sun
         weekday_counts[wd] += 1
     weekday_labels = json.dumps(weekday_names)
@@ -250,7 +312,7 @@ def dashboard(request):
 
     # === ПРОСРОЧЕННЫЕ ЗАКАЗЫ ===
     overdue_orders = []
-    for order in RentalOrder.objects.filter(status='open').prefetch_related('items__product', 'client')[:50]:
+    for order in RentalOrder.objects.filter(status='open', client__owner=owner).prefetch_related('items__product', 'client')[:50]:
         overdue_items_list = [
             item for item in order.items.all()
             if item.quantity_remaining > 0 and item.planned_return_date < now
@@ -264,7 +326,7 @@ def dashboard(request):
                 'overdue_items': len(overdue_items_list),
                 'total': order.get_current_total(),
             })
-    
+
     overdue_orders.sort(key=lambda x: x['days_overdue'], reverse=True)
     
     # context = {
@@ -295,16 +357,18 @@ def dashboard(request):
 def clients_list(request):
     """Список клиентов с фильтрами"""
     from apps.clients.models import Client
-    
+
+    owner = get_tenant_owner(request.user)
+
     # Параметры фильтров
     filter_type  = request.GET.get('filter', '')      # debt / credit / active / all
     date_range   = request.GET.get('date_range', '')  # today / week / month
     amount_min   = request.GET.get('amount_min', '')
     amount_max   = request.GET.get('amount_max', '')
     sort_by      = request.GET.get('sort', '-created_at')
-    
+
     # Базовый queryset
-    clients = Client.objects.prefetch_related('phones', 'rental_orders')
+    clients = Client.objects.filter(owner=owner).prefetch_related('phones', 'rental_orders')
     
     # === СОРТИРОВКА ===
     if sort_by == '-created_at':
@@ -353,7 +417,7 @@ def clients_list(request):
         clients = clients.filter(id__in=filtered_ids)
     
     # Статистика
-    all_clients = Client.objects.prefetch_related('phones', 'rental_orders')
+    all_clients = Client.objects.filter(owner=owner).prefetch_related('phones', 'rental_orders')
     debt_count   = sum(1 for c in all_clients if float(c.get_wallet_balance()) < 0)
     credit_count = sum(1 for c in all_clients if float(c.get_wallet_balance()) > 0)
     active_count = sum(1 for c in all_clients if c.rental_orders.filter(status='open').exists())
@@ -379,8 +443,9 @@ def clients_list(request):
 def client_detail(request, client_id):
     """Карточка клиента с группированной историей"""
     from django.utils import timezone
-    
-    client = get_object_or_404(Client, id=client_id)
+
+    owner = get_tenant_owner(request.user)
+    client = get_object_or_404(Client, id=client_id, owner=owner)
     now = timezone.now()
     
     active_orders = client.rental_orders.filter(status='open').prefetch_related('items__product')
@@ -448,14 +513,16 @@ def create_order(request):
     from apps.clients.models import Client
     from apps.inventory.models import Product
     from apps.rental.models import RentalOrder, OrderItem
-    
+
+    owner = get_tenant_owner(request.user)
+
     # GET запрос - показываем форму
     if request.method == 'GET':
-        # Получаем всех клиентов
-        clients = Client.objects.prefetch_related('phones').all()
-        
-        # Получаем все доступные товары
-        products = Product.objects.filter(quantity_available__gt=0)
+        # Получаем клиентов текущего тенанта
+        clients = Client.objects.filter(owner=owner).prefetch_related('phones')
+
+        # Получаем доступные товары текущего тенанта
+        products = Product.objects.filter(owner=owner, quantity_available__gt=0)
         
         context = {
             'clients': clients,
@@ -483,13 +550,15 @@ def create_order(request):
                 messages.error(request, 'Добавьте хотя бы один товар')
                 return redirect('create_order')
             
-            # Получаем клиента
-            client = Client.objects.get(id=client_id)
+            # Получаем клиента (только текущего тенанта)
+            client = Client.objects.get(id=client_id, owner=owner)
             
             # Создаём заказ
+            proof_file = request.FILES.get('proof_file')
             order = RentalOrder.objects.create(
                 client=client,
-                status='open'
+                status='open',
+                proof_file=proof_file,
             )
             
             # Добавляем товары в заказ
@@ -497,7 +566,7 @@ def create_order(request):
                 if not product_id:  # Пропускаем пустые
                     continue
                 
-                product = Product.objects.get(id=product_id)
+                product = Product.objects.get(id=product_id, owner=owner)
                 quantity = int(quantities[i])
                 rental_days = int(days[i])
                 rental_hours = int(hours[i])
@@ -564,7 +633,9 @@ def orders_list(request):
     """Список всех заказов с фильтрами"""
     from apps.rental.models import RentalOrder
     from apps.clients.models import Client
-    
+
+    owner = get_tenant_owner(request.user)
+
     # Получаем параметры фильтров
     status        = request.GET.get('status', '')        # open / closed / all
     date_range    = request.GET.get('date_range', '')    # today / week / month / all
@@ -572,9 +643,9 @@ def orders_list(request):
     amount_min    = request.GET.get('amount_min', '')    # минимальная сумма
     amount_max    = request.GET.get('amount_max', '')    # максимальная сумма
     sort_by       = request.GET.get('sort', '-created_at')  # сортировка
-    
-    # Базовый queryset
-    orders = RentalOrder.objects.select_related('client').prefetch_related('items')
+
+    # Базовый queryset — только заказы текущего тенанта
+    orders = RentalOrder.objects.filter(client__owner=owner).select_related('client').prefetch_related('items')
     
     # === ФИЛЬТР ПО СТАТУСУ ===
     if status == 'open':
@@ -621,12 +692,12 @@ def orders_list(request):
         orders = orders.filter(id__in=filtered)
     
     # Статистика
-    total_open   = RentalOrder.objects.filter(status='open').count()
-    total_closed = RentalOrder.objects.filter(status='closed').count()
-    
+    total_open   = RentalOrder.objects.filter(status='open', client__owner=owner).count()
+    total_closed = RentalOrder.objects.filter(status='closed', client__owner=owner).count()
+
     # Просроченные
     overdue_count = 0
-    for order in RentalOrder.objects.filter(status='open').prefetch_related('items'):
+    for order in RentalOrder.objects.filter(status='open', client__owner=owner).prefetch_related('items'):
         for item in order.items.all():
             if item.quantity_remaining > 0 and item.planned_return_date < now:
                 overdue_count += 1
@@ -762,7 +833,8 @@ def accept_payment(request):
             return redirect('main:accept_payment')
     
     # GET запрос
-    clients = Client.objects.all().order_by('last_name', 'first_name')
+    owner = get_tenant_owner(request.user)
+    clients = Client.objects.filter(owner=owner).order_by('last_name', 'first_name')
     
     # Клиенты с долгом
     clients_with_debt = []
@@ -934,9 +1006,10 @@ def returns_page(request):
             return redirect(f'/rental/returns/?client_id={client_id}')
     
     # GET запрос
+    _returns_owner = get_tenant_owner(request.user)
     clients_with_orders = []
-    
-    for client in Client.objects.all():
+
+    for client in Client.objects.filter(owner=_returns_owner):
         active_orders = client.rental_orders.filter(status='open')
         if active_orders.exists():
             has_items = False
@@ -998,10 +1071,11 @@ def returns_page(request):
 def history(request):
     """История операций сгруппированная по заказам"""
     from django.utils import timezone
-    
+
+    owner = get_tenant_owner(request.user)
     selected_client_id = request.GET.get('client_id', '')
-    clients = Client.objects.all().order_by('last_name', 'first_name')
-    
+    clients = Client.objects.filter(owner=owner).order_by('last_name', 'first_name')
+
     if not selected_client_id:
         context = {
             'clients': clients,
@@ -1009,9 +1083,9 @@ def history(request):
             'order_groups': [],
         }
         return render(request, 'main/history.html', context)
-    
+
     try:
-        selected_client = Client.objects.get(id=selected_client_id)
+        selected_client = Client.objects.get(id=selected_client_id, owner=owner)
     except Client.DoesNotExist:
         return redirect('main:history')
     
@@ -1042,7 +1116,11 @@ def edit_order(request, order_id):
     if request.method == 'POST':
         from decimal import Decimal
         from datetime import timedelta
-        
+        import re as _re
+        _log_pattern = _re.compile(r'^\[\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}\]')
+        _local_now = timezone.localtime(timezone.now())
+        _username = request.user.username
+
         # === ДОБАВЛЕНИЕ НОВОГО ТОВАРА ===
         if 'add_product' in request.POST:
             product_id = request.POST.get('new_product_id')
@@ -1084,15 +1162,40 @@ def edit_order(request, order_id):
                             current_total_cost=total_cost,
                         )
                         product.update_available_quantity()
+                        # Log добавление товара
+                        _log_line = (
+                            f"[{_local_now.strftime('%d.%m.%Y %H:%M')}] "
+                            f"{_username}: "
+                            f"Добавил товар {product.name} x{quantity} на {days} дн {hours} ч ({int(total_cost)} сом)"
+                        )
+                        if order.notes:
+                            order.notes += '\n' + _log_line
+                        else:
+                            order.notes = _log_line
+                        order.save()
                         return redirect('main:edit_order', order_id=order.id)
                 except Product.DoesNotExist:
                     pass
         
         # === ОБНОВЛЕНИЕ ПРИМЕЧАНИЙ ===
-        notes = request.POST.get('notes', '')
-        order.notes = notes
+        # Сохраняем пользовательские заметки, сохраняя системные лог-строки
+        _user_notes = request.POST.get('notes', '').strip()
+        _system_log_lines = []
+        if order.notes:
+            for _line in order.notes.split('\n'):
+                if _log_pattern.match(_line.strip()):
+                    _system_log_lines.append(_line)
+        _combined = _user_notes
+        if _system_log_lines:
+            if _combined:
+                _combined += '\n\n'
+            _combined += '\n'.join(_system_log_lines)
+        order.notes = _combined
         order.save()
-        
+
+        # Список новых лог-записей для этого редактирования
+        _edit_logs = []
+
         # === ОБНОВЛЕНИЕ ТОВАРОВ ===
         for key in request.POST:
             if key.startswith('item_quantity_'):
@@ -1110,31 +1213,41 @@ def edit_order(request, order_id):
                             if order_item.product.quantity_available >= difference:
                                 order_item.product.quantity_available -= difference
                                 order_item.product.save()
-                                
+
                                 order_item.quantity_taken = new_quantity
                                 order_item.quantity_remaining = new_quantity - order_item.quantity_returned
-                                
+
                                 # Пересчёт
                                 total_rental_hours = (order_item.rental_days * 24) + order_item.rental_hours
                                 total_days_decimal = Decimal(total_rental_hours) / Decimal(24)
                                 order_item.original_total_cost = order_item.price_per_day * total_days_decimal * Decimal(new_quantity)
                                 order_item.current_total_cost = order_item.original_total_cost
-                                
+
                                 order_item.save()
+                                _edit_logs.append(
+                                    f"[{_local_now.strftime('%d.%m.%Y %H:%M')}] {_username}: "
+                                    f"Изменил количество {order_item.product.name} с {old_quantity} на {new_quantity} шт"
+                                )
                         else:
-                            order_item.product.quantity_available += abs(difference)
-                            order_item.product.save()
-                            
+                            if difference != 0:
+                                order_item.product.quantity_available += abs(difference)
+                                order_item.product.save()
+
                             order_item.quantity_taken = new_quantity
                             order_item.quantity_remaining = new_quantity - order_item.quantity_returned
-                            
+
                             # Пересчёт
                             total_rental_hours = (order_item.rental_days * 24) + order_item.rental_hours
                             total_days_decimal = Decimal(total_rental_hours) / Decimal(24)
                             order_item.original_total_cost = order_item.price_per_day * total_days_decimal * Decimal(new_quantity)
                             order_item.current_total_cost = order_item.original_total_cost
-                            
+
                             order_item.save()
+                            if difference != 0:
+                                _edit_logs.append(
+                                    f"[{_local_now.strftime('%d.%m.%Y %H:%M')}] {_username}: "
+                                    f"Изменил количество {order_item.product.name} с {old_quantity} на {new_quantity} шт"
+                                )
                 
                 except OrderItem.DoesNotExist:
                     pass
@@ -1146,19 +1259,25 @@ def edit_order(request, order_id):
                 
                 try:
                     order_item = OrderItem.objects.get(id=item_id, order=order)
+                    old_days = order_item.rental_days
                     order_item.rental_days = new_days
                     order_item.planned_return_date = order_item.issued_date + timedelta(days=new_days, hours=order_item.rental_hours)
-                    
+
                     # Пересчёт
                     total_rental_hours = (new_days * 24) + order_item.rental_hours
                     total_days_decimal = Decimal(total_rental_hours) / Decimal(24)
                     order_item.original_total_cost = order_item.price_per_day * total_days_decimal * Decimal(order_item.quantity_taken)
                     order_item.current_total_cost = order_item.original_total_cost
-                    
+
                     order_item.save()
+                    if old_days != new_days:
+                        _edit_logs.append(
+                            f"[{_local_now.strftime('%d.%m.%Y %H:%M')}] {_username}: "
+                            f"Изменил срок {order_item.product.name} с {old_days} дн на {new_days} дн"
+                        )
                 except OrderItem.DoesNotExist:
                     pass
-            
+
             # Обновление часов
             if key.startswith('item_hours_'):
                 item_id = key.replace('item_hours_', '')
@@ -1166,16 +1285,22 @@ def edit_order(request, order_id):
                 
                 try:
                     order_item = OrderItem.objects.get(id=item_id, order=order)
+                    old_hours = order_item.rental_hours
                     order_item.rental_hours = new_hours
                     order_item.planned_return_date = order_item.issued_date + timedelta(days=order_item.rental_days, hours=new_hours)
-                    
+
                     # Пересчёт
                     total_rental_hours = (order_item.rental_days * 24) + new_hours
                     total_days_decimal = Decimal(total_rental_hours) / Decimal(24)
                     order_item.original_total_cost = order_item.price_per_day * total_days_decimal * Decimal(order_item.quantity_taken)
                     order_item.current_total_cost = order_item.original_total_cost
-                    
+
                     order_item.save()
+                    if old_hours != new_hours:
+                        _edit_logs.append(
+                            f"[{_local_now.strftime('%d.%m.%Y %H:%M')}] {_username}: "
+                            f"Изменил часы {order_item.product.name} с {old_hours} ч на {new_hours} ч"
+                        )
                 except OrderItem.DoesNotExist:
                     pass
         
@@ -1183,28 +1308,53 @@ def edit_order(request, order_id):
         for key in request.POST:
             if key.startswith('delete_item_'):
                 item_id = key.replace('delete_item_', '')
-                
+
                 try:
                     order_item = OrderItem.objects.get(id=item_id, order=order)
-                    
+
                     if order_item.quantity_returned == 0:
+                        _deleted_name = order_item.product.name
+                        _deleted_qty = order_item.quantity_taken
                         order_item.product.quantity_available += order_item.quantity_taken
                         order_item.product.save()
                         order_item.delete()
-                
+                        _edit_logs.append(
+                            f"[{_local_now.strftime('%d.%m.%Y %H:%M')}] {_username}: "
+                            f"Удалил товар {_deleted_name} x{_deleted_qty} шт"
+                        )
+
                 except OrderItem.DoesNotExist:
                     pass
-        
+
+        # Сохраняем новые лог-записи в notes заказа
+        if _edit_logs:
+            _log_block = '\n'.join(_edit_logs)
+            order.refresh_from_db()
+            if order.notes:
+                order.notes += '\n' + _log_block
+            else:
+                order.notes = _log_block
+            order.save()
+
         return redirect('main:client_detail', client_id=order.client.id)
     
     # GET запрос
-    available_products = Product.objects.filter(is_active=True, quantity_available__gt=0).order_by('name')
-    
+    import re as _re
+    _log_pat = _re.compile(r'^\[\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}\]')
+    user_notes_display = ''
+    if order.notes:
+        non_system = [l for l in order.notes.split('\n') if not _log_pat.match(l.strip())]
+        user_notes_display = '\n'.join(non_system).strip()
+
+    _edit_owner = get_tenant_owner(request.user)
+    available_products = Product.objects.filter(owner=_edit_owner, is_active=True, quantity_available__gt=0).order_by('name')
+
     context = {
         'order': order,
         'available_products': available_products,
+        'user_notes_display': user_notes_display,
     }
-    
+
     return render(request, 'rental/edit_order.html', context)
 
 @cashier_required
@@ -1362,31 +1512,33 @@ from django.db.models.functions import Lower
 
 def global_search(request):
     """Глобальный поиск - фильтрация в Python (работает всегда!)"""
-    
+
     query = request.GET.get('q', '').strip()
-    
-    print(f"🔍 Поиск: '{query}'")
-    
+
+    print(f"Поиск: '{query}'")
+
     if len(query) < 2:
         return JsonResponse({
             'clients': [],
             'orders': [],
             'products': []
         })
-    
+
     from apps.clients.models import Client
     from apps.rental.models import RentalOrder
     from apps.inventory.models import Product
-    
+
+    owner = get_tenant_owner(request.user)
+
     # Приводим к нижнему регистру для поиска
     query_lower = query.lower()
-    
+
     # ============================================================
     # ПОИСК КЛИЕНТОВ В PYTHON
     # ============================================================
-    
-    # Получаем всех клиентов (или последних 200 для скорости)
-    all_clients = Client.objects.prefetch_related('phones').all()
+
+    # Получаем клиентов текущего тенанта
+    all_clients = Client.objects.filter(owner=owner).prefetch_related('phones')
     
     found_clients = []
     for client in all_clients:
@@ -1451,10 +1603,10 @@ def global_search(request):
     # Если это число - ищем по ID
     try:
         order_id = int(query)
-        found_orders = list(RentalOrder.objects.filter(id=order_id).select_related('client')[:5])
+        found_orders = list(RentalOrder.objects.filter(id=order_id, client__owner=owner).select_related('client')[:5])
     except ValueError:
         # Иначе ищем по клиенту
-        all_orders = RentalOrder.objects.select_related('client').prefetch_related('client__phones').all()[:100]
+        all_orders = RentalOrder.objects.filter(client__owner=owner).select_related('client').prefetch_related('client__phones')[:100]
         
         for order in all_orders:
             match = False
@@ -1495,7 +1647,7 @@ def global_search(request):
     # ПОИСК ТОВАРОВ В PYTHON
     # ============================================================
     
-    all_products = Product.objects.all()
+    all_products = Product.objects.filter(owner=owner)
     found_products = []
     
     for product in all_products:
@@ -1571,6 +1723,51 @@ def global_search_optimized(request):
         'orders': [],
         'products': [],
     }, json_dumps_params={'ensure_ascii': False})
+
+@login_required
+def api_overdue_orders(request):
+    """API: список просроченных открытых заказов для колокольчика"""
+    now = timezone.now()
+    owner = get_tenant_owner(request.user)
+    overdue_items = []
+    seen_orders = set()
+
+    from apps.rental.models import OrderItem
+    items = (OrderItem.objects
+             .filter(order__status='open', order__client__owner=owner, quantity_remaining__gt=0, planned_return_date__lt=now)
+             .select_related('order', 'order__client', 'product')
+             .order_by('planned_return_date'))
+
+    for item in items:
+        order = item.order
+        if order.id in seen_orders:
+            continue
+        seen_orders.add(order.id)
+
+        # Collect all overdue products for this order
+        overdue_products = (OrderItem.objects
+                            .filter(order=order, quantity_remaining__gt=0, planned_return_date__lt=now)
+                            .select_related('product'))
+        products_str = ', '.join(
+            f"{oi.product.name} x{oi.quantity_remaining}"
+            for oi in overdue_products
+        )
+        earliest = overdue_products.order_by('planned_return_date').first()
+        since_str = timezone.localtime(earliest.planned_return_date).strftime('%d.%m.%Y %H:%M') if earliest else ''
+
+        overdue_items.append({
+            'order_id': order.id,
+            'client': order.client.get_full_name(),
+            'products': products_str,
+            'since': since_str,
+            'url': f'/clients/{order.client.id}/',
+        })
+
+    return JsonResponse({
+        'count': len(overdue_items),
+        'orders': overdue_items,
+    }, json_dumps_params={'ensure_ascii': False})
+
 
 def send_overdue_notification(request, order_id):
     '''Ручная отправка уведомления о просрочке'''
@@ -1679,21 +1876,24 @@ def orders_calendar(request):
     from apps.rental.models import RentalOrder
     from apps.clients.models import Client
 
+    owner = get_tenant_owner(request.user)
+
     # Получаем выбранного клиента
     selected_client_id = request.GET.get('client_id')
     selected_client_id_int = int(selected_client_id) if selected_client_id else None
 
-    # Базовый запрос - все активные заказы
+    # Базовый запрос - активные заказы текущего тенанта
     orders = RentalOrder.objects.filter(
-        status='open'
+        status='open', client__owner=owner
     ).select_related('client').prefetch_related('items__product', 'client__phones')
 
     # Фильтрация по клиенту
     if selected_client_id_int:
         orders = orders.filter(client_id=selected_client_id_int)
 
-    # Получаем список всех клиентов для выпадающего списка
+    # Получаем список клиентов текущего тенанта для выпадающего списка
     clients = Client.objects.filter(
+        owner=owner,
         rental_orders__status='open'
     ).distinct().order_by('last_name', 'first_name')
 
@@ -1862,10 +2062,13 @@ def toggle_user_active(request, user_id):
     
     user.is_active = not user.is_active
     user.save()
-    
+
     status = 'активирован' if user.is_active else 'деактивирован'
     messages.success(request, f'Пользователь {user.username} {status}')
-    
+
+    referer = request.META.get('HTTP_REFERER', '')
+    if 'superadmin' in referer:
+        return redirect('main:superuser_panel')
     return redirect('main:users_management')
 
 
@@ -1920,3 +2123,63 @@ def permissions_matrix(request):
     }
     
     return render(request, 'main/permissions_matrix.html', context)
+
+
+def superuser_required(view_func):
+    """Декоратор — только суперпользователь"""
+    from functools import wraps
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            from django.contrib.auth.views import redirect_to_login
+            return redirect_to_login(request.get_full_path())
+        if not request.user.is_superuser:
+            messages.error(request, '🔒 Доступ только для создателя системы.')
+            return redirect('main:dashboard')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+@superuser_required
+def superuser_panel(request):
+    """Панель суперадминистратора — только для создателя системы"""
+    from apps.rental.models import RentalOrder
+    from apps.clients.models import Client
+
+    # Пользователи, ожидающие одобрения
+    pending_users = User.objects.filter(is_active=False).order_by('date_joined')
+
+    # Одобрение пользователя через POST
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        uid = request.POST.get('user_id')
+        target = get_object_or_404(User, id=uid)
+        if action == 'approve':
+            # Новый пользователь становится суперадмином своей компании
+            target.is_active = True
+            target.is_staff = False   # не системный создатель
+            target.is_superuser = True  # владелец своей компании
+            target.save()
+            admin_group, _ = Group.objects.get_or_create(name='Администратор')
+            target.groups.add(admin_group)
+            # Убеждаемся что профиль есть и owner=None (владелец своей компании)
+            UserProfile.objects.get_or_create(user=target, defaults={'owner': None})
+            messages.success(request, f'✅ Пользователь «{target.username}» одобрен. Теперь у него своя пустая CRM.')
+        elif action == 'reject':
+            target.delete()
+            messages.success(request, f'🗑 Пользователь «{target.username}» удалён.')
+        return redirect('main:superuser_panel')
+
+    # Superuser panel always shows system-wide totals (all tenants)
+    stats = {
+        'total_users':   User.objects.count(),
+        'pending_users': pending_users.count(),
+        'total_clients': Client.objects.count(),   # system-wide
+        'open_orders':   RentalOrder.objects.filter(status='open').count(),  # system-wide
+    }
+
+    return render(request, 'main/superuser_panel.html', {
+        'pending_users': pending_users,
+        'stats': stats,
+        'all_users': User.objects.order_by('-date_joined')[:20],
+    })

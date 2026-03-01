@@ -1,9 +1,10 @@
 <!-- templates/main/orders_list.html -->
 {% extends 'base_dark.html' %}
+{% load static %}
 {% block title %}Все заказы{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/orders_list.css' %}">{% endblock %}
 
 {% block extra_css %}
-.bg-white{background:var(--card)!important}.bg-gray-50,.bg-gray-100,.bg-gray-200{background:var(--card2)!important}.text-gray-900,.text-gray-800,.text-gray-700{color:var(--text1)!important}.text-gray-600,.text-gray-500{color:var(--text2)!important}.text-gray-400,.text-gray-300{color:var(--text3)!important}.border-gray-200,.border-gray-300,.border-gray-100{border-color:var(--border)!important}.divide-y>*+*{border-color:var(--border)!important}.shadow,.shadow-sm,.shadow-lg{box-shadow:var(--shadow)!important}input[type=number],select{background:var(--card2)!important;border-color:var(--border)!important;color:var(--text1)!important}.hover\:bg-blue-50:hover,.hover\:bg-gray-50:hover{background:rgba(124,58,237,.08)!important}.bg-green-100{background:rgba(16,185,129,.15)!important}.bg-gray-100{background:var(--card2)!important}.bg-red-100{background:rgba(239,68,68,.15)!important}.bg-blue-100{background:rgba(59,130,246,.15)!important}.bg-blue-50{background:rgba(59,130,246,.08)!important}.border-l-4.border-green-500{border-left-color:#10b981!important}.border-l-4.border-gray-400{border-left-color:var(--text3)!important}.border-l-4.border-red-500{border-left-color:#ef4444!important}.border-l-4.border-blue-500{border-left-color:#06b6d4!important}
 {% endblock %}
 
 {% block content %}

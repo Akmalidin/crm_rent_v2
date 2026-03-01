@@ -1,6 +1,12 @@
 from django.db import models
+from django.contrib.auth.models import User
+
 
 class Category(models.Model):
+    owner = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        null=True, blank=True, related_name='categories',
+    )
     name = models.CharField('Название', max_length=200)
     description = models.TextField('Описание', blank=True)
     
@@ -14,7 +20,10 @@ class Category(models.Model):
 
 class Product(models.Model):
     """Товар в инвентаре"""
-    
+    owner = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        null=True, blank=True, related_name='products',
+    )
     name = models.CharField('Название', max_length=200)
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
     quantity_total = models.PositiveIntegerField('Всего', default=0)

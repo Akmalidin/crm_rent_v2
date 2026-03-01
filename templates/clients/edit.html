@@ -1,0 +1,174 @@
+{% extends 'base_dark.html' %}
+{% block title %}Редактировать: {{ client.get_full_name }}{% endblock %}
+
+{% block extra_css %}{% endblock %}
+
+{% block content %}
+<div style="max-width:600px;margin:0 auto;">
+
+    <div style="margin-bottom:28px;">
+        <a href="{% url 'main:client_detail' client_id=client.id %}" style="color:var(--accent2);text-decoration:none;font-size:13px;font-weight:600;">← {{ client.get_full_name }}</a>
+        <h1 style="font-size:26px;font-weight:700;color:var(--text1);margin-top:8px;">✏️ Редактировать клиента</h1>
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:12px;padding:12px 16px;font-size:14px;margin-bottom:16px;">⚠️ {{ msg }}</div>
+    {% endfor %}
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" id="editForm" novalidate>
+        {% csrf_token %}
+
+        <!-- Личные данные -->
+        <div class="card">
+            <div class="sec-title">👤 Личные данные</div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="fi">
+                    <label>Фамилия <span style="color:#f87171">*</span></label>
+                    <input type="text" name="last_name" required value="{{ client.last_name }}" autocomplete="family-name">
+                </div>
+                <div class="fi">
+                    <label>Имя <span style="color:#f87171">*</span></label>
+                    <input type="text" name="first_name" required value="{{ client.first_name }}" autocomplete="given-name">
+                </div>
+            </div>
+            <div class="fi">
+                <label>Отчество</label>
+                <input type="text" name="middle_name" value="{{ client.middle_name }}" autocomplete="additional-name">
+            </div>
+
+            <!-- Телефон -->
+            <div class="fi">
+                <label>Телефон</label>
+                <div class="phone-wrap" id="phoneWrap">
+                    <div class="country-btns">
+                        <button type="button" class="country-btn active" id="btn996" onclick="setCountry('996')">🇰🇬 +996</button>
+                        <button type="button" class="country-btn" id="btn7" onclick="setCountry('7')">🇷🇺 +7</button>
+                    </div>
+                    <input type="tel" class="phone-input" id="phoneDisplay"
+                           value="{{ primary_phone.phone_number|default:'' }}" autocomplete="tel">
+                    <input type="hidden" name="phone" id="phoneHidden" value="{{ primary_phone.phone_number|default:'' }}">
+                </div>
+                <p class="hint-text">Оставьте пустым чтобы не менять</p>
+            </div>
+
+            <!-- Telegram ID -->
+            <div class="fi">
+                <label>Telegram ID</label>
+                <input type="text" name="telegram_id" value="{{ client.telegram_id|default:'' }}" placeholder="123456789">
+                <p class="hint-text">Числовой ID для уведомлений через бот (необязательно)</p>
+            </div>
+        </div>
+
+        <!-- Фото паспорта -->
+        <div class="card">
+            <div class="sec-title">🪪 Фото паспорта</div>
+            <p style="font-size:13px;color:var(--text3);margin:-12px 0 20px;">Загрузите новое фото чтобы заменить текущее. Оставьте пустым — фото не изменится.</p>
+
+            <div class="upload-grid">
+                <!-- Лицевая -->
+                <div>
+                    <p class="upload-label-text">Лицевая сторона</p>
+                    <div class="upload-zone {% if client.passport_front %}filled{% endif %}" id="zone-front" onclick="triggerUpload('inp-front')">
+                        {% if client.passport_front %}
+                        <img class="preview" id="prev-front" src="{{ client.passport_front.url }}" alt="Лицевая">
+                        {% else %}
+                        <img class="preview" id="prev-front" style="display:none" alt="">
+                        {% endif %}
+                        <div class="upload-ph" id="ph-front">
+                            <div class="icon">🪪</div>
+                            <div class="hint">{% if client.passport_front %}Нажмите для замены{% else %}Нажмите для загрузки{% endif %}</div>
+                        </div>
+                    </div>
+                    <input type="file" id="inp-front" name="passport_front" accept="image/*"
+                           style="display:none"
+                           onchange="showPreview(this,'prev-front','zone-front','ph-front')">
+                    <p id="lbl-front" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center;"></p>
+                </div>
+
+                <!-- Обратная -->
+                <div>
+                    <p class="upload-label-text">Обратная сторона</p>
+                    <div class="upload-zone {% if client.passport_back %}filled{% endif %}" id="zone-back" onclick="triggerUpload('inp-back')">
+                        {% if client.passport_back %}
+                        <img class="preview" id="prev-back" src="{{ client.passport_back.url }}" alt="Обратная">
+                        {% else %}
+                        <img class="preview" id="prev-back" style="display:none" alt="">
+                        {% endif %}
+                        <div class="upload-ph" id="ph-back">
+                            <div class="icon">🔖</div>
+                            <div class="hint">{% if client.passport_back %}Нажмите для замены{% else %}Нажмите для загрузки{% endif %}</div>
+                        </div>
+                    </div>
+                    <input type="file" id="inp-back" name="passport_back" accept="image/*"
+                           style="display:none"
+                           onchange="showPreview(this,'prev-back','zone-back','ph-back')">
+                    <p id="lbl-back" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center;"></p>
+                </div>
+            </div>
+        </div>
+
+        <div style="display:flex;gap:12px;">
+            <button type="submit" class="btn-p">✓ Сохранить изменения</button>
+            <a href="{% url 'main:client_detail' client_id=client.id %}" class="btn-s">Отмена</a>
+        </div>
+    </form>
+</div>
+
+<script>
+// ─── Phone mask ───────────────────────────────────────────────────────────────
+let country = '996';
+
+function setCountry(code) {
+    country = code;
+    document.getElementById('btn996').classList.toggle('active', code === '996');
+    document.getElementById('btn7').classList.toggle('active', code === '7');
+    document.getElementById('phoneDisplay').value = '';
+    updateHidden();
+}
+
+document.getElementById('phoneDisplay').addEventListener('input', function () {
+    const maxDigits = country === '996' ? 9 : 10;
+    let digits = this.value.replace(/\D/g, '').slice(0, maxDigits);
+    let fmt = '';
+    if (country === '996') {
+        if (digits.length > 6)      fmt = digits.slice(0,3)+' '+digits.slice(3,6)+' '+digits.slice(6);
+        else if (digits.length > 3) fmt = digits.slice(0,3)+' '+digits.slice(3);
+        else                        fmt = digits;
+    } else {
+        if (digits.length > 8)      fmt = digits.slice(0,3)+' '+digits.slice(3,6)+' '+digits.slice(6,8)+' '+digits.slice(8);
+        else if (digits.length > 6) fmt = digits.slice(0,3)+' '+digits.slice(3,6)+' '+digits.slice(6);
+        else if (digits.length > 3) fmt = digits.slice(0,3)+' '+digits.slice(3);
+        else                        fmt = digits;
+    }
+    this.value = fmt;
+    updateHidden();
+});
+
+function updateHidden() {
+    const digits = document.getElementById('phoneDisplay').value.replace(/\D/g, '');
+    document.getElementById('phoneHidden').value = digits ? '+' + country + digits : '';
+}
+
+// ─── Passport upload & preview ────────────────────────────────────────────────
+function triggerUpload(inputId) { document.getElementById(inputId).click(); }
+
+function showPreview(input, previewId, zoneId, phId) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const lblId = zoneId === 'zone-front' ? 'lbl-front' : 'lbl-back';
+    document.getElementById(lblId).textContent = '✓ ' + file.name;
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const img = document.getElementById(previewId);
+        img.src = e.target.result;
+        img.style.display = 'block';
+        document.getElementById(zoneId).classList.add('filled');
+        document.getElementById(phId).querySelector('.hint').textContent = 'Нажмите для замены';
+    };
+    reader.readAsDataURL(file);
+}
+</script>
+{% endblock %}

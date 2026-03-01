@@ -1,14 +1,13 @@
 <!-- templates/clients/detail.html -->
 {% extends 'base_dark.html' %}
+{% load static %}
 
 {% block extra_css %}
-.bg-white{background:var(--card)!important}.bg-gray-50,.bg-gray-100,.bg-gray-200{background:var(--card2)!important}.text-gray-900,.text-gray-800,.text-gray-700{color:var(--text1)!important}.text-gray-600,.text-gray-500{color:var(--text2)!important}.text-gray-400,.text-gray-300{color:var(--text3)!important}.border-gray-200,.border-gray-300,.border-gray-100{border-color:var(--border)!important}.divide-y>*+*{border-color:var(--border)!important}.shadow,.shadow-sm,.shadow-lg,.shadow-xl,.shadow-2xl{box-shadow:var(--shadow)!important}.hover\:bg-gray-50:hover,.hover\:bg-gray-100:hover{background:rgba(124,58,237,.07)!important}.hover\:bg-green-50:hover{background:rgba(16,185,129,.08)!important}.hover\:bg-yellow-50:hover{background:rgba(245,158,11,.08)!important}.hover\:bg-orange-50:hover{background:rgba(249,115,22,.08)!important}.hover\:bg-purple-50:hover{background:rgba(124,58,237,.08)!important}.bg-blue-50,.bg-blue-100{background:rgba(59,130,246,.1)!important}.bg-green-50,.bg-green-100{background:rgba(16,185,129,.1)!important}.bg-red-50,.bg-red-100{background:rgba(239,68,68,.1)!important}.bg-yellow-50,.bg-yellow-100{background:rgba(245,158,11,.1)!important}.bg-purple-50,.bg-purple-100{background:rgba(124,58,237,.1)!important}.bg-gray-50[style*="max-height"]{background:var(--card2)!important}[id^="action-menu-"],[id^="print-menu-"]{background:var(--card)!important;border-color:var(--border)!important;box-shadow:var(--shadow)!important}.details-button{background:var(--card2)!important;color:var(--text1)!important}.details-button:hover{background:var(--card)!important}
-/* Таблица заказов */
-thead.bg-gray-50 th{background:var(--card2)!important;color:var(--text2)!important}
 {% endblock %}
 
 
 {% block title %}{{ client.get_full_name }} - CRM Аренда{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/clients_detail.css' %}">{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -23,7 +22,7 @@ thead.bg-gray-50 th{background:var(--card2)!important;color:var(--text2)!importa
             <p class="text-gray-600">ID: {{ client.id }}</p>
         </div>
         <div class="flex gap-2">
-            <a href="/admin/clients/client/{{ client.id }}/change/" class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition">
+            <a href="{% url 'main:edit_client' client_id=client.id %}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition">
                 ✏️ Редактировать
             </a>
             <a href="/rental/create/?client={{ client.id }}" data-turbo="false" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
@@ -614,11 +613,12 @@ document.addEventListener('click', function(e) {
                 <div class="ml-20 space-y-3">
                     
                     {% for event in group.events %}
-                    <div class="flex gap-4 p-4 bg-gray-50 rounded-lg border-l-4 
+                    <div class="flex gap-4 p-4 bg-gray-50 rounded-lg border-l-4
                                 {% if event.type == 'order_created' %}border-blue-500
                                 {% elif event.type == 'payment' %}border-green-500
                                 {% elif event.type == 'overdue_charge' %}border-red-500
                                 {% elif event.type == 'date_change' %}border-yellow-500
+                                {% elif event.type == 'order_edit' %}border-indigo-500
                                 {% else %}border-purple-500{% endif %}">
                         
                         <!-- Icon & Date -->
@@ -638,6 +638,10 @@ document.addEventListener('click', function(e) {
                             {% elif event.type == 'date_change' %}
                                 <div class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
                                     <span class="text-xl">📅</span>
+                                </div>
+                            {% elif event.type == 'order_edit' %}
+                                <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                                    <span class="text-xl">✏️</span>
                                 </div>
                             {% else %}
                                 <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
@@ -700,6 +704,13 @@ document.addEventListener('click', function(e) {
                                             <p class="text-xs text-gray-500">
                                                 Менеджер: {{ event.username }}
                                             </p>
+                                        </div>
+
+                                    {% elif event.type == 'order_edit' %}
+                                        <!-- Order Edit Details -->
+                                        <div class="mt-2">
+                                            <p class="text-sm text-gray-700 font-medium">{{ event.action }}: {{ event.detail }}</p>
+                                            <p class="text-xs text-gray-500">Менеджер: {{ event.username }}</p>
                                         </div>
 
                                     {% elif event.type == 'overdue_charge' %}

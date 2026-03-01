@@ -4,10 +4,22 @@ from django.contrib.auth.decorators import login_required
 from .models import Product, Category
 
 
+def _get_owner(user):
+    """Возвращает владельца тенанта для данного пользователя."""
+    if user.is_superuser:
+        return user
+    try:
+        owner = user.profile.owner
+        return owner if owner else user
+    except Exception:
+        return user
+
+
 @login_required
 def products_list(request):
-    products = Product.objects.select_related('category').order_by('category__name', 'name')
-    categories = Category.objects.all().order_by('name')
+    owner = _get_owner(request.user)
+    products = Product.objects.filter(owner=owner).select_related('category').order_by('category__name', 'name')
+    categories = Category.objects.filter(owner=owner).order_by('name')
     cat_filter = request.GET.get('category', '')
     if cat_filter:
         products = products.filter(category_id=cat_filter)
@@ -22,7 +34,8 @@ def products_list(request):
 
 @login_required
 def create_product(request):
-    categories = Category.objects.all().order_by('name')
+    owner = _get_owner(request.user)
+    categories = Category.objects.filter(owner=owner).order_by('name')
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         cat_id = request.POST.get('category', '').strip()
@@ -37,9 +50,9 @@ def create_product(request):
 
         # Create new category on the fly if provided
         if new_cat:
-            category, _ = Category.objects.get_or_create(name=new_cat)
+            category, _ = Category.objects.get_or_create(name=new_cat, defaults={'owner': owner})
         elif cat_id:
-            category = get_object_or_404(Category, id=cat_id)
+            category = get_object_or_404(Category, id=cat_id, owner=owner)
         else:
             messages.error(request, 'Выберите или введите категорию')
             return render(request, 'inventory/create_product.html', {'categories': categories})
@@ -50,6 +63,7 @@ def create_product(request):
             quantity_total=int(qty) if qty.isdigit() else 0,
             price_per_day=price_day or 0,
             price_per_hour=price_hour or 0,
+            owner=owner,
         )
         messages.success(request, f'Товар «{product.name}» добавлен!')
         return redirect('main:products_list')
@@ -59,8 +73,9 @@ def create_product(request):
 
 @login_required
 def edit_product(request, product_id):
-    product = get_object_or_404(Product, id=product_id)
-    categories = Category.objects.all().order_by('name')
+    owner = _get_owner(request.user)
+    product = get_object_or_404(Product, id=product_id, owner=owner)
+    categories = Category.objects.filter(owner=owner).order_by('name')
     if request.method == 'POST':
         product.name = request.POST.get('name', product.name).strip()
         cat_id = request.POST.get('category', '').strip()
@@ -71,9 +86,9 @@ def edit_product(request, product_id):
         product.is_active = request.POST.get('is_active') == 'on'
 
         if new_cat:
-            product.category, _ = Category.objects.get_or_create(name=new_cat)
+            product.category, _ = Category.objects.get_or_create(name=new_cat, defaults={'owner': owner})
         elif cat_id:
-            product.category = get_object_or_404(Category, id=cat_id)
+            product.category = get_object_or_404(Category, id=cat_id, owner=owner)
 
         product.quantity_total = int(qty) if qty.isdigit() else product.quantity_total
         product.price_per_day = price_day or product.price_per_day

@@ -1,48 +1,7 @@
 {% extends 'base_dark.html' %}
 {% block title %}Новый клиент{% endblock %}
 
-{% block extra_css %}
-.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 32px;box-shadow:var(--shadow);margin-bottom:20px}
-.sec-title{font-size:15px;font-weight:700;color:var(--text1);margin:0 0 20px;display:flex;align-items:center;gap:8px}
-.fi{margin-bottom:18px}
-.fi label{display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;letter-spacing:.4px;text-transform:uppercase}
-.fi input[type=text]{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;font-size:15px;color:var(--text1);font-family:inherit;outline:none;transition:border .2s,box-shadow .2s;box-sizing:border-box}
-.fi input[type=text]:focus{border-color:rgba(124,58,237,.5);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
-.fi input::placeholder{color:var(--text3)}
-
-/* Phone */
-.phone-wrap{display:flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card2);transition:border .2s,box-shadow .2s}
-.phone-wrap:focus-within{border-color:rgba(124,58,237,.5);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
-.country-btns{display:flex;border-right:1px solid var(--border)}
-.country-btn{background:transparent;border:none;padding:0 14px;font-size:13px;font-weight:700;color:var(--text3);cursor:pointer;transition:all .2s;white-space:nowrap;font-family:inherit}
-.country-btn.active{color:var(--text1);background:rgba(124,58,237,.15)}
-.country-btn:not(:last-child){border-right:1px solid var(--border)}
-.phone-input{flex:1;background:transparent;border:none;padding:12px 16px;font-size:15px;color:var(--text1);font-family:inherit;outline:none}
-.phone-input::placeholder{color:var(--text3)}
-
-/* Upload */
-.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.upload-label-text{font-size:12px;font-weight:700;color:var(--text2);margin:0 0 8px;letter-spacing:.4px;text-transform:uppercase}
-.upload-zone{position:relative;border:2px dashed var(--border);border-radius:16px;aspect-ratio:3/2;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;overflow:hidden;background:var(--card2)}
-.upload-zone:hover{border-color:rgba(124,58,237,.6);background:rgba(124,58,237,.06)}
-.upload-zone.filled{border-style:solid;border-color:rgba(124,58,237,.5)}
-.upload-zone img.preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px}
-.upload-ph{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px;text-align:center;position:relative;z-index:1}
-.upload-zone.filled .upload-ph{background:rgba(0,0,0,.5);border-radius:10px}
-.upload-ph .icon{font-size:32px;line-height:1}
-.upload-ph .hint{font-size:12px;color:var(--text2);font-weight:600;line-height:1.4}
-.upload-ph .tags{display:flex;gap:6px;margin-top:4px}
-.upload-ph .tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;background:rgba(124,58,237,.2);color:#a78bfa}
-.upload-zone.filled .upload-ph .hint,.upload-zone.filled .upload-ph .tag{color:#fff}
-.upload-zone.filled .upload-ph .tag{background:rgba(255,255,255,.2)}
-
-/* Buttons */
-.btn-p{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff;border:none;border-radius:12px;padding:13px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s}
-.btn-p:hover{opacity:.85}
-.btn-s{display:inline-flex;align-items:center;gap:8px;background:var(--card2);color:var(--text2);border:1px solid var(--border);border-radius:12px;padding:13px 28px;font-size:15px;font-weight:600;text-decoration:none;transition:all .2s}
-.btn-s:hover{background:var(--card);color:var(--text1)}
-.err-msg{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:12px;padding:12px 16px;font-size:14px;margin-bottom:16px}
-{% endblock %}
+{% block extra_css %}{% endblock %}
 
 {% block content %}
 <div style="max-width:600px;margin:0 auto;">

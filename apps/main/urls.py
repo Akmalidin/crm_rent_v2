@@ -10,6 +10,8 @@ urlpatterns = [
     path('login/', auth_views.LoginView.as_view(), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('register/', views.register_view, name='register'),
+    path('pending-approval/', views.pending_approval, name='pending_approval'),
+    path('superadmin/', views.superuser_panel, name='superuser_panel'),
     
     # Настройка компании
     path('setup-company/', views.setup_company, name='setup_company'),
@@ -28,6 +30,7 @@ urlpatterns = [
     path('clients/', views.clients_list, name='clients_list'),
     path('clients/<int:client_id>/', views.client_detail, name='client_detail'),
     path('clients/create/', clients_views.create_client, name='create_client'),
+    path('clients/<int:client_id>/edit/', clients_views.edit_client, name='edit_client'),
     path('clients/<int:client_id>/payments/', views.client_payments, name='client_payments'),
 
     
@@ -69,6 +72,9 @@ urlpatterns = [
     
     # Матрица прав
     path('permissions/', views.permissions_matrix, name='permissions_matrix'),
+
+    # API
+    path('api/overdue-orders/', views.api_overdue_orders, name='api_overdue_orders'),
 
     # Бэкапы
     path('backup/download/', views.download_latest_backup, name='download_backup'),

@@ -1,14 +1,11 @@
 {% extends 'base_dark.html' %}
+{% load static %}
 {% block title %}Создать заказ{% endblock %}
-
 {% block extra_css %}
-.bg-white{background:var(--card)!important}.bg-gray-50,.bg-gray-100,.bg-gray-200{background:var(--card2)!important}.text-gray-900,.text-gray-800,.text-gray-700{color:var(--text1)!important}.text-gray-600,.text-gray-500{color:var(--text2)!important}.text-gray-400,.text-gray-300{color:var(--text3)!important}.border-gray-200,.border-gray-300,.border-gray-100{border-color:var(--border)!important}.shadow,.shadow-sm,.shadow-lg,.shadow-xl,.shadow-2xl{box-shadow:var(--shadow)!important}input[type=number],input[type=text],input::placeholder{color:var(--text1)!important}input[type=number],input[type=text]{background:var(--card2)!important;border-color:var(--border)!important}.bg-blue-50{background:rgba(59,130,246,.1)!important}.border-blue-200{border-color:rgba(59,130,246,.3)!important}.bg-purple-50{background:rgba(124,58,237,.1)!important}.border-purple-200{border-color:rgba(124,58,237,.3)!important}.bg-red-50{background:rgba(239,68,68,.1)!important}.border-red-200{border-color:rgba(239,68,68,.3)!important}.bg-green-50{background:rgba(16,185,129,.1)!important}.border-green-200{border-color:rgba(16,185,129,.3)!important}.bg-gradient-to-r.from-blue-50{background:var(--card2)!important}.border-blue-200{border-color:rgba(59,130,246,.3)!important}.bg-gradient-to-r.from-purple-50{background:var(--card2)!important}.border-purple-200{border-color:rgba(124,58,237,.3)!important}
-.item-row{background:var(--card2)!important;border-color:rgba(124,58,237,.25)!important}.item-cost{color:#a78bfa!important}
-/* Select2 dark */
-.select2-container--default .select2-selection--single{background:var(--card2)!important;border:1px solid var(--border)!important}.select2-container--default .select2-selection--single .select2-selection__rendered{color:var(--text1)!important}.select2-dropdown{background:var(--card)!important;border-color:var(--border)!important;box-shadow:var(--shadow)!important}.select2-results__option{background:var(--card)!important;color:var(--text1)!important}.select2-results__option--highlighted{background:rgba(124,58,237,.3)!important;color:#fff!important}.select2-search--dropdown .select2-search__field{background:var(--card2)!important;border-color:var(--border)!important;color:var(--text1)!important}.select2-results__option--disabled{color:var(--text3)!important}
 {% endblock %}
 
 {% block extra_head %}
+    <link rel="stylesheet" href="{% static 'css/create_order.css' %}">
     <!-- Select2 для поиска -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>

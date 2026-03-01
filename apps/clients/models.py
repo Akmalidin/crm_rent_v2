@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import RegexValidator
 from django.db.models import Sum
+from django.contrib.auth.models import User
 import os
 
 def passport_front_path(instance, filename):
@@ -12,6 +13,12 @@ def passport_back_path(instance, filename):
     return f'passports/{instance.last_name}_{instance.first_name}/back{ext}'
 
 class Client(models.Model):
+    owner = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='clients',
+        verbose_name='Компания (владелец)',
+    )
     last_name = models.CharField('Фамилия', max_length=100)
     first_name = models.CharField('Имя', max_length=100)
     middle_name = models.CharField('Отчество', max_length=100, blank=True)

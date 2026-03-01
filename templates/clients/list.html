@@ -1,213 +1,226 @@
-<!-- templates/clients/list.html -->
 {% extends 'base_dark.html' %}
-{% block title %}Клиенты{% endblock %}
+{% load static %}
+
+{% block title %}Клиенты — CRM{% endblock %}
 
 {% block extra_css %}
-.bg-white{background:var(--card)!important}.bg-gray-50,.bg-gray-100,.bg-gray-200{background:var(--card2)!important}.text-gray-900,.text-gray-800,.text-gray-700{color:var(--text1)!important}.text-gray-600,.text-gray-500{color:var(--text2)!important}.text-gray-400,.text-gray-300{color:var(--text3)!important}.border-gray-200,.border-gray-300,.border-gray-100{border-color:var(--border)!important}.divide-y>*+*{border-color:var(--border)!important}.shadow,.shadow-sm,.shadow-lg,.shadow-xl,.shadow-2xl{box-shadow:var(--shadow)!important}input[type=text],input[type=number],input[type=tel],select{background:var(--card2)!important;border-color:var(--border)!important;color:var(--text1)!important}input::placeholder{color:var(--text3)!important}.hover\:bg-blue-50:hover,.hover\:bg-gray-50:hover{background:rgba(124,58,237,.08)!important}.bg-blue-50,.bg-blue-100{background:rgba(59,130,246,.1)!important}.bg-green-50,.bg-green-100{background:rgba(16,185,129,.1)!important}.bg-red-50,.bg-red-100{background:rgba(239,68,68,.1)!important}.bg-purple-50,.bg-purple-100{background:rgba(124,58,237,.1)!important}.bg-indigo-50,.bg-indigo-100{background:rgba(99,102,241,.1)!important}.border-l-4.border-blue-500{border-left-color:#06b6d4!important}.border-l-4.border-green-500{border-left-color:#10b981!important}.border-l-4.border-red-500{border-left-color:#ef4444!important}.border-l-4.border-purple-500{border-left-color:#7c3aed!important}
+.cl-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.cl-header h1{font-size:26px;font-weight:700;color:var(--text1)}
+
+/* Stat cards */
+.cl-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.cl-stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;transition:border-color .2s,background .2s;text-decoration:none;display:block}
+.cl-stat:hover,.cl-stat.active{border-color:rgba(124,58,237,.5);background:rgba(124,58,237,.07)}
+.cl-stat .val{font-size:26px;font-weight:700;color:var(--text1);line-height:1}
+.cl-stat .lbl{font-size:12px;color:var(--text3);margin-top:5px}
+.cl-stat.debt-card .val{color:#f87171}
+.cl-stat.credit-card .val{color:#34d399}
+.cl-stat.active-card .val{color:#60a5fa}
+
+/* Filter bar */
+.filter-bar{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:20px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.filter-bar select,.filter-bar input{background:var(--card2);border:1px solid var(--border);color:var(--text1);border-radius:8px;padding:7px 12px;font-size:13px;font-family:inherit;outline:none}
+.filter-bar select:focus,.filter-bar input:focus{border-color:rgba(124,58,237,.5)}
+.filter-bar label{font-size:12px;color:var(--text3);font-weight:600;display:block;margin-bottom:4px}
+.filter-group{display:flex;flex-direction:column}
+.filter-sep{width:1px;height:36px;background:var(--border);margin:0 4px;align-self:flex-end;margin-bottom:1px}
+.btn-filter{padding:8px 18px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-filter-reset{padding:8px 14px;border-radius:8px;background:var(--card2);border:1px solid var(--border);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-flex;align-items:center}
+.btn-filter-reset:hover{color:var(--text1)}
+
+/* Table */
+.cl-table-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.cl-table{width:100%;border-collapse:collapse}
+.cl-table thead th{background:var(--card2);color:var(--text3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:11px 16px;text-align:left;border-bottom:1px solid var(--border)}
+.cl-table tbody tr{border-bottom:1px solid var(--border);transition:background .15s;cursor:pointer}
+.cl-table tbody tr:last-child{border-bottom:none}
+.cl-table tbody tr:hover{background:var(--card2)}
+.cl-table td{padding:13px 16px;vertical-align:middle}
+
+/* Avatar */
+.cl-avatar{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:14px;flex-shrink:0}
+
+/* Name cell */
+.cl-name-cell{display:flex;align-items:center;gap:12px}
+.cl-fullname{font-size:14px;font-weight:600;color:var(--text1)}
+.cl-sub{font-size:12px;color:var(--text3);margin-top:2px}
+
+/* Balance badge */
+.bal-debt{background:rgba(239,68,68,.12);color:#f87171;border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700}
+.bal-credit{background:rgba(16,185,129,.12);color:#34d399;border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700}
+.bal-zero{background:var(--card2);color:var(--text3);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:600}
+
+/* Sort link */
+a.sort-th{color:inherit;text-decoration:none}
+a.sort-th:hover{color:var(--text1)}
+
+/* Empty state */
+.empty-state{padding:60px 24px;text-align:center}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.empty-text{color:var(--text3);font-size:14px}
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
 
-    <!-- Заголовок -->
-    <div class="flex justify-between items-center">
-        <h1 class="text-3xl font-bold text-gray-800">👥 Клиенты</h1>
-        <a href="/clients/create/" class="px-5 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-semibold">
-            + Новый клиент
-        </a>
-    </div>
-
-    <!-- Статистика -->
-    <div class="grid grid-cols-4 gap-4">
-        <a href="?" class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-500 hover:shadow-md transition">
-            <p class="text-sm text-gray-500">Всего клиентов</p>
-            <p class="text-2xl font-bold text-blue-600">{{ total_clients }}</p>
-        </a>
-        <a href="?filter=active" class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-500 hover:shadow-md transition">
-            <p class="text-sm text-gray-500">Активных</p>
-            <p class="text-2xl font-bold text-green-600">{{ active_count }}</p>
-        </a>
-        <a href="?filter=debt" class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-red-500 hover:shadow-md transition">
-            <p class="text-sm text-gray-500">С долгом</p>
-            <p class="text-2xl font-bold text-red-600">{{ debt_count }}</p>
-        </a>
-        <a href="?filter=credit" class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-purple-500 hover:shadow-md transition">
-            <p class="text-sm text-gray-500">С авансом</p>
-            <p class="text-2xl font-bold text-purple-600">{{ credit_count }}</p>
-        </a>
-    </div>
-
-    <!-- Фильтры -->
-    <form method="get" class="bg-white rounded-xl shadow-sm p-5 space-y-4">
-        <div class="flex items-center justify-between">
-            <h2 class="font-bold text-gray-700 flex items-center gap-2">
-                🔽 Фильтры
-                {% if filters_active %}
-                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-semibold">Активны</span>
-                {% endif %}
-            </h2>
-            {% if filters_active %}
-            <a href="?" class="text-sm text-red-500 hover:text-red-700 font-semibold">✕ Сбросить все</a>
-            {% endif %}
-        </div>
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-
-            <!-- Тип клиента -->
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">Тип</label>
-                <select name="filter" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none">
-                    <option value="" {% if not current_filter %}selected{% endif %}>Все клиенты</option>
-                    <option value="active" {% if current_filter == 'active' %}selected{% endif %}>🟢 Активные заказы</option>
-                    <option value="debt" {% if current_filter == 'debt' %}selected{% endif %}>🔴 С долгом</option>
-                    <option value="credit" {% if current_filter == 'credit' %}selected{% endif %}>🟣 С авансом</option>
-                </select>
-            </div>
-
-            <!-- Дата регистрации -->
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">Зарегистрирован</label>
-                <select name="date_range" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none">
-                    <option value="" {% if not current_date_range %}selected{% endif %}>За всё время</option>
-                    <option value="today" {% if current_date_range == 'today' %}selected{% endif %}>📅 Сегодня</option>
-                    <option value="week" {% if current_date_range == 'week' %}selected{% endif %}>📅 За неделю</option>
-                    <option value="month" {% if current_date_range == 'month' %}selected{% endif %}>📅 За месяц</option>
-                </select>
-            </div>
-
-            <!-- Долг от -->
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">Долг от (сом)</label>
-                <input type="number" name="amount_min" value="{{ current_amount_min }}"
-                    placeholder="0"
-                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"/>
-            </div>
-
-            <!-- Долг до -->
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">Долг до (сом)</label>
-                <input type="number" name="amount_max" value="{{ current_amount_max }}"
-                    placeholder="9999999"
-                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"/>
-            </div>
-        </div>
-
-        <!-- Сортировка и кнопка -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="md:col-span-2">
-                <label class="block text-xs font-semibold text-gray-600 mb-1">Сортировка</label>
-                <select name="sort" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none">
-                    <option value="-created_at" {% if current_sort == '-created_at' %}selected{% endif %}>Сначала новые</option>
-                    <option value="created_at" {% if current_sort == 'created_at' %}selected{% endif %}>Сначала старые</option>
-                    <option value="name" {% if current_sort == 'name' %}selected{% endif %}>По имени (А-Я)</option>
-                </select>
-            </div>
-            <div class="md:col-span-2 flex items-end">
-                <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold text-sm">
-                    🔍 Применить фильтры
-                </button>
-            </div>
-        </div>
-    </form>
-
-    <!-- Быстрые фильтры -->
-    <div class="flex gap-2 flex-wrap">
-        <span class="text-sm text-gray-500 font-semibold self-center">Быстрые:</span>
-        <a href="?filter=active" class="px-3 py-1 {% if current_filter == 'active' %}bg-green-600 text-white{% else %}bg-green-100 text-green-700 hover:bg-green-200{% endif %} rounded-full text-sm font-semibold transition">
-            🟢 Активные
-        </a>
-        <a href="?filter=debt" class="px-3 py-1 {% if current_filter == 'debt' %}bg-red-600 text-white{% else %}bg-red-100 text-red-700 hover:bg-red-200{% endif %} rounded-full text-sm font-semibold transition">
-            🔴 С долгом
-        </a>
-        <a href="?filter=credit" class="px-3 py-1 {% if current_filter == 'credit' %}bg-purple-600 text-white{% else %}bg-purple-100 text-purple-700 hover:bg-purple-200{% endif %} rounded-full text-sm font-semibold transition">
-            🟣 С авансом
-        </a>
-        <a href="?date_range=today" class="px-3 py-1 {% if current_date_range == 'today' %}bg-blue-600 text-white{% else %}bg-blue-100 text-blue-700 hover:bg-blue-200{% endif %} rounded-full text-sm font-semibold transition">
-            📅 Сегодня
-        </a>
-        <a href="?date_range=week" class="px-3 py-1 {% if current_date_range == 'week' %}bg-indigo-600 text-white{% else %}bg-indigo-100 text-indigo-700 hover:bg-indigo-200{% endif %} rounded-full text-sm font-semibold transition">
-            📅 За неделю
-        </a>
-        <a href="?" class="px-3 py-1 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-full text-sm font-semibold transition">
-            Все
-        </a>
-    </div>
-
-    <!-- Список клиентов -->
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div class="px-5 py-3 bg-gray-50 border-b">
-            <span class="font-semibold text-gray-700">
-                Найдено: <span class="text-blue-600">{{ clients|length }}</span> клиентов
-            </span>
-        </div>
-
-        {% if clients %}
-        <div class="divide-y">
-            {% for client in clients %}
-            <a href="/clients/{{ client.id }}/" class="flex items-center gap-4 px-5 py-4 hover:bg-blue-50 transition">
-                <!-- Аватар -->
-                <div class="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span class="text-xl font-bold text-blue-600">
-                        {{ client.first_name|first|upper }}{{ client.last_name|first|upper }}
-                    </span>
-                </div>
-
-                <!-- Инфо -->
-                <div class="flex-1">
-                    <div class="flex items-center gap-2">
-                        <span class="font-bold text-gray-800">{{ client.get_full_name }}</span>
-                        {% if client.rental_orders.filter %}
-                            {% with open_count=client.rental_orders.count %}
-                            {% if open_count > 0 %}
-                            <span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                                🟢 {{ open_count }} заказ(а)
-                            </span>
-                            {% endif %}
-                            {% endwith %}
-                        {% endif %}
-                    </div>
-                    {% for phone in client.phones.all %}
-                    {% if phone.is_primary %}
-                    <p class="text-sm text-gray-500 mt-0.5">📞 {{ phone.phone_number }}</p>
-                    {% endif %}
-                    {% endfor %}
-                    <p class="text-xs text-gray-400 mt-0.5">
-                        Зарегистрирован: {{ client.created_at|date:"d.m.Y" }}
-                    </p>
-                </div>
-
-                <!-- Баланс -->
-                <div class="text-right">
-                    {% with balance=client.get_wallet_balance %}
-                    <p class="font-bold text-lg {% if balance < 0 %}text-red-600{% elif balance > 0 %}text-green-600{% else %}text-gray-500{% endif %}">
-                        {% if balance > 0 %}+{% endif %}{{ balance|floatformat:0 }} сом
-                    </p>
-                    <p class="text-xs text-gray-400">
-                        {% if balance < 0 %}Долг{% elif balance > 0 %}Аванс{% else %}Баланс 0{% endif %}
-                    </p>
-                    {% endwith %}
-                </div>
-
-                <!-- Стрелка -->
-                <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                </svg>
-            </a>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="py-16 text-center">
-            <p class="text-5xl mb-4">👤</p>
-            <p class="text-gray-500 font-semibold">Клиентов не найдено</p>
-            <p class="text-gray-400 text-sm mt-1">Попробуйте изменить фильтры</p>
-            {% if filters_active %}
-            <a href="?" class="mt-4 inline-block px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-200 transition">
-                Сбросить фильтры
-            </a>
-            {% endif %}
-        </div>
-        {% endif %}
-    </div>
-
+<!-- Header -->
+<div class="cl-header">
+    <h1>🧑 Клиенты</h1>
+    <a href="{% url 'main:create_client' %}" class="btn-p">+ Новый клиент</a>
 </div>
+
+<!-- Stats -->
+<div class="cl-stats">
+    <a class="cl-stat {% if not current_filter %}active{% endif %}"
+       href="?sort={{ current_sort }}&date_range={{ current_date_range }}">
+        <div class="val">{{ total_clients }}</div>
+        <div class="lbl">👥 Всего клиентов</div>
+    </a>
+    <a class="cl-stat active-card {% if current_filter == 'active' %}active{% endif %}"
+       href="?filter=active&sort={{ current_sort }}&date_range={{ current_date_range }}">
+        <div class="val">{{ active_count }}</div>
+        <div class="lbl">📦 С активными заказами</div>
+    </a>
+    <a class="cl-stat debt-card {% if current_filter == 'debt' %}active{% endif %}"
+       href="?filter=debt&sort={{ current_sort }}&date_range={{ current_date_range }}">
+        <div class="val">{{ debt_count }}</div>
+        <div class="lbl">🔴 С задолженностью</div>
+    </a>
+    <a class="cl-stat credit-card {% if current_filter == 'credit' %}active{% endif %}"
+       href="?filter=credit&sort={{ current_sort }}&date_range={{ current_date_range }}">
+        <div class="val">{{ credit_count }}</div>
+        <div class="lbl">🟢 С авансом</div>
+    </a>
+</div>
+
+<!-- Filters -->
+<form method="GET" class="filter-bar">
+    <input type="hidden" name="filter" value="{{ current_filter }}">
+
+    <div class="filter-group">
+        <label>Сортировка</label>
+        <select name="sort">
+            <option value="-created_at" {% if current_sort == '-created_at' %}selected{% endif %}>Новые сначала</option>
+            <option value="created_at"  {% if current_sort == 'created_at'  %}selected{% endif %}>Старые сначала</option>
+            <option value="name"        {% if current_sort == 'name'        %}selected{% endif %}>По алфавиту</option>
+        </select>
+    </div>
+
+    <div class="filter-sep"></div>
+
+    <div class="filter-group">
+        <label>Период регистрации</label>
+        <select name="date_range">
+            <option value=""      {% if not current_date_range     %}selected{% endif %}>Любой</option>
+            <option value="today" {% if current_date_range == "today" %}selected{% endif %}>Сегодня</option>
+            <option value="week"  {% if current_date_range == "week"  %}selected{% endif %}>Неделя</option>
+            <option value="month" {% if current_date_range == "month" %}selected{% endif %}>Месяц</option>
+        </select>
+    </div>
+
+    <div class="filter-sep"></div>
+
+    <div class="filter-group">
+        <label>Долг от (сом)</label>
+        <input type="number" name="amount_min" value="{{ current_amount_min }}" placeholder="0" style="width:100px">
+    </div>
+    <div class="filter-group">
+        <label>до (сом)</label>
+        <input type="number" name="amount_max" value="{{ current_amount_max }}" placeholder="—" style="width:100px">
+    </div>
+
+    <button type="submit" class="btn-filter">Применить</button>
+    {% if filters_active %}
+    <a href="?" class="btn-filter-reset">✕ Сбросить</a>
+    {% endif %}
+</form>
+
+<!-- Table -->
+<div class="cl-table-wrap">
+    {% if clients %}
+    <table class="cl-table">
+        <thead>
+            <tr>
+                <th>
+                    <a class="sort-th"
+                       href="?filter={{ current_filter }}&date_range={{ current_date_range }}&amount_min={{ current_amount_min }}&amount_max={{ current_amount_max }}&sort=name">
+                        Клиент {% if current_sort == 'name' %}↑{% endif %}
+                    </a>
+                </th>
+                <th>Телефон</th>
+                <th>Баланс</th>
+                <th>Всего заказов</th>
+                <th>
+                    <a class="sort-th"
+                       href="?filter={{ current_filter }}&date_range={{ current_date_range }}&amount_min={{ current_amount_min }}&amount_max={{ current_amount_max }}&sort={% if current_sort == '-created_at' %}created_at{% else %}-created_at{% endif %}">
+                        Регистрация
+                        {% if current_sort == '-created_at' %}↓{% elif current_sort == 'created_at' %}↑{% endif %}
+                    </a>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for client in clients %}
+            {% with balance=client.get_wallet_balance %}
+            <tr onclick="location.href='{% url 'main:client_detail' client_id=client.id %}'">
+                <!-- Name -->
+                <td>
+                    <div class="cl-name-cell">
+                        <div class="cl-avatar">{{ client.last_name|slice:":1"|upper }}</div>
+                        <div>
+                            <div class="cl-fullname">{{ client.get_full_name }}</div>
+                            {% if client.telegram_id %}
+                            <div class="cl-sub" style="color:var(--accent2)">💬 Telegram</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Phone -->
+                <td style="font-size:13px;color:var(--text2);">
+                    {% with phone=client.phones.all|first %}
+                    {{ phone.phone_number|default:"—" }}
+                    {% endwith %}
+                </td>
+
+                <!-- Balance -->
+                <td>
+                    {% if balance < 0 %}
+                    <span class="bal-debt">−{{ balance|floatformat:0|slice:"1:" }} сом</span>
+                    {% elif balance > 0 %}
+                    <span class="bal-credit">+{{ balance|floatformat:0 }} сом</span>
+                    {% else %}
+                    <span class="bal-zero">0 сом</span>
+                    {% endif %}
+                </td>
+
+                <!-- Orders -->
+                <td style="font-size:13px;color:var(--text2);">
+                    {{ client.rental_orders.count }}
+                </td>
+
+                <!-- Date -->
+                <td style="font-size:13px;color:var(--text3);">
+                    {{ client.created_at|date:"d.m.Y" }}
+                </td>
+            </tr>
+            {% endwith %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">🧑</div>
+        <div class="empty-text">
+            {% if filters_active %}
+            Клиенты не найдены по заданным фильтрам.
+            <a href="?" style="color:var(--accent2)">Сбросить фильтры</a>
+            {% else %}
+            Клиентов пока нет.
+            <a href="{% url 'main:create_client' %}" style="color:var(--accent2)">Добавьте первого</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
 {% endblock %}

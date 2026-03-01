@@ -103,6 +103,28 @@ def get_order_groups_for_client(client, now):
                     'cost_diff': cost_diff,
                 })
 
+        # 3b. События редактирования заказа из notes
+        edit_action_pattern = re.compile(
+            r'\[(\d{2}\.\d{2}\.\d{4} \d{2}:\d{2})\] (\S+): '
+            r'(Добавил товар|Изменил количество|Изменил срок|Изменил часы|Удалил товар) (.+)'
+        )
+        if order.notes:
+            for match in edit_action_pattern.finditer(order.notes):
+                try:
+                    change_dt = timezone.make_aware(
+                        timezone.datetime.strptime(match.group(1), '%d.%m.%Y %H:%M')
+                    )
+                except ValueError:
+                    continue
+                order_events.append({
+                    'type': 'order_edit',
+                    'date': change_dt,
+                    'description': 'Редактирование заказа',
+                    'username': match.group(2),
+                    'action': match.group(3),
+                    'detail': match.group(4),
+                })
+
         # 4. Создание заказа (ИЗНАЧАЛЬНАЯ стоимость на момент создания)
         # Текущее значение get_original_total уже учитывает все изменения дат.
         # Чтобы показать сумму при создании, вычитаем сумму всех последующих изменений.

@@ -1,10 +1,11 @@
 {% extends 'base_dark.html' %}
+{% load static %}
 
 {% block extra_css %}
-.bg-white{background:var(--card)!important}.bg-gray-50,.bg-gray-100,.bg-gray-200{background:var(--card2)!important}.text-gray-900,.text-gray-800,.text-gray-700{color:var(--text1)!important}.text-gray-600,.text-gray-500{color:var(--text2)!important}.border-gray-200,.border-gray-300{border-color:var(--border)!important}.shadow,.shadow-sm,.shadow-lg,.shadow-xl{box-shadow:var(--shadow)!important}input[type=text],input[type=datetime-local]{background:var(--card2)!important;border-color:var(--border)!important;color:var(--text1)!important}.bg-blue-50{background:rgba(59,130,246,.1)!important}.border-blue-300{border-color:rgba(59,130,246,.4)!important}
 {% endblock %}
 
 {% block title %}Изменение дат возврата{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/edit_item_date.css' %}">{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto py-8 px-4">

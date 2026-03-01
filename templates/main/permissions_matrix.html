@@ -1,10 +1,10 @@
 <!-- templates/main/permissions_matrix.html -->
 {% extends 'base_dark.html' %}
+{% load static %}
 {% block title %}Матрица прав доступа{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/permissions_matrix.css' %}">{% endblock %}
 
 {% block extra_css %}
-.bg-white{background:var(--card)!important}.bg-gray-50,.bg-gray-100{background:var(--card2)!important}.text-gray-900,.text-gray-800,.text-gray-700{color:var(--text1)!important}.text-gray-600,.text-gray-500{color:var(--text2)!important}.border-gray-200,.border-gray-300{border-color:var(--border)!important}.divide-y>*+*{border-color:var(--border)!important}.divide-y.divide-gray-200>*+*{border-color:var(--border)!important}.shadow,.shadow-xl{box-shadow:var(--shadow)!important}.hover\:bg-gray-50:hover{background:rgba(124,58,237,.07)!important}thead{background:var(--card2)!important}thead th{color:var(--text2)!important;border-color:var(--border)!important}.bg-gradient-to-r.from-purple-50{background:linear-gradient(to right,rgba(124,58,237,.1),rgba(59,130,246,.08))!important}.bg-green-100{background:rgba(16,185,129,.15)!important}.bg-gray-100{background:var(--card2)!important}.border-b{border-color:var(--border)!important}.last\:border-b-0:last-child{border-color:transparent!important}
-.bg-blue-50{background:rgba(59,130,246,.1)!important}
 {% endblock %}
 
 {% block content %}

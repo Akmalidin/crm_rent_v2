@@ -107,6 +107,31 @@ def get_back_button():
     }
 
 
+def get_client_reply_keyboard():
+    """Постоянная клавиатура снизу для клиентов"""
+    return {
+        'keyboard': [
+            [{'text': '💰 Мой баланс'}, {'text': '📦 Мои заказы'}],
+            [{'text': '📞 Контакты'},   {'text': '❓ Помощь'}],
+        ],
+        'resize_keyboard': True,
+        'persistent': True,
+    }
+
+
+def get_admin_reply_keyboard():
+    """Постоянная клавиатура снизу для администратора"""
+    return {
+        'keyboard': [
+            [{'text': '📊 Отчёт сегодня'}, {'text': '📈 Отчёт за неделю'}],
+            [{'text': '⚠️ Просроченные'},  {'text': '💰 Должники'}],
+            [{'text': '📦 Активные заказы'}, {'text': '👥 Новые клиенты'}],
+        ],
+        'resize_keyboard': True,
+        'persistent': True,
+    }
+
+
 # ============================================================
 # ОБРАБОТЧИКИ КОМАНД ДЛЯ КЛИЕНТОВ
 # ============================================================
@@ -455,10 +480,11 @@ def handle_callback_query(callback_query):
         # Админ или клиент?
         if is_admin(chat_id):
             text = "🔧 <b>Панель администратора</b>"
-            send_telegram_message(chat_id, text, reply_markup=get_admin_keyboard())
+            send_telegram_message(chat_id, text, reply_markup=get_admin_reply_keyboard())
+            send_telegram_message(chat_id, "Выберите раздел:", reply_markup=get_admin_keyboard())
         else:
             text = "📱 <b>Главное меню</b>\n\nВыберите действие:"
-            send_telegram_message(chat_id, text, reply_markup=get_client_keyboard())
+            send_telegram_message(chat_id, text, reply_markup=get_client_reply_keyboard())
 
 
 # ============================================================
@@ -469,34 +495,64 @@ def handle_command(message):
     """Обработка текстовых команд"""
     chat_id = message['chat']['id']
     text = message.get('text', '').strip()
-    
+
     if text == '/start':
         if is_admin(chat_id):
-            # Админское меню
             welcome = "🔧 <b>Добро пожаловать, Администратор!</b>\n\nПанель управления CRM системой."
-            send_telegram_message(chat_id, welcome, reply_markup=get_admin_keyboard())
+            send_telegram_message(chat_id, welcome, reply_markup=get_admin_reply_keyboard())
+            send_telegram_message(chat_id, "Выберите раздел:", reply_markup=get_admin_keyboard())
         else:
-            # Клиентское меню
             welcome = "👋 <b>Добро пожаловать!</b>\n\nЯ бот CRM системы аренды инструментов.\n\nВыберите действие:"
-            send_telegram_message(chat_id, welcome, reply_markup=get_client_keyboard())
-    
+            send_telegram_message(chat_id, welcome, reply_markup=get_client_reply_keyboard())
+
     elif text == '/balance':
         handle_balance(chat_id)
-    
+
     elif text == '/orders':
         handle_orders(chat_id)
-    
+
     elif text == '/contact':
         handle_contact(chat_id)
-    
+
     elif text == '/help':
         handle_help(chat_id)
-    
+
     elif text == '/menu':
         if is_admin(chat_id):
-            send_telegram_message(chat_id, "🔧 Панель администратора", reply_markup=get_admin_keyboard())
+            send_telegram_message(chat_id, "🔧 Панель администратора", reply_markup=get_admin_reply_keyboard())
+            send_telegram_message(chat_id, "Выберите раздел:", reply_markup=get_admin_keyboard())
         else:
-            send_telegram_message(chat_id, "📱 Главное меню", reply_markup=get_client_keyboard())
+            send_telegram_message(chat_id, "📱 Главное меню", reply_markup=get_client_reply_keyboard())
+
+    # ── Reply keyboard button texts (клиент) ──
+    elif text == '💰 Мой баланс':
+        handle_balance(chat_id)
+    elif text == '📦 Мои заказы':
+        handle_orders(chat_id)
+    elif text == '📞 Контакты':
+        handle_contact(chat_id)
+    elif text == '❓ Помощь':
+        handle_help(chat_id)
+
+    # ── Reply keyboard button texts (администратор) ──
+    elif text == '📊 Отчёт сегодня' and is_admin(chat_id):
+        report = admin_report_today()
+        send_telegram_message(chat_id, report, reply_markup=get_admin_keyboard())
+    elif text == '📈 Отчёт за неделю' and is_admin(chat_id):
+        report = admin_report_week()
+        send_telegram_message(chat_id, report, reply_markup=get_admin_keyboard())
+    elif text == '⚠️ Просроченные' and is_admin(chat_id):
+        report = admin_overdue_orders()
+        send_telegram_message(chat_id, report, reply_markup=get_admin_keyboard())
+    elif text == '💰 Должники' and is_admin(chat_id):
+        report = admin_debtors()
+        send_telegram_message(chat_id, report, reply_markup=get_admin_keyboard())
+    elif text == '📦 Активные заказы' and is_admin(chat_id):
+        report = admin_active_orders()
+        send_telegram_message(chat_id, report, reply_markup=get_admin_keyboard())
+    elif text == '👥 Новые клиенты' and is_admin(chat_id):
+        report = admin_new_clients()
+        send_telegram_message(chat_id, report, reply_markup=get_admin_keyboard())
 
 from django.utils import timezone
 
