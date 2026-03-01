@@ -1,0 +1,54 @@
+# Django
+Django==6.0.2
+asgiref==3.11.1
+sqlparse==0.5.5
+django-turbo-response==1.0.3
+django-unfold==0.80.0
+
+# Telegram bot
+requests==2.32.5
+
+# PDF generation
+weasyprint==68.1
+django-weasyprint==2.4.0
+reportlab==4.4.10
+xhtml2pdf==0.2.17
+pillow==12.1.0
+
+# Celery (фоновые задачи)
+celery==5.6.2
+redis==7.2.0
+kombu==5.6.2
+amqp==5.3.1
+billiard==4.2.4
+vine==5.1.0
+flower==2.0.1
+
+# WeasyPrint dependencies
+pycairo==1.29.0
+lxml==6.0.2
+fonttools==4.61.1
+tinycss2==1.5.1
+cssselect2==0.9.0
+html5lib==1.1
+webencodings==0.5.1
+brotli==1.2.0
+pydyf==0.12.1
+pyphen==0.17.2
+tinyhtml5==2.0.0
+zopfli==0.4.1
+
+# Utils
+humanize==4.15.0
+python-dateutil==2.9.0.post0
+pytz==2025.2
+tzdata==2025.3
+tzlocal==5.3.1
+PyYAML==6.0.3
+certifi==2026.1.4
+urllib3==2.6.3
+charset-normalizer==3.4.4
+idna==3.11
+six==1.17.0
+packaging==26.0
+colorama==0.4.6
