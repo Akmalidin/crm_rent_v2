@@ -2,6 +2,30 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
+class Warehouse(models.Model):
+    """Склад — группировка товаров"""
+    owner = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='warehouses',
+        verbose_name='Владелец',
+    )
+    name = models.CharField('Название', max_length=200)
+    description = models.CharField('Описание', max_length=300, blank=True)
+    is_active = models.BooleanField('Активен', default=True)
+    created_at = models.DateTimeField('Создан', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Склад'
+        verbose_name_plural = 'Склады'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+    def get_products_count(self):
+        return self.products.count()
+
+
 class Category(models.Model):
     owner = models.ForeignKey(
         User, on_delete=models.CASCADE,
@@ -23,6 +47,11 @@ class Product(models.Model):
     owner = models.ForeignKey(
         User, on_delete=models.CASCADE,
         null=True, blank=True, related_name='products',
+    )
+    warehouse = models.ForeignKey(
+        Warehouse, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='products',
+        verbose_name='Склад',
     )
     name = models.CharField('Название', max_length=200)
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')

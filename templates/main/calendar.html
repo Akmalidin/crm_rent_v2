@@ -399,7 +399,7 @@
     </div>
 
     <!-- Legend -->
-    <div class="bg-white rounded-2xl shadow-sm p-4 mb-6 flex flex-wrap items-center gap-4 border border-gray-100">
+    <div class="bg-white rounded-2xl shadow-sm p-4 mb-4 flex flex-wrap items-center gap-4 border border-gray-100">
         <span class="text-sm font-medium text-gray-500 mr-2">Легенда:</span>
         <div class="legend-item">
             <div class="legend-dot bg-gradient-to-r from-blue-500 to-blue-400"></div>
@@ -413,6 +413,19 @@
             <div class="legend-dot bg-gradient-to-r from-red-500 to-red-400"></div>
             <span class="text-sm text-gray-700 font-medium">Просрочен возврат</span>
         </div>
+        <div class="legend-item">
+            <div class="legend-dot" style="background:rgba(245,158,11,.3);border:2px solid #f59e0b"></div>
+            <span class="text-sm text-gray-700 font-medium">🌧️ Дождливый день</span>
+        </div>
+    </div>
+
+    <!-- Rain hint -->
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-4 flex items-center gap-3">
+        <span style="font-size:20px">🌧️</span>
+        <span class="text-sm text-amber-800">
+            <b>Чтобы отметить дождливый день</b> — нажмите на пустое место нужного дня в календаре.
+            Отмеченные дни выделяются жёлтым цветом. Нажмите ещё раз, чтобы убрать отметку.
+        </span>
     </div>
 
     <!-- Calendar -->
@@ -438,12 +451,61 @@
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
 <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.10/locales/ru.global.min.js'></script>
 
+<style>
+/* Дождливые дни в календаре */
+.fc-day-rain { background: rgba(245,158,11,.12) !important; }
+.fc-day-rain .fc-daygrid-day-number { color: #f59e0b !important; font-weight: 700 !important; }
+.fc-day-rain::after {
+    content: '🌧️';
+    position: absolute; top: 2px; right: 24px;
+    font-size: 14px; pointer-events: none;
+}
+.fc-daygrid-day { position: relative; cursor: pointer; }
+.rain-toggle-hint { font-size: 12px; color: #9ca3af; margin-top: 8px; }
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var calendarEl = document.getElementById('calendar');
+    var CSRF = '{{ csrf_token }}';
+    var RAIN_URL = '{% url "main:toggle_rain_day" %}';
+    var rainDays = new Set({{ rain_days_json|safe }});
 
     // Events are already prepared in Python with pickup/return separation
     var events = {{ events_json|safe }};
+
+    function applyRainStyles() {
+        document.querySelectorAll('.fc-daygrid-day').forEach(function(cell) {
+            var dateStr = cell.getAttribute('data-date');
+            if (rainDays.has(dateStr)) {
+                cell.classList.add('fc-day-rain');
+            } else {
+                cell.classList.remove('fc-day-rain');
+            }
+        });
+    }
+
+    function toggleRainDay(dateStr) {
+        fetch(RAIN_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+            body: JSON.stringify({date: dateStr})
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) return;
+            rainDays = new Set(data.rain_days);
+            applyRainStyles();
+            var action = data.status === 'added' ? '🌧️ Отмечен как дождливый' : '☀️ Убран дождь';
+            // Brief toast in page
+            var t = document.createElement('div');
+            t.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#d97706;color:#fff;padding:10px 18px;border-radius:12px;font-weight:700;z-index:9999;font-size:14px';
+            t.textContent = action + ': ' + dateStr.split('-').reverse().join('.');
+            document.body.appendChild(t);
+            setTimeout(function(){ t.style.opacity='0'; t.style.transition='opacity .4s'; }, 1500);
+            setTimeout(function(){ t.remove(); }, 2000);
+        });
+    }
 
     var calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
@@ -494,10 +556,22 @@ document.addEventListener('DOMContentLoaded', function() {
             hour: '2-digit',
             minute: '2-digit',
             meridiem: false
+        },
+        datesSet: function() {
+            setTimeout(applyRainStyles, 50);
+        },
+        dateClick: function(info) {
+            // Shift+Click или правая кнопка — отметить дождь
+            // Обычный клик на пустую ячейку — тоже отмечаем дождь
+            var clickedOnEvent = info.jsEvent.target.closest('.fc-event');
+            if (!clickedOnEvent) {
+                toggleRainDay(info.dateStr);
+            }
         }
     });
 
     calendar.render();
+    setTimeout(applyRainStyles, 100);
 });
 
 function showEventDetails(event) {

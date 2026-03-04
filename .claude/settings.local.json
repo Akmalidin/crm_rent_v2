@@ -13,7 +13,19 @@
       "Bash(python manage.py makemigrations inventory --name assign_existing_products_owner --empty)",
       "Bash(python manage.py makemigrations main --name create_profiles_for_existing_users --empty)",
       "Bash(python manage.py showmigrations)",
-      "Bash(pip freeze)"
+      "Bash(pip freeze)",
+      "Bash(python manage.py makemigrations main --name=\"userprofile_role_max_warehouses_directormessage\")",
+      "Bash(python manage.py makemigrations inventory --name=\"warehouse_product_warehouse_fk\")",
+      "Bash(python manage.py check --deploy)",
+      "Bash(python manage.py makemigrations main --name=activitylog)",
+      "Bash(python manage.py makemigrations main --name=userprofile_needs_company_setup)",
+      "Bash(python manage.py migrate main)",
+      "Bash(pip install django-unfold django-turbo-response -q)",
+      "Bash(python manage.py shell -c \":*)",
+      "Bash(python manage.py migrate rental 0009)",
+      "Bash(grep -n \"def edit_order\\\\|def rental_edit_order\" /c/Users/vertex/Desktop/crm_new/apps/rental/*.py)",
+      "Bash(pip install django-jazzmin)",
+      "Bash(python manage.py collectstatic --noinput)"
     ]
   }
 }

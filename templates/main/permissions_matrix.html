@@ -1,93 +1,145 @@
 <!-- templates/main/permissions_matrix.html -->
 {% extends 'base_dark.html' %}
 {% load static %}
-{% block title %}Матрица прав доступа{% endblock %}
+{% block title %}Права сотрудников{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'css/permissions_matrix.css' %}">{% endblock %}
-
-{% block extra_css %}
-{% endblock %}
 
 {% block content %}
 <div class="max-w-7xl mx-auto py-8 px-4">
-    
+
     <!-- Заголовок -->
     <div class="mb-8 flex items-center justify-between">
         <div>
-            <h1 class="text-4xl font-bold text-gray-900">📊 Матрица прав доступа</h1>
-            <p class="text-gray-600 mt-2">Кто что может делать</p>
+            <h1 class="text-4xl font-bold text-gray-900">🔑 Права сотрудников</h1>
+            <p class="text-gray-600 mt-2">Назначайте роли своим сотрудникам</p>
         </div>
-        <a href="{% url 'main:users_management' %}" 
+        <a href="{% url 'main:users_management' %}"
            class="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700">
             👥 Пользователи
         </a>
     </div>
 
-    <!-- Матрица -->
-    <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
-        {% for category_name, permissions in permission_categories.items %}
-        <div class="border-b last:border-b-0">
-            <!-- Заголовок категории -->
-            <div class="px-6 py-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b">
-                <h2 class="text-xl font-bold text-gray-900">{{ category_name }}</h2>
-            </div>
-            
-            <!-- Таблица разрешений -->
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase w-1/3">
-                                Действие
-                            </th>
-                            {% for group in groups %}
-                            <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">
-                                {{ group.name }}
-                            </th>
-                            {% endfor %}
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        {% for perm in permissions %}
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4">
-                                <div class="text-sm font-semibold text-gray-900">
-                                    {{ perm.name }}
-                                </div>
-                                <div class="text-xs text-gray-500">
-                                    {{ perm.codename }}
-                                </div>
-                            </td>
-                            {% for group in groups %}
-                            <td class="px-6 py-4 text-center">
-                                {% if perm in group.permissions.all %}
-                                <span class="inline-flex items-center justify-center w-8 h-8 bg-green-100 text-green-700 rounded-full font-bold">
-                                    ✓
-                                </span>
-                                {% else %}
-                                <span class="inline-flex items-center justify-center w-8 h-8 bg-gray-100 text-gray-400 rounded-full">
-                                    —
-                                </span>
-                                {% endif %}
-                            </td>
-                            {% endfor %}
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <!-- Легенда ролей -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {% for group in groups %}
+        <div class="bg-white rounded-2xl shadow p-5 border-l-4
+            {% if group.name == 'Администратор' %}border-red-500
+            {% elif group.name == 'Менеджер' %}border-blue-500
+            {% else %}border-green-500{% endif %}">
+            <h3 class="font-bold text-gray-900 text-lg">{{ group.name }}</h3>
+            <p class="text-sm text-gray-500 mt-1">{{ group.permissions.count }} разрешений</p>
+            <div class="mt-3 flex flex-wrap gap-1">
+                {% for perm in group.permissions.all|slice:":4" %}
+                <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">{{ perm.codename|slice:":18" }}</span>
+                {% endfor %}
+                {% if group.permissions.count > 4 %}
+                <span class="text-gray-400 text-xs self-center">+{{ group.permissions.count|add:"-4" }}</span>
+                {% endif %}
             </div>
         </div>
         {% endfor %}
     </div>
 
-    <!-- Легенда -->
-    <div class="mt-6 p-6 bg-blue-50 rounded-xl">
-        <h3 class="font-bold text-gray-900 mb-3">💡 Как пользоваться:</h3>
-        <ul class="space-y-2 text-sm text-gray-700">
-            <li>• <span class="font-semibold">✓</span> — группа имеет это разрешение</li>
-            <li>• <span class="font-semibold">—</span> — группа НЕ имеет этого разрешения</li>
-            <li>• Для изменения прав используйте Django Admin → Группы</li>
-            <li>• Суперпользователи имеют все права автоматически</li>
-        </ul>
+    <!-- Матрица сотрудников -->
+    <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b flex items-center justify-between">
+            <h2 class="text-xl font-bold text-gray-900">Сотрудники и их роли</h2>
+            <span class="text-sm text-gray-500">{{ employees|length }} чел.</span>
+        </div>
+
+        {% if employees %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase w-1/3">Сотрудник</th>
+                        {% for group in groups %}
+                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase">
+                            {{ group.name }}
+                        </th>
+                        {% endfor %}
+                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase">Активность</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for emp in employees %}
+                    {% with emp_groups=emp.groups.all %}
+                    <tr class="hover:bg-gray-50">
+                        <!-- Сотрудник -->
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
+                                    {{ emp.username|slice:":1"|upper }}
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-900 text-sm">{{ emp.username }}</p>
+                                    <p class="text-xs text-gray-500">{{ emp.email|default:"—" }}</p>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Кнопки для каждой группы -->
+                        {% for group in groups %}
+                        <td class="px-6 py-4 text-center">
+                            {% if group in emp_groups %}
+                                <form method="POST" action="{% url 'main:permissions_matrix' %}" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="user_id" value="{{ emp.id }}">
+                                    <input type="hidden" name="group_name" value="{{ group.name }}">
+                                    <input type="hidden" name="action" value="remove">
+                                    <button type="submit"
+                                        class="w-10 h-10 bg-green-500 text-white rounded-full text-lg font-bold hover:bg-red-500 transition-colors"
+                                        title="Нажмите чтобы снять роль {{ group.name }}">✓</button>
+                                </form>
+                            {% else %}
+                                <form method="POST" action="{% url 'main:permissions_matrix' %}" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="user_id" value="{{ emp.id }}">
+                                    <input type="hidden" name="group_name" value="{{ group.name }}">
+                                    <input type="hidden" name="action" value="add">
+                                    <button type="submit"
+                                        class="w-10 h-10 bg-gray-200 text-gray-400 rounded-full text-lg font-bold hover:bg-blue-500 hover:text-white transition-colors"
+                                        title="Нажмите чтобы назначить роль {{ group.name }}">+</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+
+                        <!-- Ссылка на активность -->
+                        <td class="px-6 py-4 text-center">
+                            <a href="{% url 'main:employee_activity' emp.id %}"
+                               class="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-200">
+                               📋 Лог
+                            </a>
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-12 text-center">
+            <div class="text-6xl mb-4">👥</div>
+            <h3 class="text-xl font-bold text-gray-700 mb-2">Нет сотрудников</h3>
+            <p class="text-gray-500 mb-6">Сначала создайте сотрудников</p>
+            {% if not is_creator %}
+            <a href="{% url 'main:create_employee' %}"
+               class="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700">
+                + Создать сотрудника
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Подсказка -->
+    <div class="mt-6 p-5 bg-blue-50 rounded-xl text-sm text-gray-700">
+        <b>💡 Роли:</b>
+        <b>Менеджер</b> — создаёт заказы и клиентов.
+        <b>Кассир</b> — принимает оплаты.
+        <b>Администратор</b> — полный доступ к данным компании.
+        Нажмите <b>✓</b> чтобы снять роль, <b>+</b> чтобы назначить.
     </div>
 
 </div>

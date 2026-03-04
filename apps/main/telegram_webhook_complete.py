@@ -1,6 +1,3 @@
-# apps/main/telegram_webhook_complete.py
-# WEBHOOK ОБРАБОТЧИК С ПОДДЕРЖКОЙ КНОПОК
-
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json

@@ -1,0 +1,80 @@
+<!-- templates/main/employee_activity.html -->
+{% extends 'base_dark.html' %}
+{% load static %}
+{% block title %}Активность — {{ target_user.username }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto py-8 px-4">
+
+    <!-- Заголовок -->
+    <div class="mb-8 flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">📋 Лог активности</h1>
+            <p class="text-gray-600 mt-1">
+                Пользователь: <b>{{ target_user.username }}</b>
+                {% if target_user.first_name or target_user.last_name %}
+                ({{ target_user.first_name }} {{ target_user.last_name }})
+                {% endif %}
+            </p>
+        </div>
+        <a href="{% url 'main:users_management' %}"
+           class="px-5 py-2 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 text-sm">
+            ← Назад
+        </a>
+    </div>
+
+    <!-- Таблица логов -->
+    <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b flex justify-between items-center">
+            <h2 class="font-bold text-gray-900">Последние действия</h2>
+            <span class="text-sm text-gray-500">{{ logs|length }} записей</span>
+        </div>
+
+        {% if logs %}
+        <div class="divide-y divide-gray-100">
+            {% for log in logs %}
+            <div class="px-6 py-4 flex items-start gap-4 hover:bg-gray-50">
+                <!-- Иконка действия -->
+                <div class="mt-0.5 w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0
+                    {% if log.action == 'create_order' %}bg-blue-100
+                    {% elif log.action == 'close_order' %}bg-green-100
+                    {% elif log.action == 'accept_payment' %}bg-yellow-100
+                    {% elif log.action == 'create_client' %}bg-purple-100
+                    {% elif log.action == 'edit_client' or log.action == 'edit_order' %}bg-orange-100
+                    {% else %}bg-gray-100{% endif %}">
+                    {% if log.action == 'create_order' %}📦
+                    {% elif log.action == 'close_order' %}✅
+                    {% elif log.action == 'edit_order' %}✏️
+                    {% elif log.action == 'accept_payment' %}💰
+                    {% elif log.action == 'create_client' %}👤
+                    {% elif log.action == 'edit_client' %}✏️
+                    {% elif log.action == 'create_product' %}🔧
+                    {% elif log.action == 'edit_product' %}🔧
+                    {% elif log.action == 'return_items' %}↩️
+                    {% else %}📝{% endif %}
+                </div>
+
+                <!-- Описание -->
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-gray-900">{{ log.get_action_display }}</p>
+                    <p class="text-sm text-gray-600 mt-0.5">{{ log.description }}</p>
+                </div>
+
+                <!-- Время -->
+                <div class="text-xs text-gray-400 flex-shrink-0 text-right">
+                    <div>{{ log.created_at|date:"d.m.Y" }}</div>
+                    <div>{{ log.created_at|date:"H:i" }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="p-12 text-center">
+            <div class="text-5xl mb-3">📋</div>
+            <p class="text-gray-500">Нет записей активности</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

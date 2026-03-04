@@ -1,815 +1,213 @@
-<!-- templates/clients/detail.html -->
 {% extends 'base_dark.html' %}
 {% load static %}
+{% block title %}{{ client.get_full_name }} — CRM{% endblock %}
 
 {% block extra_css %}
+.cd{max-width:860px;margin:0 auto;padding-bottom:48px}
+.cd-back{font-size:13px;color:var(--accent2);text-decoration:none;display:inline-flex;align-items:center;gap:5px;margin-bottom:14px}
+.cd-back:hover{text-decoration:underline}
+
+/* Header */
+.cd-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;margin-bottom:20px}
+.cd-head h1{font-size:28px;font-weight:800;color:var(--text1);margin:0 0 4px 0}
+.cd-head p{font-size:14px;color:var(--text3);margin:0}
+.cd-head-btns{display:flex;gap:8px;flex-wrap:wrap}
+.cd-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;border:none;cursor:pointer;font-family:inherit;transition:opacity .15s}
+.cd-btn:hover{opacity:.85}
+.btn-blue{background:var(--accent);color:#fff}
+.btn-green{background:#059669;color:#fff}
+.btn-ghost{background:var(--card2);color:var(--text2);border:1px solid var(--border)}
+
+/* Balance card */
+.cd-balance{background:linear-gradient(135deg,var(--accent) 0%,#4f46e5 100%);border-radius:18px;padding:26px 30px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.cd-balance-main{}
+.cd-balance-label{font-size:13px;color:rgba(255,255,255,.7);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.cd-balance-amount{font-size:40px;font-weight:900;color:#fff;line-height:1}
+.cd-balance-sub{font-size:13px;color:rgba(255,255,255,.75);margin-top:6px}
+.cd-balance-stats{display:flex;gap:20px;flex-wrap:wrap}
+.cd-stat{background:rgba(255,255,255,.15);border-radius:12px;padding:12px 18px;text-align:center}
+.cd-stat-label{font-size:11px;color:rgba(255,255,255,.7);font-weight:600;text-transform:uppercase}
+.cd-stat-val{font-size:20px;font-weight:800;color:#fff;margin-top:2px}
+.cd-pay-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 22px;border-radius:12px;background:#fff;color:#4f46e5;font-size:14px;font-weight:800;text-decoration:none;margin-top:14px;transition:opacity .15s}
+.cd-pay-btn:hover{opacity:.85}
+
+/* Info card */
+.cd-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 24px;margin-bottom:18px}
+.cd-card-title{font-size:16px;font-weight:700;color:var(--text1);margin:0 0 16px 0;display:flex;align-items:center;gap:8px}
+
+/* Phone list */
+.cd-phones{display:flex;flex-wrap:wrap;gap:8px}
+.cd-phone{display:inline-flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:6px 14px;font-size:14px;font-weight:600;color:var(--text1)}
+.cd-phone-primary{border-color:var(--accent);color:var(--accent)}
+
+/* Order cards */
+.order-card{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:12px;cursor:pointer;transition:border-color .15s,box-shadow .15s;text-decoration:none;display:block}
+.order-card:hover{border-color:var(--accent);box-shadow:0 2px 12px rgba(124,58,237,.2)}
+.order-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.order-card-left{}
+.order-num{font-size:20px;font-weight:800;color:var(--text1)}
+.order-date{font-size:13px;color:var(--text3);margin-top:2px}
+.order-badges{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.order-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-open{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.2)}
+.badge-closed{background:rgba(107,114,128,.12);color:#9ca3af;border:1px solid rgba(107,114,128,.2)}
+.badge-items{background:rgba(96,165,250,.1);color:#60a5fa;border:1px solid rgba(96,165,250,.2)}
+.badge-overdue{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.2)}
+.badge-rain{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.2)}
+.order-card-right{text-align:right}
+.order-amount{font-size:22px;font-weight:900;color:var(--accent2)}
+.order-debt{font-size:13px;margin-top:4px}
+.order-debt.red{color:#f87171}
+.order-debt.green{color:#34d399}
+.order-link-hint{font-size:12px;color:var(--text3);margin-top:8px;text-align:right}
+
+/* Payments table */
+.pay-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.pay-row:last-child{border-bottom:none}
+.pay-left{}
+.pay-date{font-size:14px;font-weight:600;color:var(--text1)}
+.pay-method{font-size:12px;color:var(--text3);margin-top:2px}
+.pay-amount{font-size:16px;font-weight:800;color:#34d399}
+
+/* Empty */
+.cd-empty{padding:36px;text-align:center;color:var(--text3)}
+.cd-empty .icon{font-size:36px;margin-bottom:8px}
 {% endblock %}
 
-
-{% block title %}{{ client.get_full_name }} - CRM Аренда{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/clients_detail.css' %}">{% endblock %}
-
 {% block content %}
-<div class="space-y-6">
-    
-    <!-- Header -->
-    <div class="flex justify-between items-start">
+<div class="cd">
+
+    <a href="/clients/" class="cd-back">← Список клиентов</a>
+
+    <!-- ══ ЗАГОЛОВОК ══ -->
+    <div class="cd-head">
         <div>
-            <a href="/clients/" class="text-blue-600 hover:underline text-sm mb-2 inline-block">
-                ← Назад к списку
-            </a>
-            <h1 class="text-3xl font-bold text-gray-800">{{ client.get_full_name }}</h1>
-            <p class="text-gray-600">ID: {{ client.id }}</p>
+            <h1>{{ client.get_full_name }}</h1>
+            <p>ID: {{ client.id }} · Зарегистрирован {{ client.created_at|date:"d.m.Y" }}</p>
         </div>
-        <div class="flex gap-2">
-            <a href="{% url 'main:edit_client' client_id=client.id %}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition">
-                ✏️ Редактировать
-            </a>
-            <a href="/rental/create/?client={{ client.id }}" data-turbo="false" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
-                ➕ Новый заказ
-            </a>
+        <div class="cd-head-btns">
+            <a href="{% url 'main:edit_client' client_id=client.id %}" class="cd-btn btn-ghost">✏️ Редактировать</a>
+            <a href="/rental/create/?client={{ client.id }}" data-turbo="false" class="cd-btn btn-blue">➕ Новый заказ</a>
         </div>
     </div>
-    
-    <!-- Wallet Balance -->
-    <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-lg p-8">
-        <div class="flex justify-between items-center">
-            <div>
-                <p class="text-blue-100 text-sm uppercase mb-2">💰 Баланс кошелька</p>
-                {% if balance < 0 %}
-                    <p class="text-5xl font-bold">-{{ debt|floatformat:0 }} сом</p>
-                    <p class="text-blue-100 mt-2">⚠️ Задолженность</p>
-                {% elif balance > 0 %}
-                    <p class="text-5xl font-bold">+{{ credit|floatformat:0 }} сом</p>
-                    <p class="text-blue-100 mt-2">✅ Переплата (аванс)</p>
-                {% else %}
-                    <p class="text-5xl font-bold">0 сом</p>
-                    <p class="text-blue-100 mt-2">✅ Баланс в норме</p>
-                {% endif %}
-            </div>
-            <div class="text-right">
-                <div class="bg-white bg-opacity-20 rounded-lg p-4 mb-2">
-                    <p class="text-blue-100 text-xs">Всего оплачено</p>
-                    <p class="text-2xl font-bold">{{ total_paid|floatformat:0 }} сом</p>
-                </div>
-                <div class="bg-white bg-opacity-20 rounded-lg p-4">
-                    <p class="text-blue-100 text-xs">Всего долг</p>
-                    <p class="text-2xl font-bold">{{ total_debt|floatformat:0 }} сом</p>
-                </div>
-            </div>
+
+    <!-- ══ БАЛАНС ══ -->
+    <div class="cd-balance">
+        <div class="cd-balance-main">
+            <div class="cd-balance-label">💰 Баланс кошелька</div>
+            {% if balance < 0 %}
+            <div class="cd-balance-amount">-{{ debt|floatformat:0 }} сом</div>
+            <div class="cd-balance-sub">⚠️ Задолженность</div>
+            {% elif balance > 0 %}
+            <div class="cd-balance-amount">+{{ credit|floatformat:0 }} сом</div>
+            <div class="cd-balance-sub">✅ Переплата (аванс)</div>
+            {% else %}
+            <div class="cd-balance-amount">0 сом</div>
+            <div class="cd-balance-sub">✅ Баланс в норме</div>
+            {% endif %}
+            {% if debt > 0 %}
+            <a href="/payment/?client={{ client.id }}" data-turbo="false" class="cd-pay-btn">💵 Принять оплату</a>
+            {% endif %}
         </div>
-        
-        {% if debt > 0 %}
-        <div class="mt-6">
-            <a href="/payment/?client={{ client.id }}" data-turbo="false" class="bg-white text-blue-600 px-6 py-3 rounded-lg hover:bg-blue-50 transition font-semibold inline-block">
-                💵 Принять оплату
-            </a>
-        </div>
-        {% endif %}
-    </div>
-    
-    <!-- Contact Info -->
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">📞 Контактная информация</h2>
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <p class="text-gray-600 text-sm">Телефоны:</p>
-                {% for phone in client.phones.all %}
-                    <p class="font-semibold text-gray-800">
-                        {{ phone.phone_number }}
-                        {% if phone.is_primary %}
-                            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Основной</span>
-                        {% endif %}
-                    </p>
-                {% empty %}
-                    <p class="text-gray-400">Нет телефонов</p>
-                {% endfor %}
+        <div class="cd-balance-stats">
+            <div class="cd-stat">
+                <div class="cd-stat-label">Оплачено всего</div>
+                <div class="cd-stat-val">{{ total_paid|floatformat:0 }} сом</div>
             </div>
-            <div>
-                <p class="text-gray-600 text-sm">Дата регистрации:</p>
-                <p class="font-semibold text-gray-800">{{ client.created_at|date:"d.m.Y H:i" }}</p>
+            <div class="cd-stat">
+                <div class="cd-stat-label">Всего долг</div>
+                <div class="cd-stat-val">{{ total_debt|floatformat:0 }} сом</div>
+            </div>
+            <div class="cd-stat">
+                <div class="cd-stat-label">Заказов</div>
+                <div class="cd-stat-val">{{ all_orders|length }}</div>
             </div>
         </div>
     </div>
-    
-    <!-- Active Orders -->
-    {% if active_orders %}
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">📦 Активные заказы</h2>
-        <div class="space-y-4">
-            {% for order in active_orders %}
-            <div class="border border-gray-200 rounded-lg p-4">
-                <div class="flex justify-between items-start mb-3">
-                    <div>
-                        <p class="font-bold text-lg">Заказ #{{ order.id }}</p>
-                        <p class="text-sm text-gray-600">{{ order.created_at|date:"d.m.Y H:i" }}</p>
-                    </div>
-                    <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
-                        Открыт
-                    </span>
-                </div>
-                
-                <!-- Товары в заказе -->
-                <div class="bg-gray-50 rounded p-3">
-                    {% for item in order.items.all %}
-                    <div class="flex justify-between items-center py-2 {% if not forloop.last %}border-b border-gray-200{% endif %}">
-                        <div class="flex-1">
-                            <p class="font-semibold">{{ item.product.name }}</p>
-                            <p class="text-sm text-gray-600">
-                                Взято: {{ item.quantity_taken }} шт |
-                                Возвращено: {{ item.quantity_returned }} шт |
-                                Осталось: {{ item.quantity_remaining }} шт
-                            </p>
-                            {% if item.quantity_remaining > 0 %}
-                            <p class="text-sm {% if item.planned_return_date < now %}text-red-600 font-semibold{% else %}text-green-600{% endif %}">
-                                📅 Вернуть до: {{ item.planned_return_date|date:"d.m.Y H:i" }}
-                                {% if item.planned_return_date < now %}
-                                    <span class="bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs ml-2">Просрочено</span>
-                                {% endif %}
-                            </p>
-                            {% endif %}
-                        </div>
-                        <div class="text-right">
-                            <p class="font-bold">{{ item.current_total_cost|floatformat:0 }} сом</p>
-                            {% if item.get_saved_amount > 0 %}
-                            <p class="text-xs text-green-600">Экономия: {{ item.get_saved_amount|floatformat:0 }} сом</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                
-                <div class="flex justify-between items-center mt-3 pt-3 border-t">
-                    <p class="font-bold text-lg">Итого:</p>
-                    <p class="font-bold text-xl text-blue-600">{{ order.get_current_total|floatformat:0 }} сом</p>
-                </div>
+
+    <!-- ══ КОНТАКТЫ ══ -->
+    <div class="cd-card">
+        <h2 class="cd-card-title">📞 Контакты</h2>
+        <div class="cd-phones">
+            {% for phone in client.phones.all %}
+            <div class="cd-phone {% if phone.is_primary %}cd-phone-primary{% endif %}">
+                📱 {{ phone.phone_number }}
+                {% if phone.is_primary %}<span style="font-size:11px;opacity:.7">(основной)</span>{% endif %}
             </div>
+            {% empty %}
+            <span style="color:var(--text3);font-size:14px">Нет телефонов</span>
             {% endfor %}
         </div>
     </div>
-    {% endif %}
-    
-    <!-- Payment History -->
-    {% if payments %}
-    <div class="bg-white rounded-lg shadow p-6" style="max-height: 400px; overflow-y: scroll;">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">💳 История оплат</h2>
-        <div class="space-y-2">
-            {% for payment in payments %}
-            <div class="flex justify-between items-center p-3 bg-green-50 rounded">
-                <div>
-                    <p class="font-semibold text-gray-800">{{ payment.payment_date|date:"d.m.Y H:i" }}</p>
-                    <p class="text-sm text-gray-600">{{ payment.get_payment_method_display }}</p>
-                </div>
-                <p class="font-bold text-green-600 text-lg">+{{ payment.amount|floatformat:0 }} сом</p>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-    
-    <!-- All Orders -->
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">📋 Все заказы</h2>
-        <table class="w-full">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-4 py-2 text-left">#</th>
-                    <th class="px-4 py-2 text-left">Дата</th>
-                    <th class="px-4 py-2 text-center">Статус</th>
-                    <th class="px-4 py-2 text-right">Сумма</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y">
-                {% for order in all_orders %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3">#{{ order.id }}</td>
-                    <td class="px-4 py-3">{{ order.created_at|date:"d.m.Y H:i" }}</td>
-                    <td class="px-4 py-3 text-center">
+
+    <!-- ══ ЗАКАЗЫ ══ -->
+    <div class="cd-card">
+        <h2 class="cd-card-title">📋 Все заказы <span style="font-size:14px;font-weight:400;color:var(--text3)">({{ all_orders|length }})</span></h2>
+
+        {% for od in all_orders %}
+        {% with order=od.order rc=od.order.get_rain_excluded_count %}
+        <a href="{% url 'main:order_view' order.id %}" class="order-card">
+            <div class="order-card-top">
+                <div class="order-card-left">
+                    <div class="order-num">Заказ #{{ order.order_number }}</div>
+                    <div class="order-date">{{ order.created_at|date:"d.m.Y H:i" }}</div>
+                    <div class="order-badges">
                         {% if order.status == 'open' %}
-                        <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">Открыт</span>
+                        <span class="order-badge badge-open">🟢 Открыт</span>
                         {% else %}
-                        <span class="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">Закрыт</span>
+                        <span class="order-badge badge-closed">⚫ Закрыт</span>
                         {% endif %}
-                    </td>
-                    <td class="px-4 py-3 text-right font-bold">{{ order.get_current_total|floatformat:0 }} сом</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="px-4 py-8 text-center text-gray-500">Заказов нет</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    
-</div>
-
-<!-- История операций (Grouped by Orders) -->
-<div class="bg-white rounded-lg shadow">
-    <div class="p-6 border-b">
-        <h2 class="text-xl font-bold text-gray-800">📜 История операций ({{ order_groups|length }})</h2>
-        <p class="text-sm text-gray-600 mt-1">Нажмите на заказ для просмотра истории</p>
-    </div>
-    
-    <div class="divide-y">
-        {% for group in order_groups %}
-        <div class="transition-all">
-            <!-- Order Header -->
-            
-<!-- Order Header -->
-<div class="p-6 hover:bg-gray-50 transition">
-    <div class="flex items-center gap-4">
-        <!-- Icon -->
-        <div class="flex-shrink-0 text-center">
-            <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-2">
-                <span class="text-3xl">📦</span>
-            </div>
-            <p class="text-xs text-gray-500">{{ group.order.created_at|date:"d.m.Y" }}</p>
-        </div>
-        
-        <!-- Order Info -->
-        <div class="flex-1">
-            <div class="flex justify-between items-start">
-                <div class="flex-1">
-                    <!-- Title & Buttons -->
-                    <div class="flex items-center gap-3 mb-2">
-                        <h3 class="font-bold text-2xl text-gray-800">Заказ #{{ group.order.order_number }} </h3>
-                        
-                        
-<!-- Action Buttons for Open Orders -->
-{% if group.order.status == 'open' %}
-<div class="flex items-center gap-2">
-    
-    <!-- 1. РЕДАКТИРОВАТЬ (главная кнопка) -->
-    <a 
-        href="/rental/orders/{{ group.order.id }}/edit/"
-        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold flex items-center gap-2"
-        onclick="event.stopPropagation()"
-        title="Редактировать заказ"
-    >
-        <span>✏️</span>
-        <span>Редактировать</span>
-    </a>
-
-    
-    <!-- 2. ДЕЙСТВИЯ (dropdown) -->
-    <div style="position: relative; display: inline-block;">
-        <button 
-            onclick="event.stopPropagation(); toggleActionMenu({{ group.order.id }})"
-            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-semibold flex items-center gap-2"
-            title="Действия с заказом"
-        >
-            <span>⚡</span>
-            <span>Действия</span>
-            <span>▼</span>
-        </button>
-        
-        <!-- Dropdown Menu -->
-        <div id="action-menu-{{ group.order.id }}" 
-             style="display: none; position: absolute; top: 100%; left: 0; z-index: 100; 
-                    background: white; border: 1px solid #ddd; border-radius: 8px; 
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 200px; margin-top: 4px;">
-            
-            <!-- Возврат -->
-            {% if group.has_unreturned_items %}
-            <a 
-                href="/rental/returns/?client_id={{ group.order.client.id }}"
-                class="block px-4 py-3 hover:bg-green-50 text-sm text-gray-700 border-b"
-                onclick="event.stopPropagation()"
-            >
-                ⬅️ Возврат товаров
-            </a>
-            {% endif %}
-            
-            <!-- Оплата -->
-            {% if group.debt > 0 %}
-            <a 
-                href="/payment/?client={{ group.order.client.id }}" data-turbo="false"
-                class="block px-4 py-3 hover:bg-yellow-50 text-sm text-gray-700 border-b"
-                onclick="event.stopPropagation()"
-            >
-                💰 Принять оплату
-            </a>
-            {% endif %}
-            
-            <!-- Зачесть аванс -->
-            {% if group.debt > 0 and client.get_credit > 0 %}
-            <a 
-                href="/orders/{{ group.order.id }}/apply-credit/"
-                class="block px-4 py-3 hover:bg-purple-50 text-sm text-gray-700 border-b"
-                onclick="event.stopPropagation(); return confirm('Зачесть аванс в счёт этого заказа?')"
-            >
-                💳 Зачесть аванс ({{ client.get_credit|floatformat:0 }} сом)
-            </a>
-            {% endif %}
-            {% if group.order.status == 'open' and user.is_staff %}
-                <a 
-                    href="{% url 'main:edit_order_dates' group.order.id %}"
-                    class="block px-4 py-3 hover:bg-purple-50 text-sm text-gray-700 border-b"
-                    title="Изменить даты возврата"
-                >
-                    <span>📅</span>
-                    <span>Изменить даты</span>
-                </a>
-            {% endif %}
-            
-            <!-- Уведомление (если просрочен) -->
-            {% if group.is_overdue %}
-                <a 
-                    href="/orders/{{ group.order.id }}/notify/"
-                    class="block px-4 py-3 hover:bg-orange-50 text-sm text-gray-700 border-b"
-                    onclick="event.stopPropagation(); return confirm('Отправить уведомление о просрочке?')"
-                >
-                    📱 Уведомить о просрочке
-                </a>
-            {% endif %}
-            
-            <!-- Закрыть заказ -->
-            <form method="post" action="/orders/{{ group.order.id }}/close/" onclick="event.stopPropagation()">
-                {% csrf_token %}
-                <button type="submit"
-                    onclick="return confirm('Закрыть заказ #{{ group.order.order_number }} от ({{ group.order.client.get_full_name }})? Это действие нельзя отменить!')"
-                    class="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm text-gray-700"
-                >
-                    🔒 Закрыть заказ
-                </button>
-            </form>
-        </div>
-    </div>
-    
-    <!-- 3. ПЕЧАТЬ (dropdown) -->
-    
-<div class="relative inline-block">
-    <button id="printBtn{{ group.order.id }}" 
-            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold flex items-center gap-2">
-        📄 Печать ▼
-    </button>
-    
-    <!-- Dropdown меню -->
-    <div id="printMenu{{ group.order.id }}" 
-         class="hidden absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-        
-        <!-- Договор аренды -->
-        <a href="{% url 'main:print_contract' group.order.id %}" 
-           target="_blank"
-           class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 border-b">
-            <span class="text-2xl">📋</span>
-            <div>
-                <div class="font-semibold text-gray-900">Договор аренды</div>
-                <div class="text-xs text-gray-500">Основной договор</div>
-            </div>
-        </a>
-        
-        <!-- Акт приёма-передачи -->
-        <a href="{% url 'main:print_acceptance' group.order.id %}" 
-           target="_blank"
-           class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 border-b">
-            <span class="text-2xl">📝</span>
-            <div>
-                <div class="font-semibold text-gray-900">Акт приёма-передачи</div>
-                <div class="text-xs text-gray-500">При выдаче товара</div>
-            </div>
-        </a>
-        
-        <!-- Накладная на возврат -->
-        <a href="{% url 'main:print_return' group.order.id %}" 
-           target="_blank"
-           class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 border-b">
-            <span class="text-2xl">📦</span>
-            <div>
-                <div class="font-semibold text-gray-900">Накладная на возврат</div>
-                <div class="text-xs text-gray-500">При возврате товара</div>
-            </div>
-        </a>
-        <a href="{% url 'main:client_payments' client.id %}?order={{ group.order.id }}" 
-        class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 border-t-2 bg-green-50">
-            <span class="text-2xl">💰</span>
-            <div>
-                <div class="font-semibold text-green-700">Квитанции по заказу</div>
-                <div class="text-xs text-gray-500">{{ client.id.payments.count }} квитанций всего</div>
-            </div>
-        </a>
-    </div>
-</div>
-
-<script>
-document.addEventListener('turbo:load', function() {
-    const printBtn = document.getElementById('printBtn{{ group.order.id }}');
-    const printMenu = document.getElementById('printMenu{{ group.order.id }}');
-    
-    if (printBtn && printMenu) {
-        printBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            printMenu.classList.toggle('hidden');
-        });
-        
-        // Закрыть при клике вне меню
-        document.addEventListener('click', function(e) {
-            if (!printBtn.contains(e.target) && !printMenu.contains(e.target)) {
-                printMenu.classList.add('hidden');
-            }
-        });
-    }
-});
-</script>
-    
-</div>
-{% endif %}
-
-<!-- Для ЗАКРЫТЫХ заказов - только печать -->
-{% if group.order.status == 'closed' %}
-<div class="flex items-center gap-2">
-    <div style="position: relative; display: inline-block;">
-        <button 
-            onclick="event.stopPropagation(); togglePrintMenu({{ group.order.id }})"
-            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-semibold flex items-center gap-2"
-            title="Печать документов"
-        >
-            <span>🖨️</span>
-            <span>Печать</span>
-            <span>▼</span>
-        </button>
-        
-        <!-- Dropdown Menu -->
-        <div id="print-menu-{{ group.order.id }}" 
-             style="display: none; position: absolute; top: 100%; left: 0; z-index: 100; 
-                    background: white; border: 1px solid #ddd; border-radius: 8px; 
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 220px; margin-top: 4px;">
-            
-            <a 
-                href="/orders/{{ group.order.id }}/print/contract/"
-                target="_blank"
-                class="block px-4 py-3 hover:bg-gray-50 text-sm text-gray-700 border-b"
-                onclick="event.stopPropagation()"
-            >
-                📄 Договор аренды
-            </a>
-            
-            <a 
-                href="/orders/{{ group.order.id }}/print/acceptance/"
-                target="_blank"
-                class="block px-4 py-3 hover:bg-gray-50 text-sm text-gray-700 border-b"
-                onclick="event.stopPropagation()"
-            >
-                📋 Акт приёма-передачи
-            </a>
-            
-            <a 
-                href="/orders/{{ group.order.id }}/print/return/"
-                target="_blank"
-                class="block px-4 py-3 hover:bg-gray-50 text-sm text-gray-700 border-b"
-                onclick="event.stopPropagation()"
-            >
-                📦 Накладная на возврат
-            </a>
-            
-            <!-- КВИТАНЦИИ ПО КОНКРЕТНОМУ ЗАКАЗУ -->
-            <a 
-                href="{% url 'main:client_payments' client.id %}?order={{ group.order.id }}" 
-                class="flex items-center gap-3 px-4 py-3 hover:bg-green-50 bg-green-50 border-t-2"
-                onclick="event.stopPropagation()"
-            >
-                <span class="text-2xl">💰</span>
-                <div>
-                    <div class="font-semibold text-green-700">Квитанции по заказу</div>
-                    <div class="text-xs text-gray-500">{{ client.payments.count }} квитанций всего</div>
-                </div>
-            </a>
-        </div>
-    </div>
-</div>
-{% endif %} 
-
-<script>
-function toggleActionMenu(orderId) {
-    const menu = document.getElementById('action-menu-' + orderId);
-    
-    // Закрыть все другие меню
-    document.querySelectorAll('[id^="action-menu-"]').forEach(m => {
-        if (m.id !== 'action-menu-' + orderId) {
-            m.style.display = 'none';
-        }
-    });
-    document.querySelectorAll('[id^="print-menu-"]').forEach(m => {
-        m.style.display = 'none';
-    });
-    
-    // Переключить текущее
-    if (menu.style.display === 'none') {
-        menu.style.display = 'block';
-    } else {
-        menu.style.display = 'none';
-    }
-}
-
-function togglePrintMenu(orderId) {
-    const menu = document.getElementById('print-menu-' + orderId);
-    
-    // Закрыть все другие меню
-    document.querySelectorAll('[id^="print-menu-"]').forEach(m => {
-        if (m.id !== 'print-menu-' + orderId) {
-            m.style.display = 'none';
-        }
-    });
-    document.querySelectorAll('[id^="action-menu-"]').forEach(m => {
-        m.style.display = 'none';
-    });
-    
-    // Переключить текущее
-    if (menu.style.display === 'none') {
-        menu.style.display = 'block';
-    } else {
-        menu.style.display = 'none';
-    }
-}
-
-// Закрыть меню при клике снаружи
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('[id^="action-menu-"]') && 
-        !e.target.closest('[id^="print-menu-"]') &&
-        !e.target.closest('button[onclick*="toggleActionMenu"]') &&
-        !e.target.closest('button[onclick*="togglePrintMenu"]')) {
-        document.querySelectorAll('[id^="action-menu-"]').forEach(m => {
-            m.style.display = 'none';
-        });
-        document.querySelectorAll('[id^="print-menu-"]').forEach(m => {
-            m.style.display = 'none';
-        });
-    }
-});
-</script>
-</div>
-                    
-                    <p class="text-sm text-gray-600">{{ group.order.created_at|date:"d.m.Y H:i" }}</p>
-                    <!-- Badges -->
-                    <div class="mt-2 flex gap-2 flex-wrap">
-                        <!-- Status Badge -->
-                        <span class="px-3 py-1 {% if group.order.status == 'open' %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %} rounded-full text-xs font-semibold">
-                            {% if group.order.status == 'open' %}🟢 Открыт{% else %}⚪ Закрыт{% endif %}
-                        </span>
-                        
-                        <!-- Overdue Badge -->
-                        {% if group.order.status == 'open' and group.is_overdue %}
-                        <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold animate-pulse">
-                            ⚠️ ПРОСРОЧЕН!
-                        </span>
+                        <span class="order-badge badge-items">📦 {{ order.items.count }} товар{{ order.items.count|pluralize:",а,ов" }}</span>
+                        {% if order.status == 'open' %}
+                        {% for item in order.items.all %}{% if item.quantity_remaining > 0 and item.planned_return_date < now %}<span class="order-badge badge-overdue">⚠️ Просрочен</span>{% endif %}{% endfor %}
                         {% endif %}
-                        
-                        <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
-                            📦 {{ group.order.items.count }} товар{{ group.order.items.count|pluralize:",,ов" }}
-                        </span>
-                        <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">
-                            📋 {{ group.events|length }} событи{{ group.events|length|pluralize:"е,я,й" }}
-                        </span>
+                        {% if rc > 0 %}<span class="order-badge badge-rain">🌧️ {{ rc }} дн.</span>{% endif %}
                     </div>
                 </div>
-                
-                <!-- Amounts -->
-                <div class="text-right">
-                    <p class="text-3xl font-bold text-red-600">{{ group.current_cost|floatformat:0 }} сом</p>
-                    <p class="text-sm text-gray-600 mt-1">Стоимость заказа</p>
-                    
-                    {% if group.total_paid > 0 %}
-                    <div class="mt-2 p-2 bg-green-50 rounded">
-                        <p class="text-xs text-gray-600">Оплачено:</p>
-                        <p class="text-lg font-bold text-green-600">{{ group.total_paid|floatformat:0 }} сом</p>
-                    </div>
+                <div class="order-card-right">
+                    <div class="order-amount">{{ od.total|floatformat:0 }} сом</div>
+                    {% if od.overdue > 0 %}
+                    <div style="font-size:12px;color:#f87171;margin-top:2px">⚠️ просрочка: +{{ od.overdue|floatformat:0 }} сом</div>
                     {% endif %}
-                    
-                    {% if group.debt != 0 %}
-                    <div class="mt-2 p-2 {% if group.debt > 0 %}bg-red-50{% else %}bg-green-50{% endif %} rounded">
-                        <p class="text-xs text-gray-600">{% if group.debt > 0 %}Долг:{% else %}Переплата:{% endif %}</p>
-                        <p class="text-lg font-bold {% if group.debt > 0 %}text-red-600{% else %}text-green-600{% endif %}">
-                            {% if group.debt > 0 %}{{ group.debt|floatformat:0 }}{% else %}+{{ group.debt|floatformat:0|slice:"1:" }}{% endif %} сом
-                        </p>
-                    </div>
+                    {% if od.paid > 0 %}
+                    <div style="font-size:12px;color:#34d399;margin-top:2px">✓ оплачено: {{ od.paid|floatformat:0 }} сом</div>
                     {% endif %}
+                    {% if od.owed > 0 %}
+                    <div style="font-size:13px;font-weight:800;color:#fbbf24;margin-top:4px">Осталось: {{ od.owed|floatformat:0 }} сом</div>
+                    {% endif %}
+                    <div class="order-link-hint">Нажмите, чтобы открыть →</div>
                 </div>
             </div>
-        </div>
-    </div>
-    
-    <!-- Details Button (Centered, Below Everything) -->
-    <div class="mt-4 pt-4 border-t text-center">
-        <button 
-            onclick="toggleEvent(event)"
-            class="details-button px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-semibold inline-flex items-center gap-2"
-        >
-            <span class="button-text">Подробнее</span>
-            <svg 
-                class="arrow-icon w-5 h-5 transition-transform duration-300"
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-            >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-        </button>
-    </div>
-</div>
-            
-            <!-- Order History (Collapsible) -->
-            <div class="event-details hidden px-6 pb-6">
-                <div class="ml-20 space-y-3">
-                    
-                    {% for event in group.events %}
-                    <div class="flex gap-4 p-4 bg-gray-50 rounded-lg border-l-4
-                                {% if event.type == 'order_created' %}border-blue-500
-                                {% elif event.type == 'payment' %}border-green-500
-                                {% elif event.type == 'overdue_charge' %}border-red-500
-                                {% elif event.type == 'date_change' %}border-yellow-500
-                                {% elif event.type == 'order_edit' %}border-indigo-500
-                                {% else %}border-purple-500{% endif %}">
-                        
-                        <!-- Icon & Date -->
-                        <div class="flex-shrink-0 text-center">
-                            {% if event.type == 'order_created' %}
-                                <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <span class="text-xl">📦</span>
-                                </div>
-                            {% elif event.type == 'payment' %}
-                                <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                                    <span class="text-xl">💰</span>
-                                </div>
-                            {% elif event.type == 'overdue_charge' %}
-                                <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                                    <span class="text-xl">⏰</span>
-                                </div>
-                            {% elif event.type == 'date_change' %}
-                                <div class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                                    <span class="text-xl">📅</span>
-                                </div>
-                            {% elif event.type == 'order_edit' %}
-                                <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                                    <span class="text-xl">✏️</span>
-                                </div>
-                            {% else %}
-                                <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                                    <span class="text-xl">⬅️</span>
-                                </div>
-                            {% endif %}
-                            <p class="text-xs text-gray-500 mt-1">{{ event.date|date:"H:i" }}</p>
-                        </div>
-                        
-                        <!-- Event Content -->
-                        <div class="flex-1">
-                            <div class="flex justify-between items-start">
-                                <div class="flex-1">
-                                    <p class="font-bold text-gray-800">{{ event.description }}</p>
-                                    <p class="text-xs text-gray-500">{{ event.date|date:"d.m.Y H:i" }}</p>
-                                    
-                                    {% if event.type == 'order_created' %}
-                                        <!-- Order Items -->
-                                        <div class="mt-2 space-y-1">
-                                            {% for item in event.items %}
-                                            <p class="text-sm text-gray-600">
-                                                • {{ item.product.name }} - {{ item.quantity_taken }} шт × {{ item.rental_days }} дн
-                                                <span class="text-gray-400">({{ item.current_total_cost|floatformat:0 }} сом)</span>
-                                            </p>
-                                            {% endfor %}
-                                        </div>
-                                    
-                                    {% elif event.type == 'return' %}
-                                        <!-- Return Details -->
-                                        <div class="mt-2">
-                                            <p class="text-sm text-gray-600">
-                                                • {{ event.return_item.order_item.product.name }} - {{ event.return_item.quantity }} шт
-                                            </p>
-                                            <p class="text-xs text-gray-500">
-                                                Фактически: {{ event.return_item.actual_days }} дн {{ event.return_item.actual_hours }} ч
-                                                (стоимость: {{ event.return_item.calculated_cost|floatformat:0 }} сом)
-                                            </p>
-                                        </div>
-                                    
-                                    {% elif event.type == 'payment' %}
-                                        <!-- Payment Details -->
-                                        <p class="text-sm text-gray-600 mt-1">
-                                            {{ event.payment_method }}
-                                            {% if event.is_partial %}
-                                                <span class="text-orange-600">(частично)</span>
-                                            {% else %}
-                                                <span class="text-green-600">(полностью)</span>
-                                            {% endif %}
-                                        </p>
-                                    
-                                    {% elif event.type == 'date_change' %}
-                                        <!-- Date Change Details -->
-                                        <div class="mt-2">
-                                            <p class="text-sm text-gray-600">
-                                                • {{ event.product_name }} - {{ event.quantity }} шт
-                                            </p>
-                                            <p class="text-xs text-gray-500">
-                                                Было: {{ event.old_date }} → Стало: {{ event.new_date }}
-                                            </p>
-                                            <p class="text-xs text-gray-500">
-                                                Менеджер: {{ event.username }}
-                                            </p>
-                                        </div>
-
-                                    {% elif event.type == 'order_edit' %}
-                                        <!-- Order Edit Details -->
-                                        <div class="mt-2">
-                                            <p class="text-sm text-gray-700 font-medium">{{ event.action }}: {{ event.detail }}</p>
-                                            <p class="text-xs text-gray-500">Менеджер: {{ event.username }}</p>
-                                        </div>
-
-                                    {% elif event.type == 'overdue_charge' %}
-                                        <!-- Overdue Charge Details -->
-                                        <div class="mt-2">
-                                            <p class="text-sm text-gray-600">
-                                                • {{ event.product_name }} - {{ event.quantity }} шт
-                                            </p>
-                                            <p class="text-xs text-red-600">
-                                                Просрочка: {{ event.overdue_days }} дн {{ event.overdue_hours }} ч
-                                                (плановый возврат был: {{ event.planned_return_date|date:"d.m.Y H:i" }})
-                                            </p>
-                                            <p class="text-xs text-red-600 font-semibold">
-                                                Начислено за просрочку: +{{ event.overdue_cost|floatformat:0 }} сом
-                                            </p>
-                                        </div>
-                                    {% endif %}
-                                </div>
-                                
-                                <!-- Amount -->
-                                {% if event.type == 'order_created' %}
-                                    <p class="text-xl font-bold text-red-600 ml-4">{{ event.total|floatformat:0 }} сом</p>
-                                {% elif event.type == 'payment' %}
-                                    <p class="text-xl font-bold text-green-600 ml-4">+{{ event.amount|floatformat:0 }} сом</p>
-                                {% elif event.type == 'overdue_charge' %}
-                                    <p class="text-xl font-bold text-red-600 ml-4">+{{ event.overdue_cost|floatformat:0 }} сом</p>
-                                {% elif event.type == 'date_change' %}
-                                    {% if event.cost_diff > 0 %}
-                                        <p class="text-xl font-bold text-red-600 ml-4">+{{ event.cost_diff }} сом</p>
-                                    {% elif event.cost_diff < 0 %}
-                                        <p class="text-xl font-bold text-green-600 ml-4">{{ event.cost_diff }} сом</p>
-                                    {% endif %}
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-
-                    <!-- Order Summary -->
-                    <div class="p-4 bg-blue-50 rounded-lg border border-blue-200 mt-4">
-                        <div class="grid grid-cols-3 gap-4">
-                            <div class="text-center">
-                                <p class="text-sm text-gray-600">Стоимость</p>
-                                <p class="text-2xl font-bold text-blue-600">{{ group.current_cost|floatformat:0 }} сом</p>
-                            </div>
-                            <div class="text-center">
-                                <p class="text-sm text-gray-600">Оплачено</p>
-                                <p class="text-2xl font-bold text-green-600">{{ group.total_paid|floatformat:0 }} сом</p>
-                            </div>
-                            <div class="text-center">
-                                <p class="text-sm text-gray-600">{% if group.debt > 0 %}Долг{% else %}Переплата{% endif %}</p>
-                                <p class="text-2xl font-bold {% if group.debt > 0 %}text-red-600{% else %}text-green-600{% endif %}">
-                                    {% if group.debt > 0 %}
-                                        {{ group.debt|floatformat:0 }} сом
-                                    {% else %}
-                                        +{{ group.debt|floatformat:0|slice:"1:" }} сом
-                                    {% endif %}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                </div>
-            </div>
-        </div>
+        </a>
+        {% endwith %}
         {% empty %}
-        <div class="p-12 text-center text-gray-400">
-            <p class="text-lg">У клиента пока нет заказов</p>
+        <div class="cd-empty">
+            <div class="icon">📋</div>
+            <div>Заказов пока нет</div>
         </div>
         {% endfor %}
     </div>
-</div>
 
-<!-- JavaScript -->
-<script>
-function toggleEvent(event) {
-    event.stopPropagation();
-    const svgElement = event.currentTarget;
-    const parent = svgElement.closest('.transition-all');
-    const details = parent.querySelector('.event-details');
-    const arrow = parent.querySelector('.arrow-icon');
-    
-    if (details.classList.contains('hidden')) {
-        details.classList.remove('hidden');
-        arrow.style.transform = 'rotate(180deg)';
-    } else {
-        details.classList.add('hidden');
-        arrow.style.transform = 'rotate(0deg)';
-    }
-}
-</script>
-
-<a href="{% url 'main:client_payments' client.id %}" 
-   class="fixed bottom-8 right-8 w-16 h-16 bg-green-600 text-white rounded-full shadow-2xl hover:bg-green-700 flex items-center justify-center text-2xl z-50 hover:scale-110 transition">
-    💰
-    {% if client.payments.count > 0 %}
-    <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-        {{ client.payments.count }}
-    </span>
+    <!-- ══ ИСТОРИЯ ОПЛАТ ══ -->
+    {% if payments %}
+    <div class="cd-card">
+        <h2 class="cd-card-title">💳 История оплат <span style="font-size:14px;font-weight:400;color:var(--text3)">(последние {{ payments|length }})</span></h2>
+        {% for payment in payments %}
+        <div class="pay-row">
+            <div class="pay-left">
+                <div class="pay-date">{{ payment.payment_date|date:"d.m.Y H:i" }}</div>
+                <div class="pay-method">{{ payment.get_payment_method_display }}{% if payment.notes %} · {{ payment.notes|truncatechars:40 }}{% endif %}</div>
+            </div>
+            <div class="pay-amount">+{{ payment.amount|floatformat:0 }} сом</div>
+        </div>
+        {% endfor %}
+        {% if client.payments.count > payments|length %}
+        <div style="text-align:center;margin-top:12px">
+            <a href="{% url 'main:client_payments' client.id %}" style="color:var(--accent2);font-size:13px;text-decoration:none">Все оплаты →</a>
+        </div>
+        {% endif %}
+    </div>
     {% endif %}
-</a>
+
+</div>
 {% endblock %}

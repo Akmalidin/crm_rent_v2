@@ -1,0 +1,107 @@
+{% extends 'base_dark.html' %}
+{% load static %}
+{% block title %}Директора — Создатель{% endblock %}
+
+{% block extra_css %}
+.cd-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.cd-table-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.cd-table{width:100%;border-collapse:collapse}
+.cd-table thead th{background:var(--card2);color:var(--text3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:11px 16px;text-align:left;border-bottom:1px solid var(--border)}
+.cd-table tbody tr{border-bottom:1px solid var(--border)}
+.cd-table tbody tr:last-child{border-bottom:none}
+.cd-table tbody tr:hover{background:var(--card2)}
+.cd-table td{padding:13px 16px;font-size:13px;color:var(--text1);vertical-align:middle}
+.cd-avatar{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px;flex-shrink:0}
+.cd-name-cell{display:flex;align-items:center;gap:10px}
+{% endblock %}
+
+{% block content %}
+<div class="cd-header">
+    <div>
+        <a href="{% url 'main:superuser_panel' %}" style="font-size:13px;color:var(--accent2);text-decoration:none">← Панель создателя</a>
+        <h1 style="font-size:24px;font-weight:700;color:var(--text1);margin-top:8px">🏢 Директора (компании)</h1>
+        <p style="font-size:13px;color:var(--text3);margin-top:4px">Все зарегистрированные компании в системе</p>
+    </div>
+    <a href="?export=csv" class="btn-s">📥 Экспорт CSV</a>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:#34d399;border-radius:12px;padding:12px 16px;font-size:14px;margin-bottom:16px;">{{ msg }}</div>
+{% endfor %}
+{% endif %}
+
+<div class="cd-table-wrap">
+{% if directors %}
+<table class="cd-table">
+    <thead>
+        <tr>
+            <th>Директор</th>
+            <th>Склады</th>
+            <th>Сотрудников</th>
+            <th>Клиентов</th>
+            <th>Товаров</th>
+            <th>Открытых заказов</th>
+            <th>Доход</th>
+            <th>Дата рег.</th>
+            <th>Действия</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for d in directors %}
+    <tr>
+        <td>
+            <div class="cd-name-cell">
+                <div class="cd-avatar">{{ d.user.username|slice:":1"|upper }}</div>
+                <div>
+                    <a href="{% url 'main:creator_director_detail' user_id=d.user.id %}" style="font-weight:600;color:var(--text1);text-decoration:none;hover:text-decoration:underline">{{ d.user.username }}</a>
+                    <div style="font-size:11px;color:var(--text3)">{{ d.user.email|default:"—" }}</div>
+                </div>
+            </div>
+        </td>
+        <td>
+            {% for wh in d.warehouses %}
+            <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;background:var(--card2);border:1px solid var(--border);color:var(--text2);margin:1px">{{ wh }}</span>
+            {% empty %}<span style="color:var(--text3);font-size:12px">—</span>{% endfor %}
+        </td>
+        <td><a href="{% url 'main:creator_director_detail' user_id=d.user.id %}" style="color:#60a5fa;font-weight:600">{{ d.employees }}</a></td>
+        <td>{{ d.clients }}</td>
+        <td>{{ d.products }}</td>
+        <td>
+            {% if d.open_orders %}
+            <span style="color:#60a5fa;font-weight:600">{{ d.open_orders }}</span>
+            {% else %}0{% endif %}
+        </td>
+        <td style="font-weight:600">{{ d.revenue }} сом</td>
+        <td>{{ d.max_warehouses }}</td>
+        <td style="color:var(--text3)">{{ d.user.date_joined|date:"d.m.Y" }}</td>
+        <td>
+            <button onclick="document.getElementById('edit-{{ d.user.id }}').style.display='block'"
+                    style="background:var(--card2);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit">
+                ⚙️ Настройки
+            </button>
+        </td>
+    </tr>
+    <!-- Inline edit form -->
+    <tr id="edit-{{ d.user.id }}" style="display:none;background:rgba(124,58,237,.05)">
+        <td colspan="10" style="padding:16px">
+            <form method="POST" action="{% url 'main:edit_director_settings' user_id=d.user.id %}" style="display:flex;align-items:center;gap:16px">
+                {% csrf_token %}
+                <label style="font-size:13px;color:var(--text2)">Макс. складов:</label>
+                <input type="number" name="max_warehouses" value="{{ d.max_warehouses }}" min="1" max="50" style="background:var(--card2);border:1px solid var(--border);color:var(--text1);border-radius:8px;padding:7px 12px;width:80px;font-family:inherit">
+                <button type="submit" class="btn-p" style="padding:7px 16px;font-size:13px">Сохранить</button>
+                <button type="button" onclick="document.getElementById('edit-{{ d.user.id }}').style.display='none'" class="btn-s" style="padding:7px 16px;font-size:13px">Отмена</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div style="padding:60px;text-align:center;color:var(--text3)">
+    <div style="font-size:40px;margin-bottom:12px">🏢</div>
+    <div>Директора ещё не зарегистрированы</div>
+</div>
+{% endif %}
+</div>
+{% endblock %}

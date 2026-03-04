@@ -114,9 +114,19 @@
                 <div class="sb-section-label">Администрация</div>
             </div>
             <a href="{% url 'main:users_management' %}"
-               class="sb-link {% if 'users' in request.path and 'superadmin' not in request.path %}active{% endif %}">
+               class="sb-link {% if 'users' in request.path and 'superadmin' not in request.path and 'activity' not in request.path and 'password' not in request.path %}active{% endif %}">
                 <span class="sb-icon">⚙️</span>
                 <span>Пользователи</span>
+            </a>
+            <a href="{% url 'main:permissions_matrix' %}"
+               class="sb-link {% if 'permissions' in request.path %}active{% endif %}">
+                <span class="sb-icon">🔑</span>
+                <span>Права доступа</span>
+            </a>
+            <a href="{% url 'main:broadcast_notifications' %}"
+               class="sb-link {% if 'notifications' in request.path %}active{% endif %}">
+                <span class="sb-icon">📢</span>
+                <span>Рассылка</span>
             </a>
             <a href="{% url 'main:create_backup' %}" data-turbo="false"
                class="sb-link">
@@ -124,7 +134,7 @@
                 <span>Бэкап</span>
             </a>
             {% endif %}
-            {% if user.is_superuser %}
+            {% if user.is_staff %}
             <a href="{% url 'main:superuser_panel' %}"
                class="sb-link {% if 'superadmin' in request.path %}active{% endif %}"
                style="{% if 'superadmin' not in request.path %}border:1px solid rgba(124,58,237,.3);margin:4px 10px;{% endif %}">
@@ -133,6 +143,17 @@
                 {% if pending_users_count %}
                 <span style="background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:2px 7px;min-width:18px;text-align:center;">{{ pending_users_count }}</span>
                 {% endif %}
+            </a>
+            <a href="{% url 'main:superuser_panel' %}#messages" class="sb-link">
+                <span class="sb-icon">📬</span>
+                <span style="flex:1">Сообщения</span>
+                {% if unread_messages_count %}<span style="background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:2px 7px;min-width:18px;text-align:center;">{{ unread_messages_count }}</span>{% endif %}
+            </a>
+            {% endif %}
+            {% if not user.is_staff and user.is_authenticated %}
+            <a href="{% url 'main:send_message' %}" class="sb-link">
+                <span class="sb-icon">📨</span>
+                <span>Написать создателю</span>
             </a>
             {% endif %}
         </nav>

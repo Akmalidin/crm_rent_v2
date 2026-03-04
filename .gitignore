@@ -21,11 +21,15 @@ local_settings.py
 
 # Backups
 backups/
-
+.claude/
+.vscode/
 # Environment variables
 .env
 .env.*
 !.env.example
+
+# PythonAnywhere (содержит токены)
+pythonanywhere_wsgi.py
 
 # IDE
 .vscode/

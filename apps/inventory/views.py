@@ -1,7 +1,15 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from .models import Product, Category
+from .models import Category, Product, Warehouse
+
+
+def _log(user, action, desc):
+    try:
+        from apps.main.views import log_activity
+        log_activity(user, action, desc)
+    except Exception:
+        pass
 
 
 def _get_owner(user):
@@ -66,6 +74,7 @@ def create_product(request):
             owner=owner,
         )
         messages.success(request, f'Товар «{product.name}» добавлен!')
+        _log(request.user, 'create_product', f'Создал товар «{product.name}»')
         return redirect('main:products_list')
 
     return render(request, 'inventory/create_product.html', {'categories': categories})
@@ -95,9 +104,106 @@ def edit_product(request, product_id):
         product.price_per_hour = price_hour or product.price_per_hour
         product.save()
         messages.success(request, f'Товар «{product.name}» обновлён!')
+        _log(request.user, 'edit_product', f'Изменил товар «{product.name}»')
         return redirect('main:products_list')
 
     return render(request, 'inventory/edit_product.html', {
         'product': product,
         'categories': categories,
     })
+
+
+@login_required
+def product_report(request, product_id):
+    """Отчёт по товару — кто и когда брал"""
+    from apps.rental.models import OrderItem
+    from django.utils import timezone
+
+    owner = _get_owner(request.user)
+    product = get_object_or_404(Product, id=product_id, owner=owner)
+
+    items = (OrderItem.objects
+             .filter(product=product, order__client__owner=owner)
+             .select_related('order', 'order__client')
+             .prefetch_related('order__client__phones')
+             .order_by('-order__created_at'))
+
+    # Stats
+    total_rentals = items.count()
+    active_rentals = items.filter(order__status='open', quantity_remaining__gt=0).count()
+    total_quantity_rented = sum(i.quantity_taken for i in items)
+
+    now = timezone.now()
+
+    context = {
+        'product': product,
+        'items': items,
+        'total_rentals': total_rentals,
+        'active_rentals': active_rentals,
+        'total_quantity_rented': total_quantity_rented,
+        'now': now,
+    }
+    return render(request, 'inventory/product_report.html', context)
+
+
+@login_required
+def warehouse_list(request):
+    """Список складов"""
+    owner = _get_owner(request.user)
+    warehouses = Warehouse.objects.filter(owner=owner)
+
+    try:
+        max_wh = request.user.profile.max_warehouses
+    except Exception:
+        max_wh = 1
+    can_create = warehouses.count() < max_wh
+
+    context = {
+        'warehouses': warehouses,
+        'can_create': can_create,
+        'max_warehouses': max_wh,
+    }
+    return render(request, 'inventory/warehouse_list.html', context)
+
+
+@login_required
+def create_warehouse(request):
+    """Создать склад"""
+    owner = _get_owner(request.user)
+    try:
+        max_wh = request.user.profile.max_warehouses
+    except Exception:
+        max_wh = 1
+
+    current_count = Warehouse.objects.filter(owner=owner).count()
+    if current_count >= max_wh:
+        messages.error(request, f'Достигнут лимит складов ({max_wh}). Обратитесь к создателю системы для увеличения лимита.')
+        return redirect('main:warehouse_list')
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
+        if not name:
+            messages.error(request, 'Укажите название склада')
+            return render(request, 'inventory/create_warehouse.html', {})
+        Warehouse.objects.create(owner=owner, name=name, description=description)
+        messages.success(request, f'Склад "{name}" создан!')
+        return redirect('main:warehouse_list')
+
+    return render(request, 'inventory/create_warehouse.html', {})
+
+
+@login_required
+def delete_warehouse(request, warehouse_id):
+    """Удалить склад (только если пустой)"""
+    owner = _get_owner(request.user)
+    wh = get_object_or_404(Warehouse, id=warehouse_id, owner=owner)
+    if wh.products.exists():
+        messages.error(request, 'Нельзя удалить склад с товарами. Сначала переместите товары.')
+        return redirect('main:warehouse_list')
+    if Warehouse.objects.filter(owner=owner).count() <= 1:
+        messages.error(request, 'Нельзя удалить единственный склад.')
+        return redirect('main:warehouse_list')
+    wh.delete()
+    messages.success(request, 'Склад удалён.')
+    return redirect('main:warehouse_list')

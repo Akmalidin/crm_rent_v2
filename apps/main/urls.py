@@ -42,11 +42,16 @@ urlpatterns = [
     path('rental/orders/<int:order_id>/edit/', views.edit_order, name='edit_order'),
 
     
+    # Просмотр заказа (всё на одной странице)
+    path('orders/<int:order_id>/', views.order_view, name='order_view'),
+
     # Оплаты
     path('payment/', views.accept_payment, name='accept_payment'),
     path('payment/client-orders/<int:client_id>/', views.client_orders_json, name='client_orders_json'),
     path('orders/<int:order_id>/apply-credit/', views.apply_credit_to_order, name='apply_credit_to_order'),
     path('orders/<int:order_id>/close/', views.close_order, name='close_order'),
+    path('orders/<int:order_id>/excluded-days/', views.toggle_excluded_day, name='toggle_excluded_day'),
+    path('rain-days/toggle/', views.toggle_rain_day, name='toggle_rain_day'),
     path('orders/<int:order_id>/edit-dates/', views.edit_order_dates_with_log, name='edit_order_dates'),
     
     # Отчёты
@@ -84,4 +89,31 @@ urlpatterns = [
     path('products/', inventory_views.products_list, name='products_list'),
     path('products/create/', inventory_views.create_product, name='create_product'),
     path('products/<int:product_id>/edit/', inventory_views.edit_product, name='edit_product'),
+    path('products/<int:product_id>/report/', inventory_views.product_report, name='product_report'),
+
+    # Склады
+    path('warehouses/', inventory_views.warehouse_list, name='warehouse_list'),
+    path('warehouses/create/', inventory_views.create_warehouse, name='create_warehouse'),
+    path('warehouses/<int:warehouse_id>/delete/', inventory_views.delete_warehouse, name='delete_warehouse'),
+
+    # Создатель — директора
+    path('superadmin/directors/', views.creator_directors, name='creator_directors'),
+    path('superadmin/directors/<int:user_id>/', views.creator_director_detail, name='creator_director_detail'),
+    path('superadmin/directors/<int:user_id>/edit/', views.edit_director_settings, name='edit_director_settings'),
+
+    # Создание сотрудника
+    path('users/create-employee/', views.create_employee, name='create_employee'),
+
+    # Смена пароля
+    path('users/<int:user_id>/change-password/', views.change_user_password, name='change_user_password'),
+
+    # Лог активности сотрудника
+    path('users/<int:user_id>/activity/', views.employee_activity, name='employee_activity'),
+
+    # Сообщения директора создателю
+    path('messages/send/', views.send_message, name='send_message'),
+    path('superadmin/messages/<int:msg_id>/read/', views.mark_message_read, name='mark_message_read'),
+
+    # Массовые уведомления
+    path('notifications/', views.broadcast_notifications, name='broadcast_notifications'),
 ]

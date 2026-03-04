@@ -4,6 +4,10 @@ from django.utils import timezone
 from datetime import timedelta
 import json
 
+# Простое хранилище состояний администратора (chat_id -> dict)
+# Используется для диалога рассылки своего текста
+_admin_states = {}
+
 
 # ============================================================
 # БАЗОВЫЕ ФУНКЦИИ
@@ -107,6 +111,30 @@ def get_back_button():
     }
 
 
+def get_broadcast_menu_keyboard():
+    """Подменю рассылки"""
+    return {
+        'inline_keyboard': [
+            [{'text': '📢 Уведомить просроченных', 'callback_data': 'broadcast_overdue'}],
+            [{'text': '💸 Уведомить должников',   'callback_data': 'broadcast_debt'}],
+            [{'text': '✍️ Написать своё сообщение', 'callback_data': 'broadcast_custom_start'}],
+            [{'text': '« Назад в меню',            'callback_data': 'back_to_menu'}],
+        ]
+    }
+
+
+def get_broadcast_target_keyboard():
+    """Выбор получателей для своего сообщения"""
+    return {
+        'inline_keyboard': [
+            [{'text': '👥 Всем клиентам',  'callback_data': 'send_custom_all'}],
+            [{'text': '⚠️ Просроченным',   'callback_data': 'send_custom_overdue'}],
+            [{'text': '💸 Должникам',      'callback_data': 'send_custom_debtors'}],
+            [{'text': '❌ Отмена',         'callback_data': 'back_to_menu'}],
+        ]
+    }
+
+
 def get_client_reply_keyboard():
     """Постоянная клавиатура снизу для клиентов"""
     return {
@@ -126,6 +154,7 @@ def get_admin_reply_keyboard():
             [{'text': '📊 Отчёт сегодня'}, {'text': '📈 Отчёт за неделю'}],
             [{'text': '⚠️ Просроченные'},  {'text': '💰 Должники'}],
             [{'text': '📦 Активные заказы'}, {'text': '👥 Новые клиенты'}],
+            [{'text': '📢 Рассылка'}],
         ],
         'resize_keyboard': True,
         'persistent': True,
@@ -425,7 +454,47 @@ def handle_callback_query(callback_query):
     
     # Подтверждаем нажатие
     answer_callback_query(callback_id)
-    
+
+    # Обработка одобрения/отклонения пользователей (approve_<id> / reject_<id>)
+    if data.startswith('approve_') or data.startswith('reject_'):
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+
+            if data.startswith('approve_'):
+                user_id = int(data.split('_')[1])
+                target_user = User.objects.get(id=user_id)
+                target_user.is_active = True
+                target_user.is_superuser = True
+                target_user.is_staff = False
+                target_user.save()
+                from django.contrib.auth.models import Group
+                from apps.main.models import UserProfile
+                from apps.inventory.models import Warehouse
+                admin_group, _ = Group.objects.get_or_create(name='Администратор')
+                target_user.groups.add(admin_group)
+                profile, _ = UserProfile.objects.get_or_create(user=target_user, defaults={'owner': None})
+                profile.role = 'director'
+                profile.needs_company_setup = True
+                profile.save()
+                Warehouse.objects.get_or_create(
+                    owner=target_user,
+                    name='Основной склад',
+                    defaults={'description': 'Склад по умолчанию'},
+                )
+                send_telegram_message(chat_id, f"✅ Директор {target_user.username} одобрен! Пользователь может войти в систему.")
+
+            elif data.startswith('reject_'):
+                user_id = int(data.split('_')[1])
+                target_user = User.objects.get(id=user_id)
+                username = target_user.username
+                target_user.delete()
+                send_telegram_message(chat_id, f"❌ Пользователь {username} отклонён и удалён.")
+
+        except Exception as e:
+            send_telegram_message(chat_id, f"⚠️ Ошибка: {e}")
+        return
+
     # Админские команды
     if is_admin(chat_id):
         if data == 'admin_report_today':
@@ -458,6 +527,66 @@ def handle_callback_query(callback_query):
             send_telegram_message(chat_id, text, reply_markup=get_admin_keyboard())
             return
         
+        elif data == 'broadcast_overdue':
+            send_telegram_message(chat_id, "⏳ Рассылка о просрочке запущена...")
+            handle_broadcast_overdue(chat_id)
+            return
+
+        elif data == 'broadcast_debt':
+            send_telegram_message(chat_id, "⏳ Рассылка о долге запущена...")
+            handle_broadcast_debt(chat_id)
+            return
+
+        elif data == 'broadcast_custom_start':
+            _admin_states[str(chat_id)] = {'state': 'waiting_broadcast_text'}
+            send_telegram_message(
+                chat_id,
+                "✍️ Напишите текст сообщения.\n\nПоддерживается HTML: <code>&lt;b&gt;жирный&lt;/b&gt;</code>, <code>&lt;i&gt;курсив&lt;/i&gt;</code>\n\nПросто отправьте следующим сообщением текст рассылки:"
+            )
+            return
+
+        elif data in ('send_custom_all', 'send_custom_overdue', 'send_custom_debtors'):
+            state = _admin_states.pop(str(chat_id), {})
+            custom_text = state.get('text', '')
+            if not custom_text:
+                send_telegram_message(chat_id, "⚠️ Текст не найден. Начните заново.", reply_markup=get_broadcast_menu_keyboard())
+                return
+
+            from apps.clients.models import Client
+            from apps.rental.models import RentalOrder
+
+            send_telegram_message(chat_id, "⏳ Рассылка запущена...")
+
+            if data == 'send_custom_all':
+                chat_ids = list(
+                    Client.objects.exclude(telegram_id__isnull=True).exclude(telegram_id='')
+                    .values_list('telegram_id', flat=True)
+                )
+            elif data == 'send_custom_overdue':
+                overdue_ids = set()
+                for order in RentalOrder.objects.filter(status='open').prefetch_related('items'):
+                    if any(it.is_overdue for it in order.items.all()):
+                        overdue_ids.add(order.client_id)
+                chat_ids = list(
+                    Client.objects.filter(id__in=overdue_ids)
+                    .exclude(telegram_id__isnull=True).exclude(telegram_id='')
+                    .values_list('telegram_id', flat=True)
+                )
+            else:  # send_custom_debtors
+                chat_ids = [
+                    c.telegram_id for c in
+                    Client.objects.exclude(telegram_id__isnull=True).exclude(telegram_id='')
+                    if c.has_debt()
+                ]
+
+            sent, failed = send_custom_broadcast(chat_ids, custom_text)
+            send_telegram_message(
+                chat_id,
+                f"✅ <b>Рассылка завершена</b>\n\n📤 Отправлено: <b>{sent}</b>\n🚫 Ошибок: <b>{failed}</b>",
+                reply_markup=get_admin_keyboard()
+            )
+            return
+
         elif data == 'admin_menu':
             text = "🔧 <b>Панель администратора</b>\n\nВыберите действие:"
             send_telegram_message(chat_id, text, reply_markup=get_admin_keyboard())
@@ -495,6 +624,18 @@ def handle_command(message):
     """Обработка текстовых команд"""
     chat_id = message['chat']['id']
     text = message.get('text', '').strip()
+
+    # ── Обработка состояния ожидания текста рассылки ──
+    state = _admin_states.get(str(chat_id), {})
+    if state.get('state') == 'waiting_broadcast_text' and is_admin(chat_id):
+        _admin_states[str(chat_id)] = {'state': 'waiting_broadcast_target', 'text': text}
+        preview = text[:300] + ('...' if len(text) > 300 else '')
+        send_telegram_message(
+            chat_id,
+            f"✅ Текст принят. Кому отправить?\n\n<i>{preview}</i>",
+            reply_markup=get_broadcast_target_keyboard()
+        )
+        return
 
     if text == '/start':
         if is_admin(chat_id):
@@ -554,7 +695,60 @@ def handle_command(message):
         report = admin_new_clients()
         send_telegram_message(chat_id, report, reply_markup=get_admin_keyboard())
 
+    elif text == '📢 Рассылка' and is_admin(chat_id):
+        _admin_states.pop(str(chat_id), None)  # сбрасываем старое состояние
+        send_telegram_message(
+            chat_id,
+            "📢 <b>Массовая рассылка</b>\n\nВыберите тип или напишите своё сообщение:",
+            reply_markup=get_broadcast_menu_keyboard()
+        )
+
 from django.utils import timezone
+
+
+def handle_broadcast_overdue(admin_chat_id):
+    """Отправить уведомления о просрочке всем просроченным клиентам"""
+    from apps.rental.models import RentalOrder
+
+    sent, skipped, seen = 0, 0, set()
+    for order in RentalOrder.objects.filter(status='open').prefetch_related('items', 'client'):
+        if order.client_id in seen:
+            continue
+        if any(it.is_overdue for it in order.items.all()):
+            ok = notify_overdue(order)
+            seen.add(order.client_id)
+            if ok:
+                sent += 1
+            else:
+                skipped += 1
+
+    text = (
+        f"✅ <b>Рассылка о просрочке завершена</b>\n\n"
+        f"📤 Отправлено: <b>{sent}</b> клиентам\n"
+        f"🚫 Без Telegram: <b>{skipped}</b>"
+    )
+    send_telegram_message(admin_chat_id, text, reply_markup=get_admin_keyboard())
+
+
+def handle_broadcast_debt(admin_chat_id):
+    """Отправить напоминание о долге всем должникам"""
+    from apps.clients.models import Client
+
+    sent, skipped = 0, 0
+    for client in Client.objects.all():
+        ok = notify_debt_reminder(client)
+        if ok:
+            sent += 1
+        elif client.has_debt() and not client.telegram_id:
+            skipped += 1
+
+    text = (
+        f"✅ <b>Рассылка о долге завершена</b>\n\n"
+        f"📤 Отправлено: <b>{sent}</b> клиентам\n"
+        f"🚫 Без Telegram: <b>{skipped}</b>"
+    )
+    send_telegram_message(admin_chat_id, text, reply_markup=get_admin_keyboard())
+
 
 def notify_overdue(order):
     """
@@ -592,3 +786,32 @@ def notify_overdue(order):
 """.replace(',', ' ')
     
     return send_telegram_message(client.telegram_id, text)
+
+
+def notify_debt_reminder(client):
+    """Напоминание о задолженности конкретному клиенту"""
+    if not client.telegram_id:
+        return False
+    debt = float(client.get_debt())
+    if debt <= 0:
+        return False
+    text = (
+        f"💰 <b>Напоминание о задолженности</b>\n\n"
+        f"Уважаемый {client.get_full_name()},\n\n"
+        f"У вас есть задолженность: <b>{int(debt):,} сом</b>\n\n"
+        f"Пожалуйста, погасите долг при следующем визите или свяжитесь с нами."
+    ).replace(',', ' ')
+    return send_telegram_message(client.telegram_id, text)
+
+
+def send_custom_broadcast(telegram_ids, message):
+    """Отправить произвольное сообщение списку chat_id. Возвращает (sent, failed)."""
+    sent = 0
+    failed = 0
+    for chat_id in telegram_ids:
+        ok = send_telegram_message(chat_id, message, parse_mode='HTML')
+        if ok:
+            sent += 1
+        else:
+            failed += 1
+    return sent, failed

@@ -1,0 +1,104 @@
+{% extends 'base_dark.html' %}
+{% load static %}
+{% block title %}{{ director.username }} — Компания{% endblock %}
+
+{% block extra_css %}
+.dd-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.dd-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:20px}
+.dd-card h2{font-size:16px;font-weight:700;color:var(--text1);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.dd-table{width:100%;border-collapse:collapse}
+.dd-table thead th{background:var(--card2);color:var(--text3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
+.dd-table tbody tr{border-bottom:1px solid var(--border)}
+.dd-table tbody tr:last-child{border-bottom:none}
+.dd-table tbody tr:hover{background:var(--card2)}
+.dd-table td{padding:12px 14px;font-size:13px;color:var(--text1);vertical-align:middle}
+.dd-avatar{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:12px;flex-shrink:0}
+.dd-name-cell{display:flex;align-items:center;gap:10px}
+.tag{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700}
+.tag-g{background:rgba(16,185,129,.15);color:#34d399}
+.tag-b{background:rgba(96,165,250,.15);color:#60a5fa}
+.tag-y{background:rgba(245,158,11,.15);color:#fbbf24}
+.wh-tag{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;background:var(--card2);border:1px solid var(--border);color:var(--text2);margin:3px}
+.empty{padding:40px;text-align:center;color:var(--text3);font-size:13px}
+{% endblock %}
+
+{% block content %}
+<div class="dd-header">
+    <div>
+        <a href="{% url 'main:creator_directors' %}" style="font-size:13px;color:var(--accent2);text-decoration:none">← Все директора</a>
+        <h1 style="font-size:24px;font-weight:700;color:var(--text1);margin-top:8px">🏢 {{ director.username }}</h1>
+        <p style="font-size:13px;color:var(--text3);margin-top:4px">{{ director.email|default:"Email не указан" }} · Зарегистрирован {{ director.date_joined|date:"d.m.Y" }}</p>
+    </div>
+    <a href="{% url 'main:edit_director_settings' user_id=director.id %}" class="btn-s">⚙️ Настройки</a>
+</div>
+
+<!-- Склады -->
+<div class="dd-card">
+    <h2>🏭 Склады</h2>
+    {% if warehouses %}
+    <div>
+        {% for wh in warehouses %}
+        <span class="wh-tag">{{ wh.name }}</span>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty">Складов нет</div>
+    {% endif %}
+</div>
+
+<!-- Сотрудники -->
+<div class="dd-card">
+    <h2>👥 Сотрудники <span style="font-size:13px;font-weight:400;color:var(--text3)">({{ employees|length }})</span></h2>
+    {% if employees %}
+    <div style="overflow-x:auto">
+    <table class="dd-table">
+        <thead>
+            <tr>
+                <th>Сотрудник</th>
+                <th>Email</th>
+                <th>Роли</th>
+                <th>Статус</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for emp in employees %}
+        <tr>
+            <td>
+                <div class="dd-name-cell">
+                    <div class="dd-avatar">{{ emp.user.username|slice:":1"|upper }}</div>
+                    <div>
+                        <div style="font-weight:600">{{ emp.user.username }}</div>
+                        {% if emp.user.first_name or emp.user.last_name %}
+                        <div style="font-size:11px;color:var(--text3)">{{ emp.user.first_name }} {{ emp.user.last_name }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </td>
+            <td style="color:var(--text3)">{{ emp.user.email|default:"—" }}</td>
+            <td>
+                {% for g in emp.user.groups.all %}
+                <span class="tag {% if g.name == 'Администратор' %}tag-g{% elif g.name == 'Менеджер' %}tag-b{% else %}tag-y{% endif %}">{{ g.name }}</span>
+                {% empty %}
+                <span style="color:var(--text3);font-size:12px">Нет ролей</span>
+                {% endfor %}
+            </td>
+            <td>
+                {% if emp.user.is_active %}
+                <span class="tag tag-g">✓ Активен</span>
+                {% else %}
+                <span class="tag" style="background:rgba(239,68,68,.15);color:#f87171">✗ Неактивен</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="empty">
+        <div style="font-size:36px;margin-bottom:8px">👤</div>
+        У этого директора нет сотрудников
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

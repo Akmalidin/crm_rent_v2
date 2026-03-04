@@ -1,0 +1,24 @@
+{% extends 'base_dark.html' %}
+{% load static %}
+{% block title %}Настройки директора{% endblock %}
+{% block content %}
+<div style="max-width:480px;margin:0 auto">
+    <a href="{% url 'main:creator_directors' %}" style="font-size:13px;color:var(--accent2);text-decoration:none">← Назад</a>
+    <h1 style="font-size:22px;font-weight:700;color:var(--text1);margin-top:8px;margin-bottom:24px">Настройки: {{ target.username }}</h1>
+    {% if messages %}
+    {% for msg in messages %}
+    <div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:12px;padding:12px 16px;margin-bottom:16px">{{ msg }}</div>
+    {% endfor %}
+    {% endif %}
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px">
+        <form method="POST">
+            {% csrf_token %}
+            <div class="fi"><label class="fi-label">Макс. складов</label><input type="number" name="max_warehouses" value="{{ profile.max_warehouses }}" min="1" max="50" class="fi-input"></div>
+            <div style="margin-top:24px;display:flex;gap:12px">
+                <button type="submit" class="btn-p">Сохранить</button>
+                <a href="{% url 'main:creator_directors' %}" class="btn-s">Отмена</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

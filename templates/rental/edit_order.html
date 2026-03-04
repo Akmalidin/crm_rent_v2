@@ -265,5 +265,92 @@
         </div>
     </form>
     
+    <!-- ☁️ Дождливые дни -->
+{% if calendar_days %}
+<div class="bg-white rounded-lg shadow p-6" id="rain-calendar-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div>
+            <h2 class="text-xl font-bold text-gray-800">🌧️ Дождливые дни</h2>
+            <p class="text-sm text-gray-500 mt-1">Нажмите на день чтобы отметить/снять дождливый день — за эти дни оплата не считается</p>
+        </div>
+        <div id="rain-summary" style="text-align:right;">
+            <div style="font-size:13px;color:#6b7280;">Исключено дней: <b id="rain-count">{{ rain_excluded_count }}</b></div>
+            <div style="font-size:13px;color:#6b7280;">Сумма без дождя: <b id="rain-total" style="color:#2563eb;">{{ rain_total|floatformat:0 }} сом</b></div>
+        </div>
+    </div>
+
+    <!-- Линейный календарь -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px;" id="rain-cal">
+        {% for day in calendar_days %}
+        <button type="button"
+            class="rain-day-btn"
+            data-date="{{ day|date:'Y-m-d' }}"
+            title="{{ day|date:'d.m.Y' }}"
+            style="width:46px;height:52px;border-radius:10px;border:2px solid transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:inherit;transition:all .15s;
+            {% if day|date:'Y-m-d' in excluded_dates %}background:#fef3c7;border-color:#f59e0b;color:#92400e;{% else %}background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;{% endif %}">
+            <span style="font-size:11px;font-weight:700;">{{ day|date:'d' }}</span>
+            <span style="font-size:10px;opacity:.7;">{{ day|date:'M' }}</span>
+            {% if day|date:'Y-m-d' in excluded_dates %}<span style="font-size:12px;">🌧️</span>{% endif %}
+        </button>
+        {% endfor %}
+    </div>
+
+    <!-- Легенда -->
+    <div style="display:flex;gap:16px;margin-top:12px;font-size:12px;color:#6b7280;">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;border-radius:4px;background:#eff6ff;border:1px solid #bfdbfe;display:inline-block;"></span>Оплачивается</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;border-radius:4px;background:#fef3c7;border:1px solid #f59e0b;display:inline-block;"></span>🌧️ Исключён (дождь)</span>
+    </div>
+</div>
+
+<script>
+(function() {
+    var TOGGLE_URL = '{% url "main:toggle_excluded_day" order_id=order.id %}';
+    var CSRF = '{{ csrf_token }}';
+    var excludedDates = new Set({{ excluded_dates_json }});
+
+    document.querySelectorAll('.rain-day-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var date = this.getAttribute('data-date');
+            fetch(TOGGLE_URL, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+                body: JSON.stringify({date: date})
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) { alert(data.error); return; }
+                excludedDates = new Set(data.excluded_dates);
+                // Обновляем все кнопки
+                document.querySelectorAll('.rain-day-btn').forEach(function(b) {
+                    var d = b.getAttribute('data-date');
+                    if (excludedDates.has(d)) {
+                        b.style.background = '#fef3c7';
+                        b.style.borderColor = '#f59e0b';
+                        b.style.color = '#92400e';
+                        b.innerHTML = '<span style="font-size:11px;font-weight:700;">' + d.slice(8) + '</span>' +
+                            '<span style="font-size:10px;opacity:.7;">' + formatMonth(d) + '</span>' +
+                            '<span style="font-size:12px;">🌧️</span>';
+                    } else {
+                        b.style.background = '#eff6ff';
+                        b.style.borderColor = '#bfdbfe';
+                        b.style.color = '#1d4ed8';
+                        b.innerHTML = '<span style="font-size:11px;font-weight:700;">' + d.slice(8) + '</span>' +
+                            '<span style="font-size:10px;opacity:.7;">' + formatMonth(d) + '</span>';
+                    }
+                });
+                document.getElementById('rain-count').textContent = data.excluded_count;
+                document.getElementById('rain-total').textContent = Math.round(parseFloat(data.rain_total)) + ' сом';
+            })
+            .catch(function(e) { console.error(e); });
+        });
+    });
+
+    var MONTHS = ['', 'янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    function formatMonth(d) { return MONTHS[parseInt(d.slice(5, 7))]; }
+})();
+</script>
+{% endif %}
+
+
 </div>
 {% endblock %}

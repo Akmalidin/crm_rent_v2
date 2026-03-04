@@ -35,9 +35,9 @@ def get_tenant_owner(user):
 
 
 def register_view(request):
-    """Страница регистрации"""
+    """Страница регистрации — только для новых директоров компаний"""
     if request.user.is_authenticated:
-        return redirect('main:setup_company')
+        return redirect('main:dashboard')
     
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -89,18 +89,34 @@ def register_view(request):
 
         # Уведомление администратора в Telegram о новой регистрации
         try:
-            from apps.main.telegram_bot_complete import send_telegram_message
-            admin_chat_id = getattr(settings, 'TELEGRAM_ADMIN_CHAT_ID', None)
-            if admin_chat_id:
-                role_label = 'Администратор (первый пользователь)' if is_first_user else 'Новый пользователь (ожидает одобрения)'
-                tg_text = (
-                    f"🆕 <b>Новая регистрация</b>\n\n"
-                    f"👤 Имя пользователя: <code>{username}</code>\n"
-                    f"📧 Email: {email or '—'}\n"
-                    f"🏷️ Роль: {role_label}\n\n"
-                    f"⚠️ Перейдите в панель администратора чтобы одобрить пользователя."
-                )
-                send_telegram_message(admin_chat_id, tg_text)
+            if is_first_user:
+                from apps.main.telegram_bot_complete import send_telegram_message
+                admin_chat_id = getattr(settings, 'TELEGRAM_ADMIN_CHAT_ID', None)
+                if admin_chat_id:
+                    tg_text = (
+                        f"🆕 <b>Новая регистрация</b>\n\n"
+                        f"👤 Имя пользователя: <code>{username}</code>\n"
+                        f"📧 Email: {email or '—'}\n"
+                        f"🏷️ Роль: Администратор (первый пользователь)"
+                    )
+                    send_telegram_message(admin_chat_id, tg_text)
+            else:
+                import requests as req_lib
+                bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', None)
+                chat_id = getattr(settings, 'TELEGRAM_ADMIN_CHAT_ID', None)
+                if bot_token and chat_id:
+                    text = f"🏢 <b>Новая заявка на регистрацию компании</b>\n\n👤 Директор: <code>{user.username}</code>\n📧 Email: {user.email or '—'}\n\n⚠️ После одобрения — станет Директором новой компании."
+                    keyboard = {
+                        "inline_keyboard": [[
+                            {"text": "✅ Одобрить", "callback_data": f"approve_{user.id}"},
+                            {"text": "❌ Отклонить", "callback_data": f"reject_{user.id}"},
+                        ]]
+                    }
+                    req_lib.post(
+                        f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                        json={"chat_id": chat_id, "text": text, "parse_mode": "HTML", "reply_markup": keyboard},
+                        timeout=5,
+                    )
         except Exception:
             pass
 
@@ -202,6 +218,17 @@ def dashboard(request):
     """Современный дашборд с графиками"""
     from django.db.models import Sum
     from decimal import Decimal
+
+    # Если новый директор ещё не настроил компанию — направить на setup
+    if request.user.is_superuser and not request.user.is_staff:
+        try:
+            prof = request.user.profile
+            if prof.needs_company_setup:
+                prof.needs_company_setup = False
+                prof.save()
+                return redirect('main:setup_company')
+        except Exception:
+            pass
 
     owner = get_tenant_owner(request.user)
 
@@ -442,27 +469,51 @@ def clients_list(request):
 @login_required
 def client_detail(request, client_id):
     """Карточка клиента с группированной историей"""
+    import re as _re
     from django.utils import timezone
 
     owner = get_tenant_owner(request.user)
     client = get_object_or_404(Client, id=client_id, owner=owner)
     now = timezone.now()
-    
+
+    def _paid_for_order_cd(client_obj, order_id_int):
+        """Сколько уже оплачено по конкретному заказу."""
+        paid = 0.0
+        for p in client_obj.payments.all():
+            notes_text = p.notes or ''
+            if 'Распределение:' in notes_text:
+                for line in notes_text.split('\n'):
+                    m = _re.search(
+                        rf'Заказ\s*#{order_id_int}\s*:\s*(\d+(?:[\.,]\d+)?)\s*сом', line
+                    )
+                    if m:
+                        paid += float(m.group(1).replace(',', '.'))
+                        break
+            elif (f'Заказ #{order_id_int}' in notes_text or f'#{order_id_int}' in notes_text):
+                paid += float(p.amount)
+        return paid
+
     active_orders = client.rental_orders.filter(status='open').prefetch_related('items__product')
-    all_orders = client.rental_orders.all().order_by('-created_at')
+    all_orders_qs = client.rental_orders.all().order_by('-created_at')
     payments = client.payments.all().order_by('-payment_date')[:10]
-    
-    # Используем общую функцию
-    order_groups = get_order_groups_for_client(client, now)
-    # Группируем заказы
-    for group in order_groups:
-        order = group['order']
-        
-        # ДОБАВЬ ЭТО: Получаем все платежи по заказу
-        group['payments'] = []
-        for payment in client.payments.all():
-            if payment.notes and f'#{order.id}' in payment.notes:
-                group['payments'].append(payment)
+
+    # Добавляем per-order финансовые данные
+    all_orders_data = []
+    for order in all_orders_qs:
+        total = float(order.get_current_total())
+        base = float(order.get_original_total())
+        overdue = total - base
+        paid = _paid_for_order_cd(client, order.id)
+        owed = max(0.0, total - paid)
+        all_orders_data.append({
+            'order': order,
+            'total': total,
+            'base': base,
+            'overdue': overdue,
+            'paid': paid,
+            'owed': owed,
+        })
+
     context = {
         'client': client,
         'balance': client.get_wallet_balance(),
@@ -471,9 +522,8 @@ def client_detail(request, client_id):
         'total_paid': client.get_total_paid(),
         'total_debt': client.get_total_debt(),
         'active_orders': active_orders,
-        'all_orders': all_orders,
+        'all_orders': all_orders_data,
         'payments': payments,
-        'order_groups': order_groups,
         'now': now,
     }
 
@@ -612,7 +662,8 @@ def create_order(request):
                 product.save()
             
             messages.success(request, f'✅ Заказ #{order.id} успешно создан!')
-            
+            log_activity(request.user, 'create_order', f'Создал заказ #{order.id} для клиента {client.get_full_name()}')
+
             # Редирект на страницу клиента
             return redirect('main:client_detail', client_id=client.id)
             
@@ -826,7 +877,8 @@ def accept_payment(request):
                 payment_method=payment_method,
                 notes=full_notes
             )
-            
+            log_activity(request.user, 'accept_payment', f'Принял оплату {payment_amount:.0f} сом от клиента {client.get_full_name()}')
+
             return redirect('main:client_detail', client_id=client.id)
             
         except (ValueError, TypeError):
@@ -947,7 +999,8 @@ def returns_page(request):
     
     if request.method == 'POST':
         from apps.rental.models import ReturnDocument, ReturnItem
-        
+        from decimal import Decimal
+
         client_id = request.POST.get('client_id')
         notes = request.POST.get('notes', '')
         payment_amount = request.POST.get('payment_amount', '0')
@@ -958,24 +1011,40 @@ def returns_page(request):
         # Обрабатываем возвраты
         has_returns = False
         total_cost = 0
+        total_repair = 0
         
         for key in request.POST:
             if key.startswith('return_') and request.POST[key]:
                 item_id = key.replace('return_', '')
-                quantity = int(request.POST[key])
-                
+                try:
+                    quantity = int(request.POST[key])
+                except (ValueError, TypeError):
+                    continue
+
                 if quantity > 0:
                     try:
                         order_item = OrderItem.objects.get(id=item_id)
-                        
+
                         if quantity <= order_item.quantity_remaining:
-                            return_item = ReturnItem.objects.create(
+                            repair_fee_val = request.POST.get(f'repair_fee_{item_id}', '0') or '0'
+                            repair_notes_val = request.POST.get(f'repair_notes_{item_id}', '')
+                            try:
+                                repair_fee_dec = Decimal(str(float(repair_fee_val)))
+                            except (ValueError, TypeError):
+                                repair_fee_dec = Decimal('0')
+
+                            return_item = ReturnItem(
                                 return_document=return_doc,
                                 order_item=order_item,
-                                quantity=quantity
+                                quantity=quantity,
+                                repair_fee=repair_fee_dec,
+                                repair_notes=repair_notes_val,
                             )
+                            # calculated_cost, actual_days/hours set in save()
+                            return_item.save()
                             has_returns = True
                             total_cost += float(return_item.calculated_cost)
+                            total_repair += float(repair_fee_dec)
                             
                             # ✅ ВАЖНО: ОБНОВЛЯЕМ ДОСТУПНОСТЬ ТОВАРА
                             product = order_item.product
@@ -998,7 +1067,10 @@ def returns_page(request):
             except (ValueError, TypeError):
                 pass
             
-            messages.success(request, '✅ Товары возвращены и инвентарь обновлён!')
+            if total_repair > 0:
+                messages.success(request, f'✅ Товары возвращены! Плата за ремонт/чистку: {int(total_repair)} сом')
+            else:
+                messages.success(request, '✅ Товары возвращены и инвентарь обновлён!')
             return redirect('main:client_detail', client_id=client_id)
         else:
             return_doc.delete()
@@ -1156,6 +1228,7 @@ def edit_order(request, order_id):
                             rental_days=days,
                             rental_hours=hours,
                             price_per_day=product.price_per_day,
+                            price_per_hour=product.price_per_hour,
                             issued_date=issued_date,
                             planned_return_date=planned_return_date,
                             original_total_cost=total_cost,
@@ -1349,10 +1422,39 @@ def edit_order(request, order_id):
     _edit_owner = get_tenant_owner(request.user)
     available_products = Product.objects.filter(owner=_edit_owner, is_active=True, quantity_available__gt=0).order_by('name')
 
+    # --- Данные для дождливого календаря ---
+    from apps.rental.models import OrderExcludedDay
+    from datetime import date as date_cls, timedelta as td
+    import json as _json
+    items_all = list(order.items.all())
+    cal_start = cal_end = None
+    for _it in items_all:
+        if _it.issued_date:
+            _d = _it.issued_date.date() if hasattr(_it.issued_date, 'date') else _it.issued_date
+            cal_start = _d if cal_start is None else min(cal_start, _d)
+        if _it.planned_return_date:
+            _d = _it.planned_return_date.date() if hasattr(_it.planned_return_date, 'date') else _it.planned_return_date
+            cal_end = _d if cal_end is None else max(cal_end, _d)
+    # Все даты в диапазоне (максимум 90 дней)
+    calendar_days = []
+    if cal_start and cal_end:
+        cur = cal_start
+        while cur <= cal_end and (cur - cal_start).days < 91:
+            calendar_days.append(cur)
+            cur += td(days=1)
+    excluded_dates = [str(d) for d in order.excluded_days.values_list('date', flat=True)]
+    rain_total = order.get_total_excluding_rain()
+    # ---
+
     context = {
         'order': order,
         'available_products': available_products,
         'user_notes_display': user_notes_display,
+        'calendar_days': calendar_days,
+        'excluded_dates': excluded_dates,
+        'excluded_dates_json': _json.dumps(excluded_dates),
+        'rain_excluded_count': len(excluded_dates),
+        'rain_total': rain_total,
     }
 
     return render(request, 'rental/edit_order.html', context)
@@ -1410,6 +1512,50 @@ def apply_credit_to_order(request, order_id):
     )
     
     return redirect('main:client_detail', client_id=client.id)
+
+@login_required
+def toggle_excluded_day(request, order_id):
+    """AJAX: переключить дождливый день для конкретного товара"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+    order = get_object_or_404(RentalOrder, id=order_id)
+    owner = get_tenant_owner(request.user)
+    if order.client.owner_id != owner.id:
+        return JsonResponse({'error': 'Доступ запрещён'}, status=403)
+    try:
+        import json as _json
+        from datetime import date as date_cls
+        from apps.rental.models import OrderExcludedDay
+        data = _json.loads(request.body)
+        day = date_cls.fromisoformat(data.get('date', ''))
+        item_id = int(data.get('item_id', 0))
+    except Exception:
+        return JsonResponse({'error': 'Неверные данные'}, status=400)
+    order_item = get_object_or_404(OrderItem, id=item_id, order=order)
+    obj, created = OrderExcludedDay.objects.get_or_create(
+        order=order, order_item=order_item, date=day
+    )
+    if not created:
+        obj.delete()
+        action = 'removed'
+    else:
+        action = 'added'
+    # Собираем per-item excluded dates
+    excluded_by_item = {}
+    for item in order.items.all():
+        excluded_by_item[str(item.id)] = [
+            str(d) for d in item.excluded_days.values_list('date', flat=True)
+        ]
+    rain_total = order.get_total_excluding_rain()
+    original_total = order.get_current_total()
+    return JsonResponse({
+        'status': action,
+        'excluded_by_item': excluded_by_item,
+        'rain_total': str(rain_total),
+        'original_total': str(original_total),
+        'rain_count': order.excluded_days.count(),
+    })
+
 
 @manager_required
 def close_order(request, order_id):
@@ -1503,7 +1649,8 @@ def close_order(request, order_id):
     
     order.status = 'closed'
     order.save()
-    
+    log_activity(request.user, 'close_order', f'Закрыл заказ #{order.id} (клиент: {order.client.get_full_name()})')
+
     messages.success(request, f'✅ Заказ #{order.id} закрыт. Все товары возвращены на склад.')
     return redirect('main:client_detail', client_id=order.client.id)
 
@@ -1962,8 +2109,14 @@ def orders_calendar(request):
                 }
             })
 
+    # Дождливые дни этого тенанта
+    from apps.main.models import RainDay
+    rain_days_qs = RainDay.objects.filter(owner=owner).values_list('date', flat=True)
+    rain_days_set = set(str(d) for d in rain_days_qs)
+
     context = {
         'events_json': json.dumps(events, ensure_ascii=False),
+        'rain_days_json': json.dumps(list(rain_days_set), ensure_ascii=False),
         'active_count': active_count,
         'overdue_count': overdue_count,
         'clients': clients,
@@ -1971,6 +2124,34 @@ def orders_calendar(request):
     }
 
     return render(request, 'main/calendar.html', context)
+
+
+@login_required
+def toggle_rain_day(request):
+    """AJAX: включить/выключить глобальный дождливый день для тенанта."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+    try:
+        import json as _json
+        from datetime import date as date_cls
+        from apps.main.models import RainDay
+        data = _json.loads(request.body)
+        day = date_cls.fromisoformat(data.get('date', ''))
+    except Exception:
+        return JsonResponse({'error': 'Неверные данные'}, status=400)
+
+    owner = get_tenant_owner(request.user)
+    obj, created = RainDay.objects.get_or_create(owner=owner, date=day)
+    if not created:
+        obj.delete()
+        action = 'removed'
+    else:
+        action = 'added'
+
+    rain_days = list(
+        str(d) for d in RainDay.objects.filter(owner=owner).values_list('date', flat=True)
+    )
+    return JsonResponse({'status': action, 'date': str(day), 'rain_days': rain_days})
 
 
 @staff_member_required
@@ -2021,13 +2202,20 @@ def is_admin(user):
 @admin_required
 def users_management(request):
     """Страница управления пользователями и ролями"""
-    
-    # Получаем всех пользователей
-    users = User.objects.prefetch_related('groups', 'user_permissions').order_by('-date_joined')
-    
+
+    if request.user.is_staff:
+        # Creator sees all users
+        users = User.objects.all().prefetch_related('groups', 'profile').order_by('-date_joined')
+    else:
+        # Director sees only their employees
+        employee_ids = UserProfile.objects.filter(
+            owner=request.user
+        ).values_list('user_id', flat=True)
+        users = User.objects.filter(id__in=employee_ids).prefetch_related('groups', 'profile').order_by('-date_joined')
+
     # Получаем все группы
     groups = Group.objects.prefetch_related('permissions').all()
-    
+
     # Статистика по ролям
     stats = {
         'total_users': users.count(),
@@ -2036,14 +2224,61 @@ def users_management(request):
         'managers': users.filter(groups__name='Менеджер').count(),
         'cashiers': users.filter(groups__name='Кассир').count(),
     }
-    
+
     context = {
         'users': users,
         'groups': groups,
         'stats': stats,
     }
-    
+
     return render(request, 'main/users_management.html', context)
+
+
+@login_required
+def create_employee(request):
+    """Создание сотрудника директором"""
+    from django.contrib.auth import get_user_model
+    # Only Directors (not Creator) can create employees
+    if not request.user.is_superuser or request.user.is_staff:
+        messages.error(request, 'Только директор может создавать сотрудников')
+        return redirect('main:dashboard')
+
+    UserModel = get_user_model()
+
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '').strip()
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        email = request.POST.get('email', '').strip()
+
+        if not username or not password:
+            messages.error(request, 'Укажите имя пользователя и пароль')
+            return render(request, 'main/create_employee.html', {})
+
+        if UserModel.objects.filter(username=username).exists():
+            messages.error(request, f'Пользователь "{username}" уже существует')
+            return render(request, 'main/create_employee.html', {})
+
+        employee = UserModel.objects.create_user(
+            username=username,
+            password=password,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            is_active=True,
+            is_staff=False,
+            is_superuser=False,
+        )
+        UserProfile.objects.create(
+            user=employee,
+            owner=request.user,
+            role='employee',
+        )
+        messages.success(request, f'Сотрудник {username} создан!')
+        return redirect('main:users_management')
+
+    return render(request, 'main/create_employee.html', {})
 
 
 @login_required
@@ -2101,42 +2336,70 @@ def remove_user_group(request, user_id, group_id):
     return redirect('main:users_management')
 
 
-@admin_required
+@login_required
 def permissions_matrix(request):
-    """Матрица прав доступа"""
-    
-    # Получаем все группы
-    groups = Group.objects.prefetch_related('permissions').all()
-    
-    # Получаем основные разрешения
-    permission_categories = {
-        'Клиенты': Permission.objects.filter(content_type__model='client'),
-        'Заказы': Permission.objects.filter(content_type__model='rentalorder'),
-        'Товары': Permission.objects.filter(content_type__model='product'),
-        'Платежи': Permission.objects.filter(content_type__model='payment'),
-        'Возвраты': Permission.objects.filter(content_type__model='returndocument'),
-    }
-    
+    """Матрица прав доступа — редактируемая для директоров"""
+    if not (request.user.is_superuser or request.user.groups.filter(name='Администратор').exists()):
+        messages.error(request, 'Доступ запрещён')
+        return redirect('main:dashboard')
+
+    # Группы, которые директор может назначать сотрудникам
+    ASSIGNABLE_GROUPS = ['Менеджер', 'Кассир', 'Администратор']
+    groups = Group.objects.filter(name__in=ASSIGNABLE_GROUPS).prefetch_related('permissions')
+
+    # Получаем сотрудников в зависимости от роли пользователя
+    if request.user.is_staff:
+        # Creator — видит всех (и директоров, и сотрудников)
+        employees = User.objects.filter(is_active=True).exclude(id=request.user.id).prefetch_related('groups')
+    else:
+        # Директор — только свои сотрудники
+        emp_ids = UserProfile.objects.filter(owner=request.user).values_list('user_id', flat=True)
+        employees = User.objects.filter(id__in=emp_ids, is_active=True).prefetch_related('groups')
+
+    # POST — назначить/снять группу
+    if request.method == 'POST':
+        target_user_id = request.POST.get('user_id')
+        group_name = request.POST.get('group_name')
+        action = request.POST.get('action')  # 'add' или 'remove'
+
+        if target_user_id and group_name and action:
+            target_user = get_object_or_404(User, id=target_user_id)
+            # Проверяем что директор может управлять этим пользователем
+            if not request.user.is_staff:
+                if not UserProfile.objects.filter(owner=request.user, user=target_user).exists():
+                    messages.error(request, 'Нет доступа к этому пользователю')
+                    return redirect('main:permissions_matrix')
+            # Только разрешённые группы
+            if group_name not in ASSIGNABLE_GROUPS:
+                messages.error(request, 'Недопустимая роль')
+                return redirect('main:permissions_matrix')
+            group_obj = get_object_or_404(Group, name=group_name)
+            if action == 'add':
+                target_user.groups.add(group_obj)
+                messages.success(request, f'Роль "{group_name}" назначена {target_user.username}')
+            elif action == 'remove':
+                target_user.groups.remove(group_obj)
+                messages.success(request, f'Роль "{group_name}" снята с {target_user.username}')
+        return redirect('main:permissions_matrix')
+
     context = {
         'groups': groups,
-        'permission_categories': permission_categories,
+        'employees': employees,
+        'is_creator': request.user.is_staff,
     }
-    
     return render(request, 'main/permissions_matrix.html', context)
 
 
 def superuser_required(view_func):
-    """Декоратор — только суперпользователь"""
-    from functools import wraps
-    @wraps(view_func)
+    """Декоратор — только создатель системы (is_superuser AND is_staff)"""
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            from django.contrib.auth.views import redirect_to_login
-            return redirect_to_login(request.get_full_path())
-        if not request.user.is_superuser:
-            messages.error(request, '🔒 Доступ только для создателя системы.')
+            return redirect('main:login')
+        if not (request.user.is_superuser and request.user.is_staff):
+            messages.error(request, '⛔ Доступ только для создателя системы')
             return redirect('main:dashboard')
         return view_func(request, *args, **kwargs)
+    wrapper.__name__ = view_func.__name__
     return wrapper
 
 
@@ -2146,8 +2409,10 @@ def superuser_panel(request):
     from apps.rental.models import RentalOrder
     from apps.clients.models import Client
 
-    # Пользователи, ожидающие одобрения
-    pending_users = User.objects.filter(is_active=False).order_by('date_joined')
+    # Пользователи, ожидающие одобрения — только Director-регистрации (не сотрудники)
+    pending_users = User.objects.filter(
+        is_active=False, profile__owner__isnull=True
+    ).order_by('date_joined')
 
     # Одобрение пользователя через POST
     if request.method == 'POST':
@@ -2156,15 +2421,25 @@ def superuser_panel(request):
         target = get_object_or_404(User, id=uid)
         if action == 'approve':
             # Новый пользователь становится суперадмином своей компании
-            target.is_active = True
-            target.is_staff = False   # не системный создатель
-            target.is_superuser = True  # владелец своей компании
-            target.save()
+            approved_user = target
+            approved_user.is_active = True
+            approved_user.is_staff = False   # не системный создатель
+            approved_user.is_superuser = True  # владелец своей компании
+            approved_user.save()
             admin_group, _ = Group.objects.get_or_create(name='Администратор')
-            target.groups.add(admin_group)
-            # Убеждаемся что профиль есть и owner=None (владелец своей компании)
-            UserProfile.objects.get_or_create(user=target, defaults={'owner': None})
-            messages.success(request, f'✅ Пользователь «{target.username}» одобрен. Теперь у него своя пустая CRM.')
+            approved_user.groups.add(admin_group)
+            # Профиль с ролью director
+            from apps.inventory.models import Warehouse
+            profile, _ = UserProfile.objects.get_or_create(user=approved_user, defaults={'owner': None})
+            profile.role = 'director'
+            profile.needs_company_setup = True
+            profile.save()
+            Warehouse.objects.get_or_create(
+                owner=approved_user,
+                name='Основной склад',
+                defaults={'description': 'Склад по умолчанию'},
+            )
+            messages.success(request, f'✅ Пользователь «{approved_user.username}» одобрен. Теперь у него своя пустая CRM.')
         elif action == 'reject':
             target.delete()
             messages.success(request, f'🗑 Пользователь «{target.username}» удалён.')
@@ -2178,8 +2453,438 @@ def superuser_panel(request):
         'open_orders':   RentalOrder.objects.filter(status='open').count(),  # system-wide
     }
 
+    from apps.main.models import DirectorMessage
+    unread_messages = DirectorMessage.objects.filter(is_read=False).select_related('sender')
+
     return render(request, 'main/superuser_panel.html', {
         'pending_users': pending_users,
         'stats': stats,
         'all_users': User.objects.order_by('-date_joined')[:20],
+        'unread_messages': unread_messages,
     })
+
+
+@superuser_required
+def creator_directors(request):
+    """Список всех директоров (для создателя)"""
+    from apps.inventory.models import Product, Warehouse
+    from apps.clients.models import Client
+    from apps.rental.models import RentalOrder, Payment
+    from django.db.models import Sum
+    import csv
+    from django.http import HttpResponse
+
+    # Export CSV
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = 'attachment; filename="directors.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Директор', 'Email', 'Дата регистрации', 'Клиентов', 'Товаров', 'Открытых заказов', 'Доход (сом)', 'Макс складов'])
+        for d in User.objects.filter(is_superuser=True, is_staff=False, is_active=True):
+            clients = Client.objects.filter(owner=d).count()
+            products = Product.objects.filter(owner=d).count()
+            orders = RentalOrder.objects.filter(client__owner=d, status='open').count()
+            revenue = Payment.objects.filter(client__owner=d).aggregate(t=Sum('amount'))['t'] or 0
+            try:
+                max_wh = d.profile.max_warehouses
+            except Exception:
+                max_wh = 1
+            writer.writerow([d.username, d.email, d.date_joined.strftime('%d.%m.%Y'), clients, products, orders, int(revenue), max_wh])
+        return response
+
+    directors = User.objects.filter(is_superuser=True, is_staff=False, is_active=True)
+    director_data = []
+    for d in directors:
+        clients = Client.objects.filter(owner=d).count()
+        products = Product.objects.filter(owner=d).count()
+        orders = RentalOrder.objects.filter(client__owner=d, status='open').count()
+        revenue = Payment.objects.filter(client__owner=d).aggregate(t=Sum('amount'))['t'] or 0
+        try:
+            max_wh = d.profile.max_warehouses
+        except Exception:
+            max_wh = 1
+        warehouses = list(Warehouse.objects.filter(owner=d).values_list('name', flat=True))
+        employees = UserProfile.objects.filter(owner=d).count()
+        director_data.append({
+            'user': d,
+            'clients': clients,
+            'products': products,
+            'open_orders': orders,
+            'revenue': int(revenue),
+            'max_warehouses': max_wh,
+            'warehouses': warehouses,
+            'employees': employees,
+        })
+
+    return render(request, 'main/creator_directors.html', {'directors': director_data})
+
+
+@superuser_required
+def edit_director_settings(request, user_id):
+    """Редактировать настройки директора (макс. склады)"""
+    target = get_object_or_404(User, id=user_id, is_superuser=True, is_staff=False)
+    profile, _ = UserProfile.objects.get_or_create(user=target)
+
+    if request.method == 'POST':
+        try:
+            profile.max_warehouses = int(request.POST.get('max_warehouses', 1))
+            profile.save()
+            messages.success(request, f'Настройки {target.username} обновлены')
+        except ValueError:
+            messages.error(request, 'Некорректное значение')
+        return redirect('main:creator_directors')
+
+    return render(request, 'main/edit_director_settings.html', {'target': target, 'profile': profile})
+
+
+@superuser_required
+def creator_director_detail(request, user_id):
+    """Детальная страница директора — его сотрудники и склады"""
+    from apps.inventory.models import Warehouse
+    director = get_object_or_404(User, id=user_id, is_superuser=True, is_staff=False)
+    employees = UserProfile.objects.filter(owner=director).select_related('user').prefetch_related('user__groups')
+    warehouses = Warehouse.objects.filter(owner=director)
+    return render(request, 'main/creator_director_detail.html', {
+        'director': director,
+        'employees': employees,
+        'warehouses': warehouses,
+    })
+
+
+@login_required
+def send_message(request):
+    """Директор отправляет сообщение создателю"""
+    from apps.main.models import DirectorMessage
+
+    if request.user.is_staff:
+        return redirect('main:superuser_panel')
+
+    if request.method == 'POST':
+        subject = request.POST.get('subject', '').strip()
+        message_text = request.POST.get('message', '').strip()
+        if subject and message_text:
+            DirectorMessage.objects.create(
+                sender=request.user,
+                subject=subject,
+                message=message_text,
+            )
+            messages.success(request, '✅ Сообщение отправлено создателю системы!')
+            return redirect('main:dashboard')
+        else:
+            messages.error(request, 'Заполните тему и сообщение')
+
+    return render(request, 'main/send_message.html', {})
+
+
+@superuser_required
+def mark_message_read(request, msg_id):
+    """Пометить сообщение как прочитанное"""
+    from apps.main.models import DirectorMessage
+    DirectorMessage.objects.filter(id=msg_id).update(is_read=True)
+    return redirect('main:superuser_panel')
+
+
+# ─── Смена пароля ────────────────────────────────────────────────────────────
+
+@login_required
+def change_user_password(request, user_id):
+    """
+    Создатель меняет пароль директорам.
+    Директор меняет пароль своим сотрудникам.
+    """
+    target = get_object_or_404(User, id=user_id)
+
+    # Определяем доступ
+    if request.user.is_staff and request.user.is_superuser:
+        # Создатель может менять любому
+        pass
+    elif request.user.is_superuser and not request.user.is_staff:
+        # Директор — только своим сотрудникам
+        if not UserProfile.objects.filter(owner=request.user, user=target).exists():
+            messages.error(request, 'Нет доступа к этому пользователю')
+            return redirect('main:users_management')
+    else:
+        messages.error(request, 'Доступ запрещён')
+        return redirect('main:dashboard')
+
+    if request.method == 'POST':
+        new_password = request.POST.get('new_password', '').strip()
+        confirm = request.POST.get('confirm_password', '').strip()
+        if not new_password:
+            messages.error(request, 'Введите новый пароль')
+        elif new_password != confirm:
+            messages.error(request, 'Пароли не совпадают')
+        elif len(new_password) < 6:
+            messages.error(request, 'Пароль должен быть не менее 6 символов')
+        else:
+            target.set_password(new_password)
+            target.save()
+            messages.success(request, f'Пароль пользователя {target.username} изменён')
+            return redirect('main:users_management')
+
+    return render(request, 'main/change_password.html', {'target_user': target})
+
+
+# ─── Лог активности сотрудника ───────────────────────────────────────────────
+
+@login_required
+def employee_activity(request, user_id):
+    """Лог действий сотрудника — для директора"""
+    from apps.main.models import ActivityLog
+
+    target = get_object_or_404(User, id=user_id)
+
+    # Доступ: создатель или директор этого сотрудника
+    if request.user.is_staff and request.user.is_superuser:
+        pass  # всё разрешено
+    elif request.user.is_superuser and not request.user.is_staff:
+        if not UserProfile.objects.filter(owner=request.user, user=target).exists():
+            # Также разрешаем смотреть на самого директора (свой лог)
+            if target != request.user:
+                messages.error(request, 'Нет доступа')
+                return redirect('main:users_management')
+    else:
+        messages.error(request, 'Доступ запрещён')
+        return redirect('main:dashboard')
+
+    logs = ActivityLog.objects.filter(user=target).order_by('-created_at')[:200]
+
+    context = {
+        'target_user': target,
+        'logs': logs,
+    }
+    return render(request, 'main/employee_activity.html', context)
+
+
+@login_required
+def order_view(request, order_id):
+    """Просмотр заказа — всё на одной странице: товары, дождевой календарь, возвраты, заметка"""
+    from apps.rental.models import ReturnItem
+    from datetime import date as date_cls, timedelta as td
+    import json as _json
+
+    owner = get_tenant_owner(request.user)
+    order = get_object_or_404(RentalOrder, id=order_id, client__owner=owner)
+    client = order.client
+
+    # Сохранение заметки
+    if request.method == 'POST':
+        order.notes = request.POST.get('notes', '')
+        order.save(update_fields=['notes'])
+        messages.success(request, 'Заметка сохранена')
+        return redirect('main:order_view', order_id=order.id)
+
+    items = list(order.items.select_related('product').prefetch_related('excluded_days').all())
+
+    # Строим диапазон дат для календаря
+    cal_start = cal_end = None
+    for it in items:
+        if it.issued_date:
+            d = it.issued_date.date() if hasattr(it.issued_date, 'date') else it.issued_date
+            cal_start = d if cal_start is None else min(cal_start, d)
+        if it.planned_return_date:
+            d = it.planned_return_date.date() if hasattr(it.planned_return_date, 'date') else it.planned_return_date
+            cal_end = d if cal_end is None else max(cal_end, d)
+
+    calendar_days = []
+    if cal_start and cal_end:
+        cur = cal_start
+        while cur <= cal_end and (cur - cal_start).days < 91:
+            calendar_days.append(cur)
+            cur += td(days=1)
+
+    # Per-item excluded dates + item date ranges для отображения в шаблоне
+    item_rain_data = []
+    for it in items:
+        excl = set(str(d) for d in it.excluded_days.values_list('date', flat=True))
+        it_start = it.issued_date.date() if it.issued_date and hasattr(it.issued_date, 'date') else it.issued_date
+        it_end = it.planned_return_date.date() if it.planned_return_date and hasattr(it.planned_return_date, 'date') else it.planned_return_date
+        item_rain_data.append({
+            'item': it,
+            'excluded': list(excl),
+            'start': str(it_start) if it_start else None,
+            'end': str(it_end) if it_end else None,
+        })
+
+    excluded_by_item_json = _json.dumps({
+        str(row['item'].id): row['excluded'] for row in item_rain_data
+    })
+
+    rain_total = order.get_total_excluding_rain()
+    original_total = order.get_current_total()
+
+    # Разбивка стоимости: базовая аренда + просрочка
+    from decimal import Decimal as _D
+    base_total = order.get_original_total()
+    overdue_total = original_total - base_total
+
+    # Глобальные дождливые дни тенанта
+    from apps.main.models import RainDay
+    global_rain_days = set(
+        str(d) for d in RainDay.objects.filter(owner=owner).values_list('date', flat=True)
+    )
+    order_rain_days_json = _json.dumps(list(global_rain_days))
+
+    # История возвратов
+    returns = ReturnItem.objects.filter(
+        order_item__order=order
+    ).select_related('return_document', 'order_item__product').order_by('-return_document__return_date')
+
+    # Оплаты по этому заказу
+    import re as _re_ov
+    order_payments_list = []
+    total_paid_order = 0.0
+    for p in client.payments.all().order_by('-payment_date'):
+        notes_text = p.notes or ''
+        attributed = 0.0
+        if 'Распределение:' in notes_text:
+            for line in notes_text.split('\n'):
+                m = _re_ov.search(rf'Заказ\s*#{order.id}\s*:\s*(\d+(?:[\.,]\d+)?)\s*сом', line)
+                if m:
+                    attributed = float(m.group(1).replace(',', '.'))
+                    break
+        elif f'Заказ #{order.id}' in notes_text or f'#{order.id}' in notes_text:
+            attributed = float(p.amount)
+        if attributed > 0:
+            order_payments_list.append({'payment': p, 'amount': attributed})
+            total_paid_order += attributed
+
+    final_total_val = float(rain_total) if order.get_rain_excluded_count() > 0 else float(original_total)
+    total_owed_order = max(0.0, final_total_val - total_paid_order)
+
+    return render(request, 'rental/order_view.html', {
+        'order': order,
+        'client': client,
+        'items': items,
+        'item_rain_data': item_rain_data,
+        'calendar_days': calendar_days,
+        'excluded_by_item_json': excluded_by_item_json,
+        'rain_excluded_count': order.get_rain_excluded_count(),
+        'rain_total': rain_total,
+        'original_total': original_total,
+        'base_total': base_total,
+        'overdue_total': overdue_total,
+        'global_rain_days_json': order_rain_days_json,
+        'returns': returns,
+        'now': timezone.now(),
+        'has_overdue': any(it.is_overdue for it in items),
+        'order_payments_list': order_payments_list,
+        'total_paid_order': total_paid_order,
+        'total_owed_order': total_owed_order,
+        'final_total_val': final_total_val,
+    })
+
+
+@login_required
+def broadcast_notifications(request):
+    """Массовая рассылка уведомлений клиентам через Telegram"""
+    from apps.rental.models import RentalOrder
+    from apps.main.telegram_bot_complete import notify_overdue, notify_debt_reminder, send_custom_broadcast
+
+    if not (request.user.is_staff or request.user.is_superuser):
+        messages.error(request, '🔒 Нет прав доступа')
+        return redirect('main:dashboard')
+
+    owner = get_tenant_owner(request.user)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'overdue':
+            sent, skipped = 0, 0
+            seen_clients = set()
+            for order in RentalOrder.objects.filter(
+                client__owner=owner, status='open'
+            ).select_related('client').prefetch_related('items'):
+                if order.client_id in seen_clients:
+                    continue
+                if any(it.is_overdue for it in order.items.all()):
+                    ok = notify_overdue(order)
+                    seen_clients.add(order.client_id)
+                    if ok:
+                        sent += 1
+                    else:
+                        skipped += 1
+            messages.success(request, f'✅ Отправлено {sent} уведомлений о просрочке. Без Telegram: {skipped}')
+
+        elif action == 'debt':
+            sent, skipped = 0, 0
+            for client in Client.objects.filter(owner=owner):
+                ok = notify_debt_reminder(client)
+                if ok:
+                    sent += 1
+                elif client.telegram_id and client.has_debt():
+                    skipped += 1
+            messages.success(request, f'✅ Отправлено {sent} напоминаний о долге. Без Telegram: {skipped}')
+
+        elif action == 'custom':
+            custom_msg = request.POST.get('custom_message', '').strip()
+            target = request.POST.get('target', 'all')
+            if not custom_msg:
+                messages.error(request, '⚠️ Введите текст сообщения')
+                return redirect('main:broadcast_notifications')
+
+            all_clients = Client.objects.filter(owner=owner)
+
+            if target == 'overdue':
+                overdue_ids = set()
+                for order in RentalOrder.objects.filter(
+                    client__owner=owner, status='open'
+                ).prefetch_related('items'):
+                    if any(it.is_overdue for it in order.items.all()):
+                        overdue_ids.add(order.client_id)
+                chat_ids = list(
+                    all_clients.filter(id__in=overdue_ids)
+                    .exclude(telegram_id__isnull=True).exclude(telegram_id='')
+                    .values_list('telegram_id', flat=True)
+                )
+            elif target == 'debtors':
+                chat_ids = [c.telegram_id for c in all_clients if c.has_debt() and c.telegram_id]
+            else:  # all
+                chat_ids = list(
+                    all_clients.exclude(telegram_id__isnull=True).exclude(telegram_id='')
+                    .values_list('telegram_id', flat=True)
+                )
+
+            sent, failed = send_custom_broadcast(chat_ids, custom_msg)
+            messages.success(request, f'✅ Отправлено {sent} сообщений. Ошибок: {failed}')
+
+        return redirect('main:broadcast_notifications')
+
+    # ── GET: статистика ──
+    all_clients = Client.objects.filter(owner=owner)
+    total_clients = all_clients.count()
+    with_telegram = all_clients.exclude(telegram_id__isnull=True).exclude(telegram_id='').count()
+
+    overdue_client_ids = set()
+    for order in RentalOrder.objects.filter(
+        client__owner=owner, status='open'
+    ).prefetch_related('items'):
+        if any(it.is_overdue for it in order.items.all()):
+            overdue_client_ids.add(order.client_id)
+    overdue_count = len(overdue_client_ids)
+    debtor_count = sum(1 for c in all_clients if c.has_debt())
+
+    return render(request, 'main/broadcast_notifications.html', {
+        'total_clients': total_clients,
+        'with_telegram': with_telegram,
+        'overdue_count': overdue_count,
+        'debtor_count': debtor_count,
+    })
+
+
+# ─── Вспомогательная функция логирования ────────────────────────────────────
+
+def log_activity(user, action, description):
+    """Записывает действие пользователя в ActivityLog"""
+    try:
+        from apps.main.models import ActivityLog
+        ActivityLog.objects.create(user=user, action=action, description=description)
+    except Exception:
+        pass  # Логирование не должно ломать основную логику
+
+
+def custom_404_view(request, exception=None):
+    """Кастомный обработчик 404 — редирект на главную с сообщением"""
+    messages.error(request, '🔍 Страница не найдена. Возможно, она была удалена или URL введён неверно.')
+    return redirect('main:dashboard')

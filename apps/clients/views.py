@@ -4,6 +4,14 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 
 
+def _log(user, action, desc):
+    try:
+        from apps.main.views import log_activity
+        log_activity(user, action, desc)
+    except Exception:
+        pass
+
+
 def _get_owner(user):
     """Возвращает владельца тенанта для данного пользователя."""
     if user.is_superuser:
@@ -50,6 +58,7 @@ def create_client(request):
             )
 
         messages.success(request, f'Клиент {client.get_full_name()} создан!')
+        _log(request.user, 'create_client', f'Создал клиента {client.get_full_name()}')
         return redirect('main:client_detail', client_id=client.id)
 
     return render(request, 'clients/create.html')
@@ -85,6 +94,7 @@ def edit_client(request, client_id):
                 ClientPhone.objects.create(client=client, phone_number=new_phone, is_primary=True)
 
         messages.success(request, f'Данные клиента {client.get_full_name()} обновлены!')
+        _log(request.user, 'edit_client', f'Изменил данные клиента {client.get_full_name()}')
         return redirect('main:client_detail', client_id=client.id)
 
     return render(request, 'clients/edit.html', {

@@ -1,0 +1,119 @@
+{% extends 'base_dark.html' %}
+{% load static %}
+
+{% block title %}Отчёт: {{ product.name }} — CRM{% endblock %}
+
+{% block extra_css %}
+.pr-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.pr-title{font-size:24px;font-weight:700;color:var(--text1)}
+.pr-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.pr-stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+.pr-stat .val{font-size:26px;font-weight:700;color:var(--text1)}
+.pr-stat .lbl{font-size:12px;color:var(--text3);margin-top:4px}
+.pr-table-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.pr-table{width:100%;border-collapse:collapse}
+.pr-table thead th{background:var(--card2);color:var(--text3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:11px 16px;text-align:left;border-bottom:1px solid var(--border)}
+.pr-table tbody tr{border-bottom:1px solid var(--border)}
+.pr-table tbody tr:last-child{border-bottom:none}
+.pr-table tbody tr:hover{background:var(--card2)}
+.pr-table td{padding:13px 16px;font-size:13px;color:var(--text1);vertical-align:middle}
+.badge-open{background:rgba(96,165,250,.15);color:#60a5fa;border-radius:8px;padding:3px 10px;font-size:12px;font-weight:600}
+.badge-closed{background:var(--card2);color:var(--text3);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:600}
+.badge-overdue{background:rgba(239,68,68,.15);color:#f87171;border-radius:8px;padding:3px 10px;font-size:12px;font-weight:600}
+.empty-state{padding:60px;text-align:center;color:var(--text3)}
+{% endblock %}
+
+{% block content %}
+<div class="pr-header">
+    <div>
+        <a href="{% url 'main:products_list' %}" style="font-size:13px;color:var(--accent2);text-decoration:none">← Назад к товарам</a>
+        <div class="pr-title" style="margin-top:8px">📦 {{ product.name }}</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:4px">{{ product.category.name }} {% if product.warehouse %}· {{ product.warehouse.name }}{% endif %}</div>
+    </div>
+    <a href="{% url 'main:edit_product' product_id=product.id %}" class="btn-p">✏️ Редактировать</a>
+</div>
+
+<!-- Stats -->
+<div class="pr-stats">
+    <div class="pr-stat">
+        <div class="val">{{ product.quantity_total }}</div>
+        <div class="lbl">📦 Всего единиц</div>
+    </div>
+    <div class="pr-stat">
+        <div class="val" style="color:#34d399">{{ product.get_available_quantity }}</div>
+        <div class="lbl">✅ Доступно</div>
+    </div>
+    <div class="pr-stat">
+        <div class="val" style="color:#60a5fa">{{ active_rentals }}</div>
+        <div class="lbl">🔄 В аренде сейчас</div>
+    </div>
+    <div class="pr-stat">
+        <div class="val">{{ total_rentals }}</div>
+        <div class="lbl">📋 Всего выдач</div>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="pr-table-wrap">
+{% if items %}
+<table class="pr-table">
+    <thead>
+        <tr>
+            <th>Клиент</th>
+            <th>Кол-во</th>
+            <th>Дата выдачи</th>
+            <th>Вернуть до</th>
+            <th>Осталось вернуть</th>
+            <th>Статус</th>
+            <th>Заказ</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for item in items %}
+    <tr>
+        <td>
+            <a href="{% url 'main:client_detail' client_id=item.order.client.id %}" style="color:var(--accent2);text-decoration:none;font-weight:600">
+                {{ item.order.client.get_full_name }}
+            </a>
+            <div style="font-size:11px;color:var(--text3)">
+                {% with phone=item.order.client.phones.all|first %}{{ phone.phone_number|default:"" }}{% endwith %}
+            </div>
+        </td>
+        <td style="font-weight:600">{{ item.quantity_taken }} шт.</td>
+        <td>{{ item.issued_date|date:"d.m.Y H:i" }}</td>
+        <td>{{ item.planned_return_date|date:"d.m.Y H:i" }}</td>
+        <td>
+            {% if item.quantity_remaining > 0 %}
+                <span style="color:#f87171;font-weight:700">{{ item.quantity_remaining }} шт.</span>
+            {% else %}
+                <span style="color:#34d399">Возвращено ✓</span>
+            {% endif %}
+        </td>
+        <td>
+            {% if item.order.status == 'open' and item.quantity_remaining > 0 %}
+                {% if item.planned_return_date < now %}
+                    <span class="badge-overdue">⚠️ Просрочен</span>
+                {% else %}
+                    <span class="badge-open">В аренде</span>
+                {% endif %}
+            {% else %}
+                <span class="badge-closed">Завершён</span>
+            {% endif %}
+        </td>
+        <td>
+            <a href="{% url 'main:client_detail' client_id=item.order.client.id %}" style="color:var(--text3);font-size:12px">
+                #{{ item.order.order_number }}
+            </a>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <div style="font-size:40px;margin-bottom:12px">📋</div>
+    <div>Этот товар ещё не выдавался в аренду</div>
+</div>
+{% endif %}
+</div>
+{% endblock %}

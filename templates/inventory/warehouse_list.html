@@ -1,0 +1,61 @@
+{% extends 'base_dark.html' %}
+{% load static %}
+
+{% block title %}Склады — CRM{% endblock %}
+
+{% block extra_css %}
+.wh-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.wh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.wh-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 22px}
+.wh-name{font-size:16px;font-weight:700;color:var(--text1);margin-bottom:6px}
+.wh-desc{font-size:13px;color:var(--text3)}
+.wh-count{font-size:13px;color:var(--text2);margin-top:12px}
+.wh-actions{display:flex;gap:8px;margin-top:14px}
+.wh-limit{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--text2)}
+{% endblock %}
+
+{% block content %}
+<div class="wh-header">
+    <div>
+        <h1 style="font-size:24px;font-weight:700;color:var(--text1)">🏭 Склады</h1>
+        <p style="font-size:13px;color:var(--text3);margin-top:4px">Группировка товаров по складам</p>
+    </div>
+    {% if can_create %}
+    <a href="{% url 'main:create_warehouse' %}" class="btn-p">+ Создать склад</a>
+    {% endif %}
+</div>
+
+<div class="wh-limit">
+    📊 Складов: {{ warehouses.count }} / {{ max_warehouses }}
+    {% if not can_create %} — <span style="color:#f87171">лимит достигнут</span>{% endif %}
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:12px;padding:12px 16px;margin-bottom:16px">{{ msg }}</div>
+{% endfor %}
+{% endif %}
+
+<div class="wh-grid">
+{% for wh in warehouses %}
+<div class="wh-card">
+    <div class="wh-name">🏭 {{ wh.name }}</div>
+    {% if wh.description %}<div class="wh-desc">{{ wh.description }}</div>{% endif %}
+    <div class="wh-count">📦 Товаров: {{ wh.products.count }}</div>
+    <div class="wh-actions">
+        <a href="{% url 'main:products_list' %}?warehouse={{ wh.id }}" class="btn-s" style="font-size:12px;padding:6px 12px">Смотреть товары</a>
+        {% if wh.products.count == 0 and warehouses.count > 1 %}
+        <form method="POST" action="{% url 'main:delete_warehouse' warehouse_id=wh.id %}" onsubmit="return confirm('Удалить склад?')">
+            {% csrf_token %}
+            <button type="submit" style="background:rgba(239,68,68,.1);color:#f87171;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit">Удалить</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% empty %}
+<div style="color:var(--text3);font-size:14px;grid-column:1/-1;text-align:center;padding:40px">
+    Складов нет. <a href="{% url 'main:create_warehouse' %}" style="color:var(--accent2)">Создать первый</a>
+</div>
+{% endfor %}
+</div>
+{% endblock %}

@@ -16,10 +16,18 @@
             <h1 class="text-4xl font-bold text-gray-900">👥 Управление пользователями</h1>
             <p class="text-gray-600 mt-2">Роли и права доступа</p>
         </div>
-        <a href="{% url 'main:permissions_matrix' %}" 
-           class="px-6 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700">
-            📊 Матрица прав
-        </a>
+        <div class="flex gap-3 flex-wrap">
+            {% if not user.is_staff and user.is_superuser %}
+            <a href="{% url 'main:create_employee' %}"
+               class="px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700">
+                + Создать сотрудника
+            </a>
+            {% endif %}
+            <a href="{% url 'main:permissions_matrix' %}"
+               class="px-6 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700">
+                🔑 Права доступа
+            </a>
+        </div>
     </div>
 
     <!-- Статистика -->
@@ -133,11 +141,21 @@
                         
                         <!-- Действия -->
                         <td class="px-6 py-4">
-                            <a href="{% url 'main:toggle_user_active' u.id %}" 
-                               class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold"
-                               onclick="return confirm('{% if u.is_active %}Деактивировать{% else %}Активировать{% endif %} пользователя?')">
-                                {% if u.is_active %}🔒 Заблокировать{% else %}✓ Активировать{% endif %}
-                            </a>
+                            <div class="flex gap-2 flex-wrap">
+                                <a href="{% url 'main:toggle_user_active' u.id %}"
+                                   class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-semibold"
+                                   onclick="return confirm('{% if u.is_active %}Деактивировать{% else %}Активировать{% endif %} пользователя?')">
+                                    {% if u.is_active %}🔒 Блок{% else %}✓ Актив{% endif %}
+                                </a>
+                                <a href="{% url 'main:change_user_password' u.id %}"
+                                   class="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-xs font-semibold">
+                                    🔑 Пароль
+                                </a>
+                                <a href="{% url 'main:employee_activity' u.id %}"
+                                   class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-xs font-semibold">
+                                    📋 Лог
+                                </a>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}

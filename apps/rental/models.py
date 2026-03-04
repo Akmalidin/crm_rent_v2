@@ -105,6 +105,20 @@ class RentalOrder(models.Model):
     def get_saved_amount(self):
         """Экономия от досрочного возврата"""
         return self.get_original_total() - self.get_current_total()
+
+    def get_rain_excluded_count(self):
+        """Количество (товар, дата) пар исключённых дождём"""
+        return self.excluded_days.count()
+
+    def get_total_excluding_rain(self):
+        """Итого с учётом дождливых дней по каждому товару отдельно"""
+        has_any = self.excluded_days.exists()
+        if not has_any:
+            return self.get_current_total()
+        total = Decimal('0')
+        for item in self.items.all():
+            total += item.get_cost_excluding_rain()
+        return total
     
     def has_unreturned_items(self): 
         """Есть ли невозвращённые товары"""
@@ -181,6 +195,32 @@ class OrderItem(models.Model):
             self.quantity_taken
         )
     
+    def get_cost_excluding_rain(self):
+        """Стоимость позиции с учётом своих дождливых дней (per-item).
+
+        Дождь снижает только БАЗОВУЮ стоимость аренды пропорционально.
+        Штраф за просрочку остаётся — дождь не отменяет обязанность вернуть товар.
+        """
+        actual = self.get_actual_cost()
+        excluded_count = self.excluded_days.count()
+
+        if excluded_count == 0:
+            return actual
+
+        base = Decimal(str(self.original_total_cost))
+        total_hours = Decimal(str(self.rental_days)) * 24 + Decimal(str(self.rental_hours))
+
+        if total_hours <= 0:
+            return actual
+
+        excluded_hours = Decimal(str(excluded_count)) * 24
+        billed_hours = max(Decimal('0'), total_hours - excluded_hours)
+
+        reduced_base = (billed_hours / total_hours) * base
+        overdue = actual - base  # штраф за просрочку
+
+        return reduced_base + max(Decimal('0'), overdue)
+
     def recalculate_from_dates(self):
         """
         Пересчитать rental_days, rental_hours и стоимость на основе дат
@@ -318,15 +358,17 @@ class ReturnDocument(models.Model):
 
 class ReturnItem(models.Model):
     """Товар в возврате"""
-    
+
     return_document = models.ForeignKey(ReturnDocument, on_delete=models.CASCADE, related_name='items', verbose_name='Документ возврата')
     order_item = models.ForeignKey(OrderItem, on_delete=models.PROTECT, related_name='returns', verbose_name='Товар из заказа')
-    
+
     quantity = models.PositiveIntegerField('Возвращено штук')
     actual_days = models.PositiveIntegerField('Фактически дней')
     actual_hours = models.PositiveIntegerField('Фактически часов', default=0)
     calculated_cost = models.DecimalField('Стоимость по факту', max_digits=10, decimal_places=2)
     notes = models.TextField('Примечания', blank=True)
+    repair_fee = models.DecimalField('Плата за ремонт/чистку', max_digits=10, decimal_places=2, default=0)
+    repair_notes = models.TextField('Примечание по ремонту', blank=True)
     
     class Meta:
         verbose_name = 'Товар в возврате'
@@ -343,7 +385,8 @@ class ReturnItem(models.Model):
         self.actual_hours = int(remaining_seconds // 3600)
     
     def calculate_cost(self):
-        return float(self.quantity * (float(self.order_item.price_per_day) * self.actual_days + float(self.order_item.price_per_hour) * self.actual_hours))
+        base = float(self.quantity * (float(self.order_item.price_per_day) * self.actual_days + float(self.order_item.price_per_hour) * self.actual_hours))
+        return base + float(self.repair_fee or 0)
     
     def save(self, *args, **kwargs):
         self.calculate_actual_time()
@@ -391,3 +434,29 @@ class Payment(models.Model):
     
     def __str__(self):
         return f"{self.amount} сом - {self.client.get_full_name()}"
+
+class OrderExcludedDay(models.Model):
+    """Дождливый/исключённый день аренды — за этот день деньги не считаются (per-item)"""
+    order = models.ForeignKey(
+        RentalOrder, on_delete=models.CASCADE,
+        related_name='excluded_days',
+        verbose_name='Заказ',
+    )
+    order_item = models.ForeignKey(
+        'OrderItem', on_delete=models.CASCADE,
+        related_name='excluded_days',
+        verbose_name='Позиция заказа',
+        null=True, blank=True,
+    )
+    date = models.DateField('Дата')
+    created_at = models.DateTimeField('Добавлено', auto_now_add=True)
+
+    class Meta:
+        unique_together = [('order_item', 'date')]
+        ordering = ['date']
+        verbose_name = 'Исключённый день'
+        verbose_name_plural = 'Исключённые дни (дождь)'
+
+    def __str__(self):
+        item_name = self.order_item.product.name if self.order_item_id else '—'
+        return f"{self.order.order_code} / {item_name} — {self.date}"

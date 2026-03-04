@@ -1,0 +1,23 @@
+{% extends 'base_dark.html' %}
+{% load static %}
+{% block title %}Создать склад — CRM{% endblock %}
+{% block content %}
+<div style="max-width:480px;margin:0 auto">
+    <div style="margin-bottom:24px">
+        <a href="{% url 'main:warehouse_list' %}" style="font-size:13px;color:var(--accent2);text-decoration:none">← Назад к складам</a>
+        <h1 style="font-size:24px;font-weight:700;color:var(--text1);margin-top:8px">🏭 Создать склад</h1>
+    </div>
+    {% if messages %}{% for msg in messages %}<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:12px;padding:12px 16px;margin-bottom:16px">{{ msg }}</div>{% endfor %}{% endif %}
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px">
+        <form method="POST">
+            {% csrf_token %}
+            <div class="fi"><label class="fi-label">Название склада *</label><input type="text" name="name" class="fi-input" placeholder="Основной склад" required></div>
+            <div class="fi" style="margin-top:16px"><label class="fi-label">Описание</label><input type="text" name="description" class="fi-input" placeholder="Адрес или описание"></div>
+            <div style="margin-top:24px;display:flex;gap:12px">
+                <button type="submit" class="btn-p">Создать</button>
+                <a href="{% url 'main:warehouse_list' %}" class="btn-s">Отмена</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
