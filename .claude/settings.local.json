@@ -25,7 +25,12 @@
       "Bash(python manage.py migrate rental 0009)",
       "Bash(grep -n \"def edit_order\\\\|def rental_edit_order\" /c/Users/vertex/Desktop/crm_new/apps/rental/*.py)",
       "Bash(pip install django-jazzmin)",
-      "Bash(python manage.py collectstatic --noinput)"
+      "Bash(python manage.py collectstatic --noinput)",
+      "Bash(python manage.py shell -c \"from django.contrib.auth.models import User; print\\([\\(u.username, u.is_active\\) for u in User.objects.filter\\(username__contains=''vertex''\\)]\\)\")",
+      "Bash(python manage.py makemigrations rental --name delivery_fields)",
+      "Bash(python manage.py migrate --check)",
+      "Bash(xargs grep -l \"print\\\\|@media\")",
+      "Bash(python manage.py makemigrations rental --name delivery_cost)"
     ]
   }
 }

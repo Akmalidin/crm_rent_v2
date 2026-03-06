@@ -127,3 +127,16 @@ class RainDay(models.Model):
 
     def __str__(self):
         return str(self.date)
+
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    """Автоматически создаёт UserProfile для новых пользователей"""
+    if created and not hasattr(instance, '_skip_profile'):
+        UserProfile.objects.get_or_create(
+            user=instance,
+            defaults={
+                'owner': None,
+                'role': 'director' if instance.is_superuser else 'employee',
+            }
+        )

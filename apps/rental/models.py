@@ -42,6 +42,12 @@ class RentalOrder(models.Model):
         null=True
     )
 
+    has_delivery = models.BooleanField('Доставка', default=False)
+    delivery_address = models.CharField('Адрес доставки', max_length=500, blank=True)
+    delivery_vehicle = models.CharField('Автомобиль', max_length=200, blank=True)
+    delivery_plate = models.CharField('Номер авто', max_length=50, blank=True)
+    delivery_cost = models.DecimalField('Стоимость доставки', max_digits=10, decimal_places=2, default=0)
+
     class Meta:
         verbose_name = 'Заказ аренды'
         verbose_name_plural = 'Заказы аренды'
@@ -275,10 +281,10 @@ class OrderItem(models.Model):
         
         # Базовая стоимость (оригинальная, БЕЗ просрочки)
         base_cost = Decimal(str(self.original_total_cost))
-        
-        # Если товар полностью возвращён - возвращаем базовую стоимость
+
+        # Если товар полностью возвращён - возвращаем фактическую стоимость
         if self.quantity_remaining == 0:
-            return base_cost
+            return Decimal(str(self.current_total_cost))
         
         # Если нет просрочки - возвращаем базовую стоимость
         if self.planned_return_date >= now:

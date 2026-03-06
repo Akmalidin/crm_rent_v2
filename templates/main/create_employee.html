@@ -22,7 +22,7 @@
     {% endif %}
 
     <div class="card" style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px">
-        <form method="POST">
+        <form method="POST" data-turbo="false">
             {% csrf_token %}
             <div class="fi">
                 <label class="fi-label">Имя пользователя *</label>
@@ -30,7 +30,7 @@
             </div>
             <div class="fi" style="margin-top:16px">
                 <label class="fi-label">Пароль *</label>
-                <input type="password" name="password" class="fi-input" placeholder="Минимум 8 символов" required>
+                <input type="text" name="password" class="fi-input" placeholder="Минимум 6 символов" required autocomplete="off">
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
                 <div class="fi">
@@ -44,7 +44,7 @@
             </div>
             <div class="fi" style="margin-top:16px">
                 <label class="fi-label">Email</label>
-                <input type="email" name="email" class="fi-input" placeholder="employee@company.com">
+                <input type="text" name="email" class="fi-input" placeholder="employee@company.com">
             </div>
             <div style="margin-top:24px;display:flex;gap:12px">
                 <button type="submit" class="btn-p">Создать сотрудника</button>

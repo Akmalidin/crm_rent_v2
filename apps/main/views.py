@@ -605,10 +605,22 @@ def create_order(request):
             
             # Создаём заказ
             proof_file = request.FILES.get('proof_file')
+            has_delivery = request.POST.get('has_delivery') == 'on'
+            delivery_cost_val = 0
+            if has_delivery:
+                try:
+                    delivery_cost_val = float(request.POST.get('delivery_cost', '0') or '0')
+                except (ValueError, TypeError):
+                    delivery_cost_val = 0
             order = RentalOrder.objects.create(
                 client=client,
                 status='open',
                 proof_file=proof_file,
+                has_delivery=has_delivery,
+                delivery_address=request.POST.get('delivery_address', '').strip() if has_delivery else '',
+                delivery_vehicle=request.POST.get('delivery_vehicle', '').strip() if has_delivery else '',
+                delivery_plate=request.POST.get('delivery_plate', '').strip() if has_delivery else '',
+                delivery_cost=delivery_cost_val,
             )
             
             # Добавляем товары в заказ
@@ -2204,8 +2216,13 @@ def users_management(request):
     """Страница управления пользователями и ролями"""
 
     if request.user.is_staff:
-        # Creator sees all users
-        users = User.objects.all().prefetch_related('groups', 'profile').order_by('-date_joined')
+        # Creator sees only directors (is_superuser=True) and himself, NOT employees of directors
+        director_ids = UserProfile.objects.filter(
+            role='director'
+        ).values_list('user_id', flat=True)
+        users = User.objects.filter(
+            Q(id__in=director_ids) | Q(is_staff=True)
+        ).prefetch_related('groups', 'profile').order_by('-date_joined')
     else:
         # Director sees only their employees
         employee_ids = UserProfile.objects.filter(
@@ -2238,8 +2255,7 @@ def users_management(request):
 def create_employee(request):
     """Создание сотрудника директором"""
     from django.contrib.auth import get_user_model
-    # Only Directors (not Creator) can create employees
-    if not request.user.is_superuser or request.user.is_staff:
+    if not request.user.is_superuser:
         messages.error(request, 'Только директор может создавать сотрудников')
         return redirect('main:dashboard')
 
@@ -2270,11 +2286,10 @@ def create_employee(request):
             is_staff=False,
             is_superuser=False,
         )
-        UserProfile.objects.create(
-            user=employee,
-            owner=request.user,
-            role='employee',
-        )
+        profile, _ = UserProfile.objects.get_or_create(user=employee)
+        profile.owner = request.user
+        profile.role = 'employee'
+        profile.save()
         messages.success(request, f'Сотрудник {username} создан!')
         return redirect('main:users_management')
 
@@ -2286,15 +2301,22 @@ def create_employee(request):
 def toggle_user_active(request, user_id):
     """Активировать/деактивировать пользователя"""
     user = get_object_or_404(User, id=user_id)
-    
+
     if user == request.user:
         messages.error(request, 'Нельзя деактивировать самого себя!')
         return redirect('main:users_management')
-    
-    if user.is_superuser and not request.user.is_superuser:
+
+    # Director can only toggle their own employees
+    if not request.user.is_staff:
+        profile = getattr(user, 'profile', None)
+        if not profile or profile.owner != request.user:
+            messages.error(request, 'Вы можете управлять только своими сотрудниками!')
+            return redirect('main:users_management')
+
+    if user.is_superuser and not request.user.is_staff:
         messages.error(request, 'Нельзя деактивировать суперпользователя!')
         return redirect('main:users_management')
-    
+
     user.is_active = not user.is_active
     user.save()
 
@@ -2713,10 +2735,18 @@ def order_view(request, order_id):
     rain_total = order.get_total_excluding_rain()
     original_total = order.get_current_total()
 
-    # Разбивка стоимости: базовая аренда + просрочка
+    # Разбивка стоимости: базовая аренда + просрочка + ремонт
     from decimal import Decimal as _D
     base_total = order.get_original_total()
-    overdue_total = original_total - base_total
+
+    # Считаем ремонт/чистку отдельно от просрочки
+    repair_items_qs = ReturnItem.objects.filter(
+        order_item__order=order, repair_fee__gt=0
+    ).values_list('repair_fee', 'repair_notes')
+    total_repair_fee = sum(float(r[0]) for r in repair_items_qs)
+    repair_details = [{'fee': float(r[0]), 'notes': r[1] or 'Ремонт/чистка'} for r in repair_items_qs]
+
+    overdue_total = original_total - base_total - _D(str(total_repair_fee))
 
     # Глобальные дождливые дни тенанта
     from apps.main.models import RainDay
@@ -2750,6 +2780,9 @@ def order_view(request, order_id):
             total_paid_order += attributed
 
     final_total_val = float(rain_total) if order.get_rain_excluded_count() > 0 else float(original_total)
+    # Прибавляем стоимость доставки (если > 0)
+    if order.has_delivery and order.delivery_cost > 0:
+        final_total_val += float(order.delivery_cost)
     total_owed_order = max(0.0, final_total_val - total_paid_order)
 
     return render(request, 'rental/order_view.html', {
@@ -2764,6 +2797,8 @@ def order_view(request, order_id):
         'original_total': original_total,
         'base_total': base_total,
         'overdue_total': overdue_total,
+        'total_repair_fee': total_repair_fee,
+        'repair_details': repair_details,
         'global_rain_days_json': order_rain_days_json,
         'returns': returns,
         'now': timezone.now(),

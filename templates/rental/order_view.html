@@ -141,6 +141,31 @@
     {% endfor %}
     {% endif %}
 
+    {% if order.has_delivery %}
+    <!-- ══ ДОСТАВКА ══ -->
+    <div class="ov-card" style="border-left:3px solid #f59e0b;">
+        <h2 class="ov-card-title">🚛 Доставка</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;font-size:14px;">
+            <div>
+                <span style="color:var(--text3);font-size:12px;display:block;margin-bottom:2px;">Адрес</span>
+                <span style="color:var(--text1);font-weight:600;">{{ order.delivery_address|default:"—" }}</span>
+            </div>
+            <div>
+                <span style="color:var(--text3);font-size:12px;display:block;margin-bottom:2px;">Автомобиль</span>
+                <span style="color:var(--text1);font-weight:600;">{{ order.delivery_vehicle|default:"—" }}</span>
+            </div>
+            <div>
+                <span style="color:var(--text3);font-size:12px;display:block;margin-bottom:2px;">Номер авто</span>
+                <span style="color:var(--text1);font-weight:600;">{{ order.delivery_plate|default:"—" }}</span>
+            </div>
+            <div>
+                <span style="color:var(--text3);font-size:12px;display:block;margin-bottom:2px;">Стоимость</span>
+                <span style="color:var(--text1);font-weight:600;">{% if order.delivery_cost > 0 %}{{ order.delivery_cost|floatformat:0 }} сом{% else %}Оплачено клиентом{% endif %}</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- ══ ТОВАРЫ ══ -->
     <div class="ov-card">
         <h2 class="ov-card-title">📦 Товары в заказе</h2>
@@ -253,6 +278,18 @@
             <span class="cost-amount" style="color:#f87171">+{{ overdue_total|floatformat:0 }} сом</span>
         </div>
         {% endif %}
+        {% for rd in repair_details %}
+        <div class="cost-row" style="color:#fb923c">
+            <span class="cost-label">🔧 {{ rd.notes }}</span>
+            <span class="cost-amount" style="color:#fb923c">+{{ rd.fee|floatformat:0 }} сом</span>
+        </div>
+        {% endfor %}
+        {% if order.has_delivery and order.delivery_cost > 0 %}
+        <div class="cost-row" style="color:#f59e0b">
+            <span class="cost-label">🚛 Доставка</span>
+            <span class="cost-amount" style="color:#f59e0b">+{{ order.delivery_cost|floatformat:0 }} сом</span>
+        </div>
+        {% endif %}
         {% if rain_excluded_count > 0 %}
         <div class="cost-row" style="color:#fbbf24">
             <span class="cost-label">🌧️ Скидка за дождь ({{ rain_excluded_count }} позиций)</span>
@@ -262,7 +299,7 @@
         <div class="cost-row grand">
             <span class="cost-label">💵 ИТОГО к оплате</span>
             <span class="cost-amount accent" id="final-total">
-                {% if rain_excluded_count > 0 %}{{ rain_total|floatformat:0 }}{% else %}{{ original_total|floatformat:0 }}{% endif %} сом
+                {{ final_total_val|floatformat:0 }} сом
             </span>
         </div>
     </div>

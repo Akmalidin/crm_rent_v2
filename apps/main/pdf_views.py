@@ -277,16 +277,21 @@ def build_debt_summary(styles, order, client, currency='сом'):
     if savings > 0:
         summary_data.append(['Экономия (досрочный возврат):', f"-{int(savings):,} {currency}".replace(',', ' ')])
     
+    if order.has_delivery and order.delivery_cost > 0:
+        delivery_cost = Decimal(str(order.delivery_cost))
+        summary_data.append(['Доставка:', f"+{int(delivery_cost):,} {currency}".replace(',', ' ')])
+        current_total += delivery_cost
+
     if total_overdue_cost > 0:
         summary_data.append(['', ''])
-        summary_data.append(['⚠️ ПРОСРОЧКА:', ''])
+        summary_data.append(['ПРОСРОЧКА:', ''])
         for item_info in overdue_items:
             summary_data.append([
                 f"  • {item_info['product_name']} ({item_info['quantity']} шт)",
                 f"{item_info['overdue_days']} дн {item_info['overdue_hours']} ч: +{int(item_info['overdue_cost']):,} {currency}".replace(',', ' ')
             ])
         summary_data.append(['Итого за просрочку:', f"+{int(total_overdue_cost):,} {currency}".replace(',', ' ')])
-    
+
     summary_data.append(['', ''])
     summary_data.append(['Оплачено:', f"{int(total_paid):,} {currency}".replace(',', ' ')])
     
@@ -358,7 +363,21 @@ def print_contract(request, order_id):
     ]
     elements.append(build_info_table(info_rows))
     elements.append(Spacer(1, 0.3*cm))
-    
+
+    # Доставка
+    if order.has_delivery:
+        vehicle_info = order.delivery_vehicle or '—'
+        if order.delivery_plate:
+            vehicle_info += f', гос. номер {order.delivery_plate}'
+        delivery_rows = [
+            ('Адрес доставки:', order.delivery_address or '—'),
+            ('Автомобиль:', vehicle_info),
+            ('Стоимость доставки:', f'{int(order.delivery_cost):,} {company.currency}'.replace(',', ' ') if order.delivery_cost > 0 else 'Оплачено клиентом'),
+        ]
+        elements.append(Paragraph('ДОСТАВКА:', styles['heading']))
+        elements.append(build_info_table(delivery_rows))
+        elements.append(Spacer(1, 0.3*cm))
+
     # Заголовок таблицы товаров
     elements.append(Paragraph('ПЕРЕЧЕНЬ АРЕНДУЕМОГО ИНСТРУМЕНТА:', styles['heading']))
     elements.append(Spacer(1, 0.2*cm))
@@ -763,6 +782,20 @@ def print_acceptance(request, order_id):
     elements.append(build_info_table(info_rows))
     elements.append(Spacer(1, 0.3*cm))
     
+    # Доставка
+    if order.has_delivery:
+        vehicle_info = order.delivery_vehicle or '—'
+        if order.delivery_plate:
+            vehicle_info += f', гос. номер {order.delivery_plate}'
+        delivery_rows = [
+            ('Адрес доставки:', order.delivery_address or '—'),
+            ('Автомобиль:', vehicle_info),
+            ('Стоимость доставки:', f'{int(order.delivery_cost):,} {company.currency}'.replace(',', ' ') if order.delivery_cost > 0 else 'Оплачено клиентом'),
+        ]
+        elements.append(Paragraph('ДОСТАВКА:', styles['heading']))
+        elements.append(build_info_table(delivery_rows))
+        elements.append(Spacer(1, 0.3*cm))
+
     elements.append(Paragraph('Арендодатель передал, а Арендатор принял следующий инструмент в исправном состоянии:', styles['normal']))
     elements.append(Spacer(1, 0.3*cm))
     

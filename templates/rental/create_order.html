@@ -269,9 +269,46 @@
                     <p id="proof-label" style="font-size:11px;color:#6b7280;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></p>
                 </div>
 
+                <!-- ШАГ 4: Доставка (необязательно) -->
+                <div class="bg-gradient-to-r from-amber-50 to-orange-100 rounded-2xl p-8 border-2 border-amber-200 shadow-lg mt-8">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-12 h-12 bg-amber-600 rounded-full flex items-center justify-center text-white text-xl font-bold">4</div>
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900">Доставка <span class="text-base font-normal text-gray-500">(необязательно)</span></h2>
+                        </div>
+                    </div>
+
+                    <label style="display:flex;align-items:center;gap:12px;cursor:pointer;padding:12px 0;">
+                        <input type="checkbox" name="has_delivery" id="delivery-toggle" onchange="toggleDelivery()" style="width:20px;height:20px;accent-color:#d97706;">
+                        <span style="font-size:15px;font-weight:600;color:#374151;">Требуется доставка</span>
+                    </label>
+
+                    <div id="delivery-fields" style="display:none;margin-top:12px;">
+                        <div class="fi" style="margin-bottom:12px">
+                            <label class="fi-label" style="color:#374151;font-weight:600;">Адрес доставки</label>
+                            <input type="text" name="delivery_address" class="fi-input" placeholder="ул. Киевская, 120" style="background:#fff;color:#111;border:1px solid #d1d5db;">
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                            <div class="fi">
+                                <label class="fi-label" style="color:#374151;font-weight:600;">Автомобиль</label>
+                                <input type="text" name="delivery_vehicle" class="fi-input" placeholder="Toyota Hilux" style="background:#fff;color:#111;border:1px solid #d1d5db;">
+                            </div>
+                            <div class="fi">
+                                <label class="fi-label" style="color:#374151;font-weight:600;">Номер авто</label>
+                                <input type="text" name="delivery_plate" class="fi-input" placeholder="01 KG 123 ABC" style="background:#fff;color:#111;border:1px solid #d1d5db;text-transform:uppercase;">
+                            </div>
+                            <div class="fi">
+                                <label class="fi-label" style="color:#374151;font-weight:600;">Стоимость доставки (сом)</label>
+                                <input type="number" name="delivery_cost" class="fi-input" placeholder="0 = клиент оплатил сам" min="0" value="0" style="background:#fff;color:#111;border:1px solid #d1d5db;">
+                            </div>
+                        </div>
+                        <p style="font-size:12px;color:#92400e;margin-top:8px;">0 = клиент оплатил доставку сам. Если указана сумма — она прибавится к стоимости заказа.</p>
+                    </div>
+                </div>
+
                 <!-- Кнопка отправки -->
                 <div class="mt-8 flex gap-4">
-                    <button 
+                    <button
                         type="submit"
                         class="flex-1 py-5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl font-bold text-xl shadow-2xl hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition"
                     >
@@ -786,6 +823,12 @@ function showOrderProof(input) {
     } else {
         document.getElementById('proof-icon').textContent = '📄';
     }
+}
+
+function toggleDelivery() {
+    const fields = document.getElementById('delivery-fields');
+    const checked = document.getElementById('delivery-toggle').checked;
+    fields.style.display = checked ? 'block' : 'none';
 }
 </script>
 {% endblock %}

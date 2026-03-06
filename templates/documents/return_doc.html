@@ -94,8 +94,14 @@
             
             {% if total_overdue > 0 %}
             <tr class="overdue">
-                <td>⚠️ В т.ч. просрочка:</td>
+                <td>В т.ч. просрочка:</td>
                 <td class="amount">+{{ total_overdue|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            {% endif %}
+            {% if order.has_delivery and order.delivery_cost > 0 %}
+            <tr>
+                <td>Доставка:</td>
+                <td class="amount">+{{ order.delivery_cost|floatformat:0 }} {{ company.currency }}</td>
             </tr>
             {% endif %}
             

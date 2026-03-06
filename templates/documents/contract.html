@@ -41,6 +41,33 @@
         </tr>
     </table>
 
+    {% if order.has_delivery %}
+    <table class="info-table" style="margin-top:10px;">
+        <tr>
+            <td colspan="2" style="font-weight:bold;">🚛 ДОСТАВКА:</td>
+        </tr>
+        <tr>
+            <td>Адрес доставки:</td>
+            <td>{{ order.delivery_address|default:"—" }}</td>
+        </tr>
+        <tr>
+            <td>Автомобиль:</td>
+            <td>{{ order.delivery_vehicle|default:"—" }}{% if order.delivery_plate %}, гос. номер {{ order.delivery_plate }}{% endif %}</td>
+        </tr>
+        {% if order.delivery_cost > 0 %}
+        <tr>
+            <td>Стоимость доставки:</td>
+            <td><strong>{{ order.delivery_cost|floatformat:0 }} {{ company.currency }}</strong></td>
+        </tr>
+        {% else %}
+        <tr>
+            <td>Стоимость доставки:</td>
+            <td>Оплачено клиентом</td>
+        </tr>
+        {% endif %}
+    </table>
+    {% endif %}
+
     <h3>ПЕРЕЧЕНЬ АРЕНДУЕМОГО ИНСТРУМЕНТА:</h3>
     
     <table class="items-table">
@@ -101,6 +128,13 @@
                 <td class="amount">{{ order.get_current_total|floatformat:0 }} {{ company.currency }}</td>
             </tr>
             
+            {% if order.has_delivery and order.delivery_cost > 0 %}
+            <tr>
+                <td>Доставка:</td>
+                <td class="amount">+{{ order.delivery_cost|floatformat:0 }} {{ company.currency }}</td>
+            </tr>
+            {% endif %}
+
             {% if savings > 0 %}
             <tr class="savings">
                 <td>Экономия (досрочный возврат):</td>

@@ -46,6 +46,26 @@
         </tr>
     </table>
 
+    {% if order.has_delivery %}
+    <table class="info-table" style="margin-top:10px;">
+        <tr>
+            <td colspan="2" style="font-weight:bold;">ДОСТАВКА:</td>
+        </tr>
+        <tr>
+            <td>Адрес:</td>
+            <td>{{ order.delivery_address|default:"—" }}</td>
+        </tr>
+        <tr>
+            <td>Автомобиль:</td>
+            <td>{{ order.delivery_vehicle|default:"—" }}{% if order.delivery_plate %}, гос. номер {{ order.delivery_plate }}{% endif %}</td>
+        </tr>
+        <tr>
+            <td>Стоимость доставки:</td>
+            <td>{% if order.delivery_cost > 0 %}{{ order.delivery_cost|floatformat:0 }} {{ company.currency }}{% else %}Оплачено клиентом{% endif %}</td>
+        </tr>
+    </table>
+    {% endif %}
+
     <p>Арендодатель передал, а Арендатор принял следующий инструмент в исправном состоянии:</p>
 
     <table class="items-table">
@@ -100,8 +120,14 @@
             </div>
             {% if total_overdue_cost > 0 %}
             <div class="overdue">
-                <span class="label">⚠️ В т.ч. просрочка:</span>
+                <span class="label">В т.ч. просрочка:</span>
                 <span class="value">+{{ total_overdue_cost|floatformat:0 }} {{ company.currency }}</span>
+            </div>
+            {% endif %}
+            {% if order.has_delivery and order.delivery_cost > 0 %}
+            <div>
+                <span class="label">Доставка:</span>
+                <span class="value">+{{ order.delivery_cost|floatformat:0 }} {{ company.currency }}</span>
             </div>
             {% endif %}
             <div>
