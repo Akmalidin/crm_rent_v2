@@ -3,7 +3,6 @@ Django==6.0.2
 asgiref==3.11.1
 sqlparse==0.5.5
 django-turbo-response==1.0.3
-django-unfold==0.80.0
 
 # Telegram bot
 requests==2.32.5
@@ -37,6 +36,11 @@ pydyf==0.12.1
 pyphen==0.17.2
 tinyhtml5==2.0.0
 zopfli==0.4.1
+
+# Production
+gunicorn==23.0.0
+whitenoise==6.8.2
+django-jazzmin==3.0.1
 
 # Utils
 humanize==4.15.0
