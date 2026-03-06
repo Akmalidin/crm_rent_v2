@@ -15,6 +15,8 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 _hosts = os.environ.get('ALLOWED_HOSTS', '')
 ALLOWED_HOSTS = _hosts.split(',') if _hosts else ['*']
 
+CSRF_TRUSTED_ORIGINS = [f'http://{h}' for h in ALLOWED_HOSTS if h != '*']
+
 
 # Application definition
 
