@@ -169,10 +169,11 @@ def get_back_button():
 def get_broadcast_menu_keyboard():
     return {
         'inline_keyboard': [
-            [{'text': '📢 Уведомить просроченных', 'callback_data': 'broadcast_overdue'}],
-            [{'text': '💸 Уведомить должников',   'callback_data': 'broadcast_debt'}],
-            [{'text': '✍️ Написать своё сообщение', 'callback_data': 'broadcast_custom_start'}],
-            [{'text': '« Назад в меню',            'callback_data': 'back_to_menu'}],
+            [{'text': '📢 Уведомить просроченных клиентов', 'callback_data': 'broadcast_overdue'}],
+            [{'text': '💸 Уведомить должников',             'callback_data': 'broadcast_debt'}],
+            [{'text': '✍️ Написать клиентам',               'callback_data': 'broadcast_custom_start'}],
+            [{'text': '📨 Написать директорам',             'callback_data': 'broadcast_directors_start'}],
+            [{'text': '« Назад в меню',                     'callback_data': 'back_to_menu'}],
         ]
     }
 
@@ -180,10 +181,11 @@ def get_broadcast_menu_keyboard():
 def get_dir_broadcast_menu_keyboard():
     return {
         'inline_keyboard': [
-            [{'text': '📢 Уведомить просроченных', 'callback_data': 'dir_broadcast_overdue'}],
-            [{'text': '💸 Уведомить должников',   'callback_data': 'dir_broadcast_debt'}],
-            [{'text': '✍️ Написать своё сообщение', 'callback_data': 'dir_broadcast_custom_start'}],
-            [{'text': '« Назад в меню',            'callback_data': 'back_to_menu'}],
+            [{'text': '📢 Уведомить просроченных клиентов', 'callback_data': 'dir_broadcast_overdue'}],
+            [{'text': '💸 Уведомить должников',             'callback_data': 'dir_broadcast_debt'}],
+            [{'text': '✍️ Написать клиентам',               'callback_data': 'dir_broadcast_custom_start'}],
+            [{'text': '👷 Написать сотрудникам',            'callback_data': 'dir_broadcast_employees_start'}],
+            [{'text': '« Назад в меню',                     'callback_data': 'back_to_menu'}],
         ]
     }
 
@@ -631,6 +633,43 @@ def handle_dir_broadcast_debt(director_chat_id, director_profile):
     send_telegram_message(director_chat_id,
         f"✅ <b>Рассылка о долге завершена</b>\n\n📤 Отправлено: <b>{sent}</b>\n🚫 Без Telegram: <b>{skipped}</b>",
         reply_markup=get_director_keyboard())
+
+
+def handle_broadcast_directors(admin_chat_id, custom_text):
+    """Создатель → рассылка всем директорам у кого есть telegram_chat_id."""
+    from apps.main.models import UserProfile
+    profiles = UserProfile.objects.filter(role='director').exclude(telegram_chat_id='')
+    sent, skipped = 0, 0
+    for profile in profiles:
+        ok = send_telegram_message(profile.telegram_chat_id, custom_text)
+        if ok:
+            sent += 1
+        else:
+            skipped += 1
+    send_telegram_message(
+        admin_chat_id,
+        f"✅ <b>Рассылка директорам завершена</b>\n\n📤 Отправлено: <b>{sent}</b>\n🚫 Ошибок: <b>{skipped}</b>",
+        reply_markup=get_admin_keyboard(),
+    )
+
+
+def handle_dir_broadcast_employees(director_chat_id, director_profile, custom_text):
+    """Директор → рассылка своим сотрудникам у кого есть telegram_chat_id."""
+    from apps.main.models import UserProfile
+    owner = _dir_owner(director_profile)
+    profiles = UserProfile.objects.filter(owner=owner).exclude(telegram_chat_id='')
+    sent, skipped = 0, 0
+    for profile in profiles:
+        ok = send_telegram_message(profile.telegram_chat_id, custom_text)
+        if ok:
+            sent += 1
+        else:
+            skipped += 1
+    send_telegram_message(
+        director_chat_id,
+        f"✅ <b>Рассылка сотрудникам завершена</b>\n\n📤 Отправлено: <b>{sent}</b>\n🚫 Ошибок: <b>{skipped}</b>",
+        reply_markup=get_director_keyboard(),
+    )
 
 
 # ============================================================

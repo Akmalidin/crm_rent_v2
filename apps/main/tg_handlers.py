@@ -17,6 +17,7 @@ from .telegram_bot_complete import (
     director_active_orders, director_new_clients,
     handle_broadcast_overdue, handle_broadcast_debt,
     handle_dir_broadcast_overdue, handle_dir_broadcast_debt,
+    handle_broadcast_directors, handle_dir_broadcast_employees,
     handle_balance, handle_orders, handle_contact, handle_help,
     _admin_states, _handle_custom_broadcast_send,
 )
@@ -89,9 +90,12 @@ def handle_callback_query(callback_query):
             handle_broadcast_debt(chat_id)
         elif data == 'broadcast_custom_start':
             _admin_states[str(chat_id)] = {'state': 'waiting_broadcast_text', 'role': 'creator'}
-            send_telegram_message(chat_id, "Напишите текст сообщения для рассылки:")
+            send_telegram_message(chat_id, "Напишите текст сообщения для рассылки клиентам:")
         elif data in ('send_custom_all', 'send_custom_overdue', 'send_custom_debtors'):
             _handle_custom_broadcast_send(chat_id, data, role='creator')
+        elif data == 'broadcast_directors_start':
+            _admin_states[str(chat_id)] = {'state': 'waiting_directors_text', 'role': 'creator'}
+            send_telegram_message(chat_id, "Напишите текст сообщения для рассылки директорам:")
         elif data == 'admin_menu':
             send_telegram_message(chat_id, "<b>Панель администратора</b>", reply_markup=get_admin_keyboard())
         elif data == 'back_to_menu':
@@ -127,6 +131,9 @@ def handle_callback_query(callback_query):
             send_telegram_message(chat_id, "Напишите текст сообщения для рассылки вашим клиентам:")
         elif data in ('dir_send_custom_all', 'dir_send_custom_overdue', 'dir_send_custom_debtors'):
             _handle_custom_broadcast_send(chat_id, data, role='director', director_profile=director_profile)
+        elif data == 'dir_broadcast_employees_start':
+            _admin_states[str(chat_id)] = {'state': 'waiting_employees_text', 'role': 'director'}
+            send_telegram_message(chat_id, "Напишите текст сообщения для рассылки вашим сотрудникам:")
         elif data == 'dir_menu':
             send_telegram_message(chat_id, "<b>Панель директора</b>", reply_markup=get_director_keyboard())
         elif data == 'back_to_menu':
@@ -154,6 +161,23 @@ def handle_command(message):
 
     # Состояние ожидания текста рассылки
     state = _admin_states.get(str(chat_id), {})
+
+    # Рассылка директорам (создатель)
+    if state.get('state') == 'waiting_directors_text':
+        _admin_states.pop(str(chat_id), None)
+        send_telegram_message(chat_id, "Отправляю директорам...")
+        handle_broadcast_directors(chat_id, text)
+        return
+
+    # Рассылка сотрудникам (директор)
+    if state.get('state') == 'waiting_employees_text':
+        _admin_states.pop(str(chat_id), None)
+        dp = get_director_profile(chat_id)
+        if dp:
+            send_telegram_message(chat_id, "Отправляю сотрудникам...")
+            handle_dir_broadcast_employees(chat_id, dp, text)
+        return
+
     if state.get('state') == 'waiting_broadcast_text':
         role = state.get('role', 'creator')
         _admin_states[str(chat_id)] = {'state': 'waiting_broadcast_target', 'text': text, 'role': role}
