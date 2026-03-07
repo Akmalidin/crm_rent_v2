@@ -1,0 +1,194 @@
+/*
+ * responsive.css — Mobile/Tablet overrides
+ * Подключается последним в base_dark.html
+ */
+
+/* ══════════════════════════════════════
+   TABLET  (≤ 900px) — sidebar уже скрыт
+══════════════════════════════════════ */
+@media (max-width: 900px) {
+
+    /* Меньше padding на странице */
+    .page-scroll { padding: 16px !important; }
+
+    /* Topbar */
+    .topbar { padding: 10px 14px !important; gap: 10px !important; }
+    .topbar-search { max-width: 100% !important; }
+
+    /* Скрыть заголовок сайта в topbar на мобильном */
+    .topbar-title { display: none !important; }
+
+    /* ── GRID OVERRIDES (inline styles) ──
+       Атрибутные селекторы переопределяют inline style */
+
+    /* 4 колонки → 2 */
+    [style*="grid-template-columns:repeat(4"],
+    [style*="grid-template-columns: repeat(4"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* Классы с 4 колонками */
+    .cl-stats,
+    .stat-row,
+    .stat-grid,
+    .pr-stats {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* 3 колонки → 2 */
+    [style*="grid-template-columns:repeat(3"],
+    [style*="grid-template-columns: repeat(3"],
+    [style*="grid-template-columns:1fr 1fr 1fr"],
+    [style*="grid-template-columns: 1fr 1fr 1fr"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    .links-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* 7+ колонок → авто */
+    .rc-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    /* Таблицы — горизонтальный скролл */
+    .table-wrap, .table-responsive { overflow-x: auto !important; }
+    table { min-width: 600px; }
+}
+
+
+/* ══════════════════════════════════════
+   MOBILE  (≤ 600px)
+══════════════════════════════════════ */
+@media (max-width: 600px) {
+
+    /* Отступы */
+    .page-scroll { padding: 10px !important; }
+    .topbar { padding: 8px 10px !important; }
+
+    /* Все грид-сетки → 1 колонка */
+    [style*="grid-template-columns:repeat(4"],
+    [style*="grid-template-columns: repeat(4"],
+    [style*="grid-template-columns:repeat(3"],
+    [style*="grid-template-columns: repeat(3"],
+    [style*="grid-template-columns:repeat(2"],
+    [style*="grid-template-columns: repeat(2"],
+    [style*="grid-template-columns:1fr 1fr 1fr"],
+    [style*="grid-template-columns: 1fr 1fr 1fr"],
+    [style*="grid-template-columns:1fr 1fr"],
+    [style*="grid-template-columns: 1fr 1fr"],
+    [style*="grid-template-columns:2fr 1fr"],
+    [style*="grid-template-columns: 2fr 1fr"],
+    [style*="grid-template-columns:1fr 1fr 1fr 1fr"],
+    [style*="grid-template-columns: 1fr 1fr 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    .cl-stats, .stat-row, .stat-grid, .pr-stats,
+    .links-grid, .rc-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Таблицы */
+    table { min-width: 500px; }
+
+    /* Карточки */
+    .card { padding: 16px !important; border-radius: 14px !important; }
+    .mc { min-height: 110px !important; padding: 16px !important; }
+    .mc-val { font-size: 30px !important; }
+
+    /* Кнопки в ряд → stack */
+    .btn-row, .d-flex.gap-2 {
+        flex-wrap: wrap !important;
+    }
+    .btn-row .btn, .btn-group-mobile .btn {
+        width: 100%;
+    }
+
+    /* order_view — cost cards */
+    [style*="flex:1;min-width:110px"] {
+        min-width: unset !important;
+        flex: 1 1 calc(50% - 8px) !important;
+    }
+
+    /* Log entry 3-column → stack */
+    .log-entry {
+        grid-template-columns: 1fr !important;
+        gap: 2px !important;
+    }
+
+    /* Скрыть некоторые колонки таблицы на мобильном */
+    .hide-mobile { display: none !important; }
+
+    /* Заголовки */
+    h1 { font-size: 22px !important; }
+    h2 { font-size: 18px !important; }
+
+    /* Поиск topbar */
+    .topbar-search { display: none !important; }
+    .topbar-search.show { display: block !important; }
+
+    /* Notification bell */
+    .bell-dropdown { width: 280px !important; right: -60px !important; }
+    #search-results { min-width: unset !important; width: 100% !important; }
+}
+
+
+/* ══════════════════════════════════════
+   UNIVERSAL — таблицы всегда скроллятся
+══════════════════════════════════════ */
+.table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+}
+
+/* Bootstrap table fix */
+.table-responsive {
+    overflow-x: auto !important;
+}
+
+
+/* ══════════════════════════════════════
+   ORDER VIEW — специфичные фиксы
+══════════════════════════════════════ */
+@media (max-width: 600px) {
+    /* Delivery / info grid 4 col */
+    [style*="grid-template-columns:1fr 1fr 1fr 1fr"] {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* Кнопки действий в заказе */
+    .order-actions { flex-direction: column !important; }
+    .order-actions .btn { width: 100% !important; }
+}
+
+
+/* ══════════════════════════════════════
+   SIDEBAR — мобильная кнопка Telegram
+══════════════════════════════════════ */
+@media (max-width: 900px) {
+    /* Убрать горизонтальный скролл в body */
+    body { overflow-x: hidden !important; }
+    .main-area { overflow-x: hidden !important; }
+}
+
+
+/* ══════════════════════════════════════
+   TAILWIND GRID CLASS OVERRIDES
+══════════════════════════════════════ */
+@media (max-width: 900px) {
+    .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+@media (max-width: 600px) {
+    .grid-cols-4,
+    .grid-cols-3,
+    .grid-cols-2 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+
+    .md\:grid-cols-4,
+    .md\:grid-cols-3,
+    .md\:grid-cols-2 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+}
