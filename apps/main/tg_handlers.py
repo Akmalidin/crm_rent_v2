@@ -284,3 +284,16 @@ def handle_command(message):
             elif 'рассылк' in tl:
                 _admin_states.pop(str(chat_id), None)
                 send_telegram_message(chat_id, "<b>Рассылка клиентам</b>", reply_markup=get_dir_broadcast_menu_keyboard())
+            else:
+                # Произвольное сообщение от директора — пересылаем создателю
+                from django.conf import settings
+                admin_id = getattr(settings, 'TELEGRAM_ADMIN_CHAT_ID', None)
+                if admin_id:
+                    name = dp.user.get_full_name() or dp.user.username
+                    forward = (
+                        f"📨 <b>Сообщение от директора</b>\n"
+                        f"👤 {name} (@{dp.user.username})\n\n"
+                        f"{text}"
+                    )
+                    send_telegram_message(admin_id, forward)
+                    send_telegram_message(chat_id, "✅ Ваше сообщение отправлено администратору.")

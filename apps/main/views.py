@@ -2826,12 +2826,14 @@ def order_view(request, order_id):
 def broadcast_notifications(request):
     """Массовая рассылка уведомлений клиентам через Telegram"""
     from apps.rental.models import RentalOrder
+    from apps.main.models import UserProfile
     from apps.main.telegram_bot_complete import notify_overdue, notify_debt_reminder, send_custom_broadcast
 
     if not (request.user.is_staff or request.user.is_superuser):
         messages.error(request, '🔒 Нет прав доступа')
         return redirect('main:dashboard')
 
+    is_creator = request.user.is_staff
     owner = get_tenant_owner(request.user)
 
     if request.method == 'POST':
@@ -2894,7 +2896,27 @@ def broadcast_notifications(request):
                 )
 
             sent, failed = send_custom_broadcast(chat_ids, custom_msg)
-            messages.success(request, f'✅ Отправлено {sent} сообщений. Ошибок: {failed}')
+            messages.success(request, f'✅ Отправлено {sent} сообщений клиентам. Ошибок: {failed}')
+
+        elif action == 'directors' and is_creator:
+            custom_msg = request.POST.get('directors_message', '').strip()
+            if not custom_msg:
+                messages.error(request, '⚠️ Введите текст сообщения для директоров')
+                return redirect('main:broadcast_notifications')
+            profiles = UserProfile.objects.filter(role='director').exclude(telegram_chat_id='')
+            chat_ids = list(profiles.values_list('telegram_chat_id', flat=True))
+            sent, failed = send_custom_broadcast(chat_ids, custom_msg)
+            messages.success(request, f'✅ Отправлено {sent} сообщений директорам. Ошибок: {failed}')
+
+        elif action == 'employees' and not is_creator:
+            custom_msg = request.POST.get('employees_message', '').strip()
+            if not custom_msg:
+                messages.error(request, '⚠️ Введите текст сообщения для сотрудников')
+                return redirect('main:broadcast_notifications')
+            profiles = UserProfile.objects.filter(owner=request.user).exclude(telegram_chat_id='')
+            chat_ids = list(profiles.values_list('telegram_chat_id', flat=True))
+            sent, failed = send_custom_broadcast(chat_ids, custom_msg)
+            messages.success(request, f'✅ Отправлено {sent} сообщений сотрудникам. Ошибок: {failed}')
 
         return redirect('main:broadcast_notifications')
 
@@ -2912,11 +2934,24 @@ def broadcast_notifications(request):
     overdue_count = len(overdue_client_ids)
     debtor_count = sum(1 for c in all_clients if c.has_debt())
 
+    # Статистика для создателя — директора с Telegram
+    directors_with_tg = 0
+    if is_creator:
+        directors_with_tg = UserProfile.objects.filter(role='director').exclude(telegram_chat_id='').count()
+
+    # Статистика для директора — сотрудники с Telegram
+    employees_with_tg = 0
+    if not is_creator:
+        employees_with_tg = UserProfile.objects.filter(owner=request.user).exclude(telegram_chat_id='').count()
+
     return render(request, 'main/broadcast_notifications.html', {
         'total_clients': total_clients,
         'with_telegram': with_telegram,
         'overdue_count': overdue_count,
         'debtor_count': debtor_count,
+        'is_creator': is_creator,
+        'directors_with_tg': directors_with_tg,
+        'employees_with_tg': employees_with_tg,
     })
 
 

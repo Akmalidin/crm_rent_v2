@@ -118,9 +118,9 @@
         </form>
     </div>
 
-    <!-- ── 3. Своё сообщение ── -->
+    <!-- ── 3. Своё сообщение клиентам ── -->
     <div class="bn-card">
-        <h2 class="bn-card-title">✍️ Своё сообщение</h2>
+        <h2 class="bn-card-title">✍️ Своё сообщение клиентам</h2>
         <p class="bn-card-desc">
             Напишите произвольный текст и выберите, кому отправить.
             Поддерживается HTML: <code>&lt;b&gt;жирный&lt;/b&gt;</code>, <code>&lt;i&gt;курсив&lt;/i&gt;</code>.
@@ -150,6 +150,56 @@
         </form>
     </div>
 
+    {% if is_creator %}
+    <!-- ── 4. Рассылка директорам (только создатель) ── -->
+    <div class="bn-card" style="border-color:rgba(124,58,237,.3)">
+        <h2 class="bn-card-title">📨 Написать директорам</h2>
+        <p class="bn-card-desc">
+            Отправит сообщение всем директорам у которых привязан Telegram.<br>
+            Получат: <b>{{ directors_with_tg }}</b> директор{{ directors_with_tg|pluralize:",,ов" }}.
+        </p>
+        {% if directors_with_tg == 0 %}
+        <div class="bn-warn">⚠️ Ни один директор не привязал Telegram. Попросите их написать /myid боту и указать ID в профиле.</div>
+        {% endif %}
+        <form method="post" onsubmit="return confirmSend(this, 'directors_message', {{ directors_with_tg }}, 'директорам')">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="directors">
+            <div style="margin-bottom:16px">
+                <label class="bn-label">Текст сообщения</label>
+                <textarea name="directors_message" class="bn-textarea"
+                    placeholder="Уважаемые директора! ..."></textarea>
+            </div>
+            <button type="submit" class="bn-btn btn-blue" {% if directors_with_tg == 0 %}disabled{% endif %}>
+                📨 Отправить директорам ({{ directors_with_tg }})
+            </button>
+        </form>
+    </div>
+    {% else %}
+    <!-- ── 4. Рассылка сотрудникам (директор) ── -->
+    <div class="bn-card" style="border-color:rgba(124,58,237,.3)">
+        <h2 class="bn-card-title">👷 Написать сотрудникам</h2>
+        <p class="bn-card-desc">
+            Отправит сообщение вашим сотрудникам у которых привязан Telegram.<br>
+            Получат: <b>{{ employees_with_tg }}</b> сотрудник{{ employees_with_tg|pluralize:",,ов" }}.
+        </p>
+        {% if employees_with_tg == 0 %}
+        <div class="bn-warn">⚠️ Ни один сотрудник не привязал Telegram. Попросите их написать /myid боту и указать ID в профиле.</div>
+        {% endif %}
+        <form method="post" onsubmit="return confirmSend(this, 'employees_message', {{ employees_with_tg }}, 'сотрудникам')">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="employees">
+            <div style="margin-bottom:16px">
+                <label class="bn-label">Текст сообщения</label>
+                <textarea name="employees_message" class="bn-textarea"
+                    placeholder="Уважаемые коллеги! ..."></textarea>
+            </div>
+            <button type="submit" class="bn-btn btn-blue" {% if employees_with_tg == 0 %}disabled{% endif %}>
+                👷 Отправить сотрудникам ({{ employees_with_tg }})
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
 </div>
 
 <script>
@@ -173,6 +223,12 @@ function confirmCustomSend(form) {
     var msg = form.querySelector('textarea[name="custom_message"]').value.trim();
     if (!msg) { alert('Введите текст сообщения'); return false; }
     return confirm('Отправить сообщение ' + n + ' клиентам?');
+}
+
+function confirmSend(form, fieldName, count, label) {
+    var msg = form.querySelector('textarea[name="' + fieldName + '"]').value.trim();
+    if (!msg) { alert('Введите текст сообщения'); return false; }
+    return confirm('Отправить сообщение ' + count + ' ' + label + '?');
 }
 
 updateCount();
