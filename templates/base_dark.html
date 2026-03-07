@@ -171,6 +171,9 @@
                     </div>
                 </div>
             </div>
+            <a href="{% url 'main:my_profile' %}" class="sb-logout" style="text-decoration:none">
+                <span>✈️</span> Telegram
+            </a>
             <form method="POST" action="{% url 'main:logout' %}" style="margin:0">
                 {% csrf_token %}
                 <button type="submit" class="sb-logout">

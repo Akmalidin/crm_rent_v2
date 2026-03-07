@@ -37,6 +37,10 @@ class UserProfile(models.Model):
     needs_company_setup = models.BooleanField(
         'Требует настройки компании', default=False,
     )
+    telegram_chat_id = models.CharField(
+        'Telegram Chat ID', max_length=50, blank=True, default='',
+        help_text='ID из Telegram бота (команда /myid)',
+    )
 
     class Meta:
         verbose_name = 'Профиль пользователя'

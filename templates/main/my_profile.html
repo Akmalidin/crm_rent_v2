@@ -1,0 +1,113 @@
+{% extends 'base_dark.html' %}
+{% load static %}
+{% block title %}Мой профиль{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width:700px">
+
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center" style="width:56px;height:56px;font-size:24px">
+      👤
+    </div>
+    <div>
+      <h2 class="mb-0">{{ request.user.get_full_name|default:request.user.username }}</h2>
+      <small class="text-muted">{{ request.user.email|default:"Email не указан" }}</small>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for msg in messages %}
+      <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible">
+        {{ msg }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <!-- Telegram привязка -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-transparent border-0 pt-4 pb-0">
+      <h5 class="mb-0">
+        <span style="font-size:1.3em">✈️</span> Telegram уведомления
+      </h5>
+    </div>
+    <div class="card-body">
+
+      {% if profile.telegram_chat_id %}
+        <div class="alert alert-success d-flex align-items-center gap-2 mb-3">
+          <span style="font-size:1.4em">✅</span>
+          <div>
+            <strong>Telegram привязан</strong><br>
+            <small>Chat ID: <code>{{ profile.telegram_chat_id }}</code></small>
+          </div>
+        </div>
+      {% else %}
+        <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+          <span style="font-size:1.4em">⚠️</span>
+          <div>
+            <strong>Telegram не привязан</strong><br>
+            <small>Вы не будете получать уведомления о заказах и оплатах</small>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Инструкция -->
+      <div class="card bg-dark border-secondary mb-3">
+        <div class="card-body">
+          <p class="mb-2"><strong>Как получить свой Telegram ID:</strong></p>
+          <ol class="mb-0 ps-3" style="line-height:2">
+            <li>Откройте Telegram и найдите бота</li>
+            <li>Напишите боту команду <code>/myid</code></li>
+            <li>Бот ответит вашим ID — скопируйте его</li>
+            <li>Вставьте ID в поле ниже и нажмите «Сохранить»</li>
+          </ol>
+        </div>
+      </div>
+
+      <form method="post" data-turbo="false">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Ваш Telegram Chat ID</label>
+          <div class="input-group">
+            <span class="input-group-text">🆔</span>
+            <input type="text" name="telegram_chat_id"
+                   class="form-control"
+                   value="{{ profile.telegram_chat_id }}"
+                   placeholder="Например: 123456789"
+                   pattern="-?[0-9]*"
+                   inputmode="numeric">
+          </div>
+          <div class="form-text">Оставьте пустым, чтобы отвязать Telegram</div>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary">
+            💾 Сохранить
+          </button>
+          {% if profile.telegram_chat_id %}
+            <button type="submit" name="telegram_chat_id" value="" class="btn btn-outline-danger">
+              🔗 Отвязать
+            </button>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Уведомления директора -->
+  {% if profile.role == 'director' %}
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-transparent border-0 pt-4 pb-0">
+      <h5 class="mb-0">📲 Какие уведомления вы получаете</h5>
+    </div>
+    <div class="card-body">
+      <ul class="list-unstyled mb-0">
+        <li class="py-2 border-bottom">📦 <strong>Новый заказ</strong> — при создании заказа вашим сотрудником</li>
+        <li class="py-2 border-bottom">💰 <strong>Оплата принята</strong> — при регистрации оплаты от клиента</li>
+        <li class="py-2">📢 <strong>Рассылка</strong> — вручную через бота (просроченные, должники, своё сообщение)</li>
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+
+  <a href="{% url 'main:dashboard' %}" class="btn btn-outline-secondary">← На главную</a>
+</div>
+{% endblock %}

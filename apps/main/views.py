@@ -674,6 +674,12 @@ def create_order(request):
                 product.save()
             
             messages.success(request, f'✅ Заказ #{order.id} успешно создан!')
+            # Уведомляем директора
+            try:
+                from apps.main.telegram_bot_complete import notify_director_new_order
+                notify_director_new_order(order)
+            except Exception:
+                pass
             log_activity(request.user, 'create_order', f'Создал заказ #{order.id} для клиента {client.get_full_name()}')
 
             # Редирект на страницу клиента
@@ -883,13 +889,19 @@ def accept_payment(request):
                 full_notes = notes if notes else 'Аванс (нет долгов по заказам)'
             
             # Создаём оплату
-            Payment.objects.create(
+            payment_obj = Payment.objects.create(
                 client=client,
                 amount=payment_amount,
                 payment_method=payment_method,
                 notes=full_notes
             )
             log_activity(request.user, 'accept_payment', f'Принял оплату {payment_amount:.0f} сом от клиента {client.get_full_name()}')
+            # Уведомляем директора
+            try:
+                from apps.main.telegram_bot_complete import notify_director_payment
+                notify_director_payment(payment_obj)
+            except Exception:
+                pass
 
             return redirect('main:client_detail', client_id=client.id)
             
@@ -2917,6 +2929,31 @@ def log_activity(user, action, description):
         ActivityLog.objects.create(user=user, action=action, description=description)
     except Exception:
         pass  # Логирование не должно ломать основную логику
+
+
+
+@login_required
+def my_profile(request):
+    from apps.main.models import UserProfile
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
+    if request.method == 'POST':
+        telegram_chat_id = request.POST.get('telegram_chat_id', '').strip()
+        if telegram_chat_id and not telegram_chat_id.lstrip('-').isdigit():
+            messages.error(request, 'Telegram ID должен быть числом (например: 123456789)')
+        else:
+            existing = UserProfile.objects.filter(
+                telegram_chat_id=telegram_chat_id
+            ).exclude(user=request.user).first() if telegram_chat_id else None
+            if existing:
+                messages.error(request, 'Этот Telegram ID уже привязан к другому аккаунту')
+            else:
+                profile.telegram_chat_id = telegram_chat_id
+                profile.save()
+                messages.success(request, '✅ Telegram привязан!' if telegram_chat_id else 'Telegram отвязан')
+        return redirect('main:my_profile')
+
+    return render(request, 'main/my_profile.html', {'profile': profile})
 
 
 def custom_404_view(request, exception=None):

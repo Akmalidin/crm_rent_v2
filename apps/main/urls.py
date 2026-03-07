@@ -110,6 +110,9 @@ urlpatterns = [
     # Лог активности сотрудника
     path('users/<int:user_id>/activity/', views.employee_activity, name='employee_activity'),
 
+    # Профиль
+    path('profile/', views.my_profile, name='my_profile'),
+
     # Сообщения директора создателю
     path('messages/send/', views.send_message, name='send_message'),
     path('superadmin/messages/<int:msg_id>/read/', views.mark_message_read, name='mark_message_read'),
