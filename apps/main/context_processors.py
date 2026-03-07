@@ -15,13 +15,19 @@ def company_context(request):
     unread_messages_count = 0
     unread_reply_count = 0
     if request.user.is_authenticated:
-        from apps.main.models import DirectorMessage
+        from apps.main.models import TicketReply
         if request.user.is_staff:
-            unread_messages_count = DirectorMessage.objects.filter(is_read=False).count()
+            # Непрочитанные сообщения от директоров
+            unread_messages_count = TicketReply.objects.filter(
+                is_read=False
+            ).exclude(author__is_staff=True).values('ticket').distinct().count()
         else:
-            unread_reply_count = DirectorMessage.objects.filter(
-                sender=request.user, reply_read=False
-            ).exclude(reply='').count()
+            # Непрочитанные ответы от создателя для этого пользователя
+            unread_reply_count = TicketReply.objects.filter(
+                ticket__sender=request.user,
+                is_read=False,
+                author__is_staff=True,
+            ).values('ticket').distinct().count()
 
     return {
         'company': company,

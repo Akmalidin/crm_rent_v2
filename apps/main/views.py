@@ -2604,28 +2604,57 @@ def ticket_list(request):
 
 @login_required
 def ticket_detail(request, ticket_id):
-    """Просмотр тикета."""
-    from apps.main.models import DirectorMessage
-    from django.utils import timezone
+    """Просмотр тикета — чат между директором и создателем."""
+    from apps.main.models import DirectorMessage, TicketReply
 
     if request.user.is_staff:
         ticket = get_object_or_404(DirectorMessage, id=ticket_id)
         if not ticket.is_read:
             ticket.is_read = True
             ticket.save(update_fields=['is_read'])
+        # Отметить все сообщения от директора как прочитанные
+        ticket.replies.filter(is_read=False, author=ticket.sender).update(is_read=True)
     else:
         ticket = get_object_or_404(DirectorMessage, id=ticket_id, sender=request.user)
-        if ticket.reply and not ticket.reply_read:
-            ticket.reply_read = True
-            ticket.save(update_fields=['reply_read'])
+        # Отметить все ответы создателя как прочитанные
+        ticket.replies.filter(is_read=False).exclude(author=request.user).update(is_read=True)
 
-    return render(request, 'main/ticket_detail.html', {'ticket': ticket})
+    replies = ticket.replies.select_related('author').all()
+    return render(request, 'main/ticket_detail.html', {'ticket': ticket, 'replies': replies})
+
+
+@login_required
+def add_reply(request, ticket_id):
+    """Добавить сообщение в чат тикета (и директор, и создатель)."""
+    from apps.main.models import DirectorMessage, TicketReply
+
+    if request.user.is_staff:
+        ticket = get_object_or_404(DirectorMessage, id=ticket_id)
+    else:
+        ticket = get_object_or_404(DirectorMessage, id=ticket_id, sender=request.user)
+
+    if not ticket.is_open:
+        messages.error(request, 'Обращение закрыто')
+        return redirect('main:ticket_detail', ticket_id=ticket.id)
+
+    if request.method == 'POST':
+        text = request.POST.get('text', '').strip()
+        if text:
+            TicketReply.objects.create(ticket=ticket, author=request.user, text=text)
+            # Сбросить счётчик прочтения для другой стороны
+            if not request.user.is_staff:
+                ticket.is_read = False
+                ticket.save(update_fields=['is_read'])
+        else:
+            messages.error(request, 'Введите текст')
+
+    return redirect('main:ticket_detail', ticket_id=ticket.id)
 
 
 @login_required
 def send_message(request):
     """Создать новое обращение (директор/сотрудник)."""
-    from apps.main.models import DirectorMessage
+    from apps.main.models import DirectorMessage, TicketReply
 
     if request.user.is_staff:
         return redirect('main:ticket_list')
@@ -2639,7 +2668,9 @@ def send_message(request):
                 subject=subject,
                 message=message_text,
             )
-            messages.success(request, f'✅ Обращение {ticket.ticket_number} отправлено!')
+            # Первое сообщение добавляем как reply тоже
+            TicketReply.objects.create(ticket=ticket, author=request.user, text=message_text, is_read=True)
+            messages.success(request, f'✅ Обращение {ticket.ticket_number} создано!')
             return redirect('main:ticket_detail', ticket_id=ticket.id)
         messages.error(request, 'Заполните тему и сообщение')
 
@@ -2648,12 +2679,12 @@ def send_message(request):
 
 @login_required
 def edit_ticket(request, ticket_id):
-    """Директор редактирует своё сообщение (только открытые, без ответа)."""
+    """Директор редактирует первое сообщение (только если нет ответов)."""
     from apps.main.models import DirectorMessage
 
     ticket = get_object_or_404(DirectorMessage, id=ticket_id, sender=request.user)
-    if not ticket.is_open or ticket.has_reply:
-        messages.error(request, 'Редактирование недоступно')
+    if not ticket.is_open or ticket.replies.exclude(author=request.user).exists():
+        messages.error(request, 'Редактирование недоступно после ответа администратора')
         return redirect('main:ticket_detail', ticket_id=ticket.id)
 
     if request.method == 'POST':
@@ -2663,6 +2694,11 @@ def edit_ticket(request, ticket_id):
             ticket.subject = subject
             ticket.message = message_text
             ticket.save(update_fields=['subject', 'message', 'updated_at'])
+            # Обновить текст первого reply
+            first_reply = ticket.replies.filter(author=request.user).first()
+            if first_reply:
+                first_reply.text = message_text
+                first_reply.save(update_fields=['text'])
             messages.success(request, '✅ Обращение обновлено')
             return redirect('main:ticket_detail', ticket_id=ticket.id)
         messages.error(request, 'Заполните поля')
@@ -2672,22 +2708,8 @@ def edit_ticket(request, ticket_id):
 
 @superuser_required
 def reply_ticket(request, ticket_id):
-    """Создатель отвечает на обращение."""
-    from apps.main.models import DirectorMessage
-    from django.utils import timezone
-
-    ticket = get_object_or_404(DirectorMessage, id=ticket_id)
-    if request.method == 'POST':
-        reply_text = request.POST.get('reply', '').strip()
-        if reply_text:
-            ticket.reply = reply_text
-            ticket.replied_at = timezone.now()
-            ticket.reply_read = False
-            ticket.save(update_fields=['reply', 'replied_at', 'reply_read'])
-            messages.success(request, '✅ Ответ отправлен')
-        else:
-            messages.error(request, 'Введите текст ответа')
-    return redirect('main:ticket_detail', ticket_id=ticket.id)
+    """Legacy redirect — теперь используется add_reply."""
+    return redirect('main:ticket_detail', ticket_id=ticket_id)
 
 
 @superuser_required

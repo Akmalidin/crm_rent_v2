@@ -97,6 +97,33 @@ class DirectorMessage(models.Model):
     def has_reply(self):
         return bool(self.reply)
 
+    @property
+    def unread_for_sender(self):
+        """Есть непрочитанные ответы от создателя для отправителя."""
+        return self.replies.filter(is_read=False).exclude(author=self.sender).exists()
+
+    @property
+    def unread_for_creator(self):
+        """Есть непрочитанные сообщения от отправителя для создателя."""
+        return self.replies.filter(is_read=False, author=self.sender).exists()
+
+
+class TicketReply(models.Model):
+    """Сообщения внутри тикета (чат между директором и создателем)"""
+    ticket     = models.ForeignKey(DirectorMessage, on_delete=models.CASCADE, related_name='replies', verbose_name='Тикет')
+    author     = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ticket_replies', verbose_name='Автор')
+    text       = models.TextField('Сообщение')
+    is_read    = models.BooleanField('Прочитано', default=False)
+    created_at = models.DateTimeField('Дата', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Ответ в тикете'
+        verbose_name_plural = 'Ответы в тикетах'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'Тикет #{self.ticket_id} — {self.author.username}'
+
 
 class ActivityLog(models.Model):
     """Лог действий сотрудников"""
