@@ -11,14 +11,21 @@ def company_context(request):
         User = get_user_model()
         pending_users_count = User.objects.filter(is_active=False).count()
 
-    # Непрочитанные сообщения от директоров (только для создателя системы)
+    # Непрочитанные обращения (для создателя) и непрочитанные ответы (для директора)
     unread_messages_count = 0
-    if request.user.is_authenticated and request.user.is_staff:
+    unread_reply_count = 0
+    if request.user.is_authenticated:
         from apps.main.models import DirectorMessage
-        unread_messages_count = DirectorMessage.objects.filter(is_read=False).count()
+        if request.user.is_staff:
+            unread_messages_count = DirectorMessage.objects.filter(is_read=False).count()
+        else:
+            unread_reply_count = DirectorMessage.objects.filter(
+                sender=request.user, reply_read=False
+            ).exclude(reply='').count()
 
     return {
         'company': company,
         'pending_users_count': pending_users_count,
         'unread_messages_count': unread_messages_count,
+        'unread_reply_count': unread_reply_count,
     }

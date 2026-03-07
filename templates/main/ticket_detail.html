@@ -1,0 +1,122 @@
+{% extends 'base_dark.html' %}
+{% load static %}
+{% block title %}{{ ticket.ticket_number }} — {{ ticket.subject }}{% endblock %}
+
+{% block extra_css %}
+.td-wrap{max-width:760px;margin:0 auto;padding-bottom:48px}
+.td-back{font-size:13px;color:var(--accent2);text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-bottom:20px}
+.td-back:hover{color:var(--accent)}
+.td-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.td-title{font-size:22px;font-weight:800;color:var(--text1);margin:0 0 6px}
+.td-meta{font-size:13px;color:var(--text3)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.badge-open{background:rgba(16,185,129,.15);color:#34d399}
+.badge-closed{background:rgba(107,114,128,.15);color:#9ca3af}
+.msg-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:16px}
+.msg-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.msg-author{font-weight:700;color:var(--text1);font-size:15px}
+.msg-time{font-size:12px;color:var(--text3)}
+.msg-body{font-size:14px;color:var(--text2);line-height:1.7;white-space:pre-wrap;word-break:break-word}
+.reply-card{background:var(--card2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:16px;padding:24px;margin-bottom:16px}
+.form-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-top:24px}
+.form-card h3{font-size:16px;font-weight:700;color:var(--text1);margin:0 0 16px}
+.fi-ta{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--text1);font-family:inherit;font-size:14px;padding:12px 14px;resize:vertical;min-height:100px;outline:none;box-sizing:border-box;line-height:1.5}
+.fi-ta:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
+.action-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.btn-reply{background:var(--accent);color:#fff;border:none;padding:10px 22px;border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s}
+.btn-reply:hover{opacity:.85}
+.btn-close{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);padding:10px 22px;border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s}
+.btn-close:hover{background:rgba(239,68,68,.25)}
+.btn-edit{background:var(--card2);color:var(--text2);border:1px solid var(--border);padding:9px 18px;border-radius:11px;font-size:13px;font-weight:600;text-decoration:none;transition:border-color .15s}
+.btn-edit:hover{border-color:var(--accent);color:var(--accent)}
+.closed-notice{background:rgba(107,114,128,.1);border:1px solid rgba(107,114,128,.2);border-radius:12px;padding:14px 18px;font-size:13px;color:var(--text3);margin-top:20px;text-align:center}
+{% endblock %}
+
+{% block content %}
+<div class="td-wrap">
+
+    <a href="{% url 'main:ticket_list' %}" class="td-back">← Все обращения</a>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div style="background:{% if 'error' in msg.tags %}rgba(239,68,68,.1){% else %}rgba(16,185,129,.1){% endif %};border:1px solid {% if 'error' in msg.tags %}rgba(239,68,68,.3){% else %}rgba(16,185,129,.25){% endif %};color:{% if 'error' in msg.tags %}#f87171{% else %}#34d399{% endif %};border-radius:12px;padding:12px 16px;margin-bottom:16px">{{ msg }}</div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="td-header">
+        <div>
+            <p class="td-title">{{ ticket.subject }}</p>
+            <span class="td-meta">Обращение {{ ticket.ticket_number }} &bull; {{ ticket.created_at|date:"d.m.Y H:i" }}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            {% if ticket.is_open %}
+            <span class="badge badge-open">Открыто</span>
+            {% else %}
+            <span class="badge badge-closed">Закрыто</span>
+            {% endif %}
+            {% if not request.user.is_staff and ticket.is_open and not ticket.has_reply %}
+            <a href="{% url 'main:edit_ticket' ticket.id %}" class="btn-edit">✏️ Редактировать</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Сообщение пользователя -->
+    <div class="msg-card">
+        <div class="msg-card-header">
+            <span class="msg-author">
+                {% if request.user.is_staff %}
+                👤 {{ ticket.sender.get_full_name|default:ticket.sender.username }}
+                {% else %}
+                👤 Вы
+                {% endif %}
+            </span>
+            <span class="msg-time">{{ ticket.created_at|date:"d.m.Y H:i" }}{% if ticket.updated_at != ticket.created_at %} (изм. {{ ticket.updated_at|date:"d.m.Y H:i" }}){% endif %}</span>
+        </div>
+        <div class="msg-body">{{ ticket.message }}</div>
+    </div>
+
+    <!-- Ответ создателя -->
+    {% if ticket.reply %}
+    <div class="reply-card">
+        <div class="msg-card-header">
+            <span class="msg-author" style="color:var(--accent)">🛡️ Администратор</span>
+            <span class="msg-time">{{ ticket.replied_at|date:"d.m.Y H:i" }}</span>
+        </div>
+        <div class="msg-body">{{ ticket.reply }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Действия создателя -->
+    {% if request.user.is_staff %}
+        {% if ticket.is_open %}
+        <div class="form-card">
+            <h3>✍️ {% if ticket.reply %}Обновить ответ{% else %}Написать ответ{% endif %}</h3>
+            <form method="post" action="{% url 'main:reply_ticket' ticket.id %}">
+                {% csrf_token %}
+                <textarea name="reply" class="fi-ta" placeholder="Введите ответ..." rows="5">{{ ticket.reply }}</textarea>
+                <div class="action-row">
+                    <button type="submit" class="btn-reply">📤 Отправить ответ</button>
+                </div>
+            </form>
+        </div>
+        <div style="margin-top:12px">
+            <form method="post" action="{% url 'main:close_ticket' ticket.id %}" onsubmit="return confirm('Закрыть обращение {{ ticket.ticket_number }}? Пользователь не сможет отправить новые сообщения в этом обращении.')">
+                {% csrf_token %}
+                <button type="submit" class="btn-close">🔒 Закрыть обращение</button>
+            </form>
+        </div>
+        {% else %}
+        <div class="closed-notice">🔒 Обращение закрыто</div>
+        {% endif %}
+    {% else %}
+        {% if not ticket.is_open %}
+        <div class="closed-notice">🔒 Обращение закрыто. Для нового вопроса создайте <a href="{% url 'main:send_message' %}" style="color:var(--accent)">новое обращение</a>.</div>
+        {% elif not ticket.reply %}
+        <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:12px;padding:14px 18px;font-size:13px;color:#fbbf24;margin-top:16px">
+            ⏳ Ожидайте ответа администратора
+        </div>
+        {% endif %}
+    {% endif %}
+
+</div>
+{% endblock %}

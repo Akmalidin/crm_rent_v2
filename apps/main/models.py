@@ -61,24 +61,41 @@ class UserProfile(models.Model):
 
 
 class DirectorMessage(models.Model):
-    """Сообщения от директоров создателю системы"""
-    sender = models.ForeignKey(
-        User, on_delete=models.CASCADE,
-        related_name='sent_messages',
-        verbose_name='Отправитель',
-    )
-    subject = models.CharField('Тема', max_length=200)
-    message = models.TextField('Сообщение')
+    """Тикеты (обращения) от директоров создателю системы"""
+    STATUS_OPEN   = 'open'
+    STATUS_CLOSED = 'closed'
+    STATUS_CHOICES = [('open', 'Открыто'), ('closed', 'Закрыто')]
+
+    sender     = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages', verbose_name='Отправитель')
+    subject    = models.CharField('Тема', max_length=200)
+    message    = models.TextField('Сообщение')
+    status     = models.CharField('Статус', max_length=10, choices=STATUS_CHOICES, default='open')
+    is_read    = models.BooleanField('Прочитано создателем', default=False)
+    reply      = models.TextField('Ответ создателя', blank=True, default='')
+    replied_at = models.DateTimeField('Дата ответа', null=True, blank=True)
+    reply_read = models.BooleanField('Ответ прочитан директором', default=False)
     created_at = models.DateTimeField('Отправлено', auto_now_add=True)
-    is_read = models.BooleanField('Прочитано', default=False)
+    updated_at = models.DateTimeField('Обновлено', auto_now=True)
 
     class Meta:
-        verbose_name = 'Сообщение директора'
-        verbose_name_plural = 'Сообщения директоров'
+        verbose_name = 'Обращение'
+        verbose_name_plural = 'Обращения'
         ordering = ['-created_at']
 
     def __str__(self):
-        return f'{self.sender.username}: {self.subject}'
+        return f'#{self.pk} {self.sender.username}: {self.subject}'
+
+    @property
+    def ticket_number(self):
+        return f'#{self.pk:04d}'
+
+    @property
+    def is_open(self):
+        return self.status == self.STATUS_OPEN
+
+    @property
+    def has_reply(self):
+        return bool(self.reply)
 
 
 class ActivityLog(models.Model):

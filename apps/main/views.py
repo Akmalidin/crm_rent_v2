@@ -2586,36 +2586,126 @@ def creator_director_detail(request, user_id):
 
 
 @login_required
+@login_required
+def ticket_list(request):
+    """Список обращений — для директора его тикеты, для создателя все."""
+    from apps.main.models import DirectorMessage
+    from django.utils import timezone
+
+    if request.user.is_staff:
+        tickets = DirectorMessage.objects.select_related('sender').all()
+    else:
+        tickets = DirectorMessage.objects.filter(sender=request.user)
+        # Отметить ответы создателя как прочитанные
+        tickets.filter(has_reply=True, reply_read=False).update(reply_read=True)
+
+    return render(request, 'main/ticket_list.html', {'tickets': tickets})
+
+
+@login_required
+def ticket_detail(request, ticket_id):
+    """Просмотр тикета."""
+    from apps.main.models import DirectorMessage
+    from django.utils import timezone
+
+    if request.user.is_staff:
+        ticket = get_object_or_404(DirectorMessage, id=ticket_id)
+        if not ticket.is_read:
+            ticket.is_read = True
+            ticket.save(update_fields=['is_read'])
+    else:
+        ticket = get_object_or_404(DirectorMessage, id=ticket_id, sender=request.user)
+        if ticket.reply and not ticket.reply_read:
+            ticket.reply_read = True
+            ticket.save(update_fields=['reply_read'])
+
+    return render(request, 'main/ticket_detail.html', {'ticket': ticket})
+
+
+@login_required
 def send_message(request):
-    """Директор отправляет сообщение создателю"""
+    """Создать новое обращение (директор/сотрудник)."""
     from apps.main.models import DirectorMessage
 
     if request.user.is_staff:
-        return redirect('main:superuser_panel')
+        return redirect('main:ticket_list')
 
     if request.method == 'POST':
         subject = request.POST.get('subject', '').strip()
         message_text = request.POST.get('message', '').strip()
         if subject and message_text:
-            DirectorMessage.objects.create(
+            ticket = DirectorMessage.objects.create(
                 sender=request.user,
                 subject=subject,
                 message=message_text,
             )
-            messages.success(request, '✅ Сообщение отправлено создателю системы!')
-            return redirect('main:dashboard')
-        else:
-            messages.error(request, 'Заполните тему и сообщение')
+            messages.success(request, f'✅ Обращение {ticket.ticket_number} отправлено!')
+            return redirect('main:ticket_detail', ticket_id=ticket.id)
+        messages.error(request, 'Заполните тему и сообщение')
 
     return render(request, 'main/send_message.html', {})
 
 
+@login_required
+def edit_ticket(request, ticket_id):
+    """Директор редактирует своё сообщение (только открытые, без ответа)."""
+    from apps.main.models import DirectorMessage
+
+    ticket = get_object_or_404(DirectorMessage, id=ticket_id, sender=request.user)
+    if not ticket.is_open or ticket.has_reply:
+        messages.error(request, 'Редактирование недоступно')
+        return redirect('main:ticket_detail', ticket_id=ticket.id)
+
+    if request.method == 'POST':
+        subject = request.POST.get('subject', '').strip()
+        message_text = request.POST.get('message', '').strip()
+        if subject and message_text:
+            ticket.subject = subject
+            ticket.message = message_text
+            ticket.save(update_fields=['subject', 'message', 'updated_at'])
+            messages.success(request, '✅ Обращение обновлено')
+            return redirect('main:ticket_detail', ticket_id=ticket.id)
+        messages.error(request, 'Заполните поля')
+
+    return render(request, 'main/send_message.html', {'ticket': ticket, 'editing': True})
+
+
+@superuser_required
+def reply_ticket(request, ticket_id):
+    """Создатель отвечает на обращение."""
+    from apps.main.models import DirectorMessage
+    from django.utils import timezone
+
+    ticket = get_object_or_404(DirectorMessage, id=ticket_id)
+    if request.method == 'POST':
+        reply_text = request.POST.get('reply', '').strip()
+        if reply_text:
+            ticket.reply = reply_text
+            ticket.replied_at = timezone.now()
+            ticket.reply_read = False
+            ticket.save(update_fields=['reply', 'replied_at', 'reply_read'])
+            messages.success(request, '✅ Ответ отправлен')
+        else:
+            messages.error(request, 'Введите текст ответа')
+    return redirect('main:ticket_detail', ticket_id=ticket.id)
+
+
+@superuser_required
+def close_ticket(request, ticket_id):
+    """Создатель закрывает обращение."""
+    from apps.main.models import DirectorMessage
+
+    if request.method == 'POST':
+        DirectorMessage.objects.filter(id=ticket_id).update(status='closed')
+    return redirect('main:ticket_detail', ticket_id=ticket_id)
+
+
 @superuser_required
 def mark_message_read(request, msg_id):
-    """Пометить сообщение как прочитанное"""
+    """Пометить сообщение как прочитанное (legacy)."""
     from apps.main.models import DirectorMessage
     DirectorMessage.objects.filter(id=msg_id).update(is_read=True)
-    return redirect('main:superuser_panel')
+    return redirect('main:ticket_list')
 
 
 # ─── Смена пароля ────────────────────────────────────────────────────────────

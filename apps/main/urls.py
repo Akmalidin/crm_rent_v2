@@ -113,8 +113,13 @@ urlpatterns = [
     # Профиль
     path('profile/', views.my_profile, name='my_profile'),
 
-    # Сообщения директора создателю
+    # Тикеты (обращения)
+    path('messages/', views.ticket_list, name='ticket_list'),
     path('messages/send/', views.send_message, name='send_message'),
+    path('messages/<int:ticket_id>/', views.ticket_detail, name='ticket_detail'),
+    path('messages/<int:ticket_id>/edit/', views.edit_ticket, name='edit_ticket'),
+    path('messages/<int:ticket_id>/reply/', views.reply_ticket, name='reply_ticket'),
+    path('messages/<int:ticket_id>/close/', views.close_ticket, name='close_ticket'),
     path('superadmin/messages/<int:msg_id>/read/', views.mark_message_read, name='mark_message_read'),
 
     # Массовые уведомления

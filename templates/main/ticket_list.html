@@ -1,0 +1,95 @@
+{% extends 'base_dark.html' %}
+{% load static %}
+{% block title %}Обращения — CRM{% endblock %}
+
+{% block extra_css %}
+.tl-wrap{max-width:860px;margin:0 auto;padding-bottom:48px}
+.tl-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.tl-head h1{font-size:24px;font-weight:800;color:var(--text1);margin:0}
+.tl-table{width:100%;border-collapse:collapse}
+.tl-table th{padding:10px 16px;text-align:left;font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;border-bottom:1px solid var(--border)}
+.tl-table td{padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px;color:var(--text1);vertical-align:middle}
+.tl-table tr:last-child td{border-bottom:none}
+.tl-table tr:hover td{background:var(--card2)}
+.tl-table a{color:var(--text1);text-decoration:none;font-weight:600}
+.tl-table a:hover{color:var(--accent)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-open{background:rgba(16,185,129,.15);color:#34d399}
+.badge-closed{background:rgba(107,114,128,.15);color:#9ca3af}
+.badge-new{background:rgba(239,68,68,.15);color:#f87171}
+.badge-replied{background:rgba(96,165,250,.15);color:#60a5fa}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-state .es-icon{font-size:48px;margin-bottom:12px}
+.btn-new{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;padding:10px 20px;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;transition:opacity .15s}
+.btn-new:hover{opacity:.85}
+{% endblock %}
+
+{% block content %}
+<div class="tl-wrap">
+    <div class="tl-head">
+        <h1>📬 Обращения</h1>
+        {% if not request.user.is_staff %}
+        <a href="{% url 'main:send_message' %}" class="btn-new">+ Новое обращение</a>
+        {% endif %}
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:#34d399;border-radius:12px;padding:12px 16px;margin-bottom:16px">{{ msg }}</div>
+    {% endfor %}
+    {% endif %}
+
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;overflow:hidden">
+        {% if tickets %}
+        <table class="tl-table">
+            <thead>
+                <tr>
+                    <th>№</th>
+                    {% if request.user.is_staff %}<th>От кого</th>{% endif %}
+                    <th>Тема</th>
+                    <th>Статус</th>
+                    <th>Дата</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for ticket in tickets %}
+            <tr>
+                <td style="font-family:monospace;color:var(--text3)">{{ ticket.ticket_number }}</td>
+                {% if request.user.is_staff %}
+                <td>
+                    {{ ticket.sender.get_full_name|default:ticket.sender.username }}
+                    {% if not ticket.is_read %}
+                    <span class="badge badge-new" style="margin-left:6px">Новое</span>
+                    {% endif %}
+                </td>
+                {% endif %}
+                <td>
+                    <a href="{% url 'main:ticket_detail' ticket.id %}">{{ ticket.subject }}</a>
+                    {% if not request.user.is_staff and ticket.reply and not ticket.reply_read %}
+                    <span class="badge badge-replied" style="margin-left:6px">Ответ</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if ticket.is_open %}
+                    <span class="badge badge-open">Открыто</span>
+                    {% else %}
+                    <span class="badge badge-closed">Закрыто</span>
+                    {% endif %}
+                </td>
+                <td style="color:var(--text3);font-size:13px">{{ ticket.created_at|date:"d.m.Y H:i" }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <div class="es-icon">📭</div>
+            <p>Обращений пока нет</p>
+            {% if not request.user.is_staff %}
+            <a href="{% url 'main:send_message' %}" class="btn-new" style="margin-top:16px">Создать обращение</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

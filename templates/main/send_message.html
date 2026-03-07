@@ -1,12 +1,16 @@
 {% extends 'base_dark.html' %}
 {% load static %}
-{% block title %}Написать создателю — CRM{% endblock %}
+{% block title %}{% if editing %}Редактировать обращение{% else %}Новое обращение{% endif %} — CRM{% endblock %}
 {% block content %}
 <div style="max-width:560px;margin:0 auto">
     <div style="margin-bottom:24px">
-        <a href="{% url 'main:dashboard' %}" style="font-size:13px;color:var(--accent2);text-decoration:none">← На главную</a>
-        <h1 style="font-size:24px;font-weight:700;color:var(--text1);margin-top:8px">📨 Написать создателю</h1>
-        <p style="font-size:13px;color:var(--text3);margin-top:4px">Сообщите о проблеме или задайте вопрос</p>
+        <a href="{% if editing %}{% url 'main:ticket_detail' ticket.id %}{% else %}{% url 'main:ticket_list' %}{% endif %}" style="font-size:13px;color:var(--accent2);text-decoration:none">← Назад</a>
+        <h1 style="font-size:24px;font-weight:700;color:var(--text1);margin-top:8px">
+            {% if editing %}✏️ Редактировать обращение {{ ticket.ticket_number }}{% else %}📨 Новое обращение{% endif %}
+        </h1>
+        <p style="font-size:13px;color:var(--text3);margin-top:4px">
+            {% if editing %}Изменить тему и текст обращения{% else %}Сообщите о проблеме или задайте вопрос{% endif %}
+        </p>
     </div>
     {% if messages %}
     {% for msg in messages %}
@@ -16,11 +20,19 @@
     <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px">
         <form method="POST">
             {% csrf_token %}
-            <div class="fi"><label class="fi-label">Тема *</label><input type="text" name="subject" class="fi-input" placeholder="Краткое описание проблемы" required></div>
-            <div class="fi" style="margin-top:16px"><label class="fi-label">Сообщение *</label><textarea name="message" class="fi-input" rows="6" placeholder="Опишите проблему подробно..." required style="resize:vertical"></textarea></div>
+            <div class="fi">
+                <label class="fi-label">Тема *</label>
+                <input type="text" name="subject" class="fi-input" placeholder="Краткое описание" required
+                    value="{% if editing %}{{ ticket.subject }}{% endif %}">
+            </div>
+            <div class="fi" style="margin-top:16px">
+                <label class="fi-label">Сообщение *</label>
+                <textarea name="message" class="fi-input" rows="6"
+                    placeholder="Опишите подробно..." required style="resize:vertical">{% if editing %}{{ ticket.message }}{% endif %}</textarea>
+            </div>
             <div style="margin-top:24px;display:flex;gap:12px">
-                <button type="submit" class="btn-p">Отправить</button>
-                <a href="{% url 'main:dashboard' %}" class="btn-s">Отмена</a>
+                <button type="submit" class="btn-p">{% if editing %}💾 Сохранить{% else %}📤 Отправить{% endif %}</button>
+                <a href="{% if editing %}{% url 'main:ticket_detail' ticket.id %}{% else %}{% url 'main:ticket_list' %}{% endif %}" class="btn-s">Отмена</a>
             </div>
         </form>
     </div>
