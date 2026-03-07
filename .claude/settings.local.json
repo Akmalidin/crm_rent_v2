@@ -41,7 +41,11 @@
       "Bash(python fix_nginx.py)",
       "Bash(python check_users.py)",
       "Bash(python final_check.py)",
-      "Bash(/c/Users/vertex/Desktop/crm_new/apps/main/telegram_bot_complete.py:*)"
+      "Bash(/c/Users/vertex/Desktop/crm_new/apps/main/telegram_bot_complete.py:*)",
+      "Bash(python update_server.py)",
+      "Bash(curl -s \"https://api.telegram.org/bot8276509481:AAGhKOhn45P8l5belorDsEqqetqGNgHoG3s/getWebhookInfo\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(''URL:'', d[''result''].get\\(''url'', ''none''\\)\\); print\\(''Pending:'', d[''result''].get\\(''pending_update_count'', 0\\)\\)\")",
+      "Bash(curl -s \"https://api.telegram.org/bot8276509481:AAGhKOhn45P8l5belorDsEqqetqGNgHoG3s/deleteWebhook\")"
     ]
   }
 }
