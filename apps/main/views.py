@@ -2597,7 +2597,7 @@ def ticket_list(request):
     else:
         tickets = DirectorMessage.objects.filter(sender=request.user)
         # Отметить ответы создателя как прочитанные
-        tickets.filter(has_reply=True, reply_read=False).update(reply_read=True)
+        tickets.exclude(reply='').filter(reply_read=False).update(reply_read=True)
 
     return render(request, 'main/ticket_list.html', {'tickets': tickets})
 
