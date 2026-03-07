@@ -167,12 +167,29 @@
 
 
 /* ══════════════════════════════════════
-   SIDEBAR — мобильная кнопка Telegram
+   MOBILE SCROLL FIX
+   На мобильном переключаем на body-скролл:
+   flex+overflow-y:auto ненадёжен на iOS
 ══════════════════════════════════════ */
 @media (max-width: 900px) {
-    /* Убрать горизонтальный скролл в body */
-    body { overflow-x: hidden !important; }
-    .main-area { overflow-x: hidden !important; }
+    html, body {
+        overflow: auto !important;
+        height: auto !important;
+    }
+    .app {
+        height: auto !important;
+        overflow: visible !important;
+        min-height: 100vh;
+    }
+    .main-area {
+        overflow: visible !important;
+        height: auto !important;
+    }
+    .page-scroll {
+        overflow: visible !important;
+        height: auto !important;
+        flex: none !important;
+    }
 }
 
 
