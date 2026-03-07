@@ -315,8 +315,9 @@ body {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,.6); z-index: 99;
     opacity: 0; transition: opacity .3s;
+    pointer-events: none;
 }
-.sb-overlay.show { opacity: 1; }
+.sb-overlay.show { opacity: 1; pointer-events: auto; }
 
 /* ══════════════════════════════════════
    MOBILE
