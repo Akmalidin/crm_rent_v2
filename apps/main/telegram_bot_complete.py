@@ -637,9 +637,25 @@ def handle_dir_broadcast_debt(director_chat_id, director_profile):
 # УВЕДОМЛЕНИЯ КЛИЕНТАМ
 # ============================================================
 
+def _get_staff_telegram_ids():
+    """Возвращает set telegram_chat_id всех директоров/сотрудников — чтобы не слать им клиентскую рассылку."""
+    from apps.main.models import UserProfile
+    ids = set(
+        UserProfile.objects.exclude(telegram_chat_id='')
+        .values_list('telegram_chat_id', flat=True)
+    )
+    # Также добавить ID создателя
+    creator_id = getattr(settings, 'TELEGRAM_ADMIN_CHAT_ID', None)
+    if creator_id:
+        ids.add(str(creator_id))
+    return ids
+
+
 def notify_overdue(order):
     client = order.client
     if not client.telegram_id:
+        return False
+    if str(client.telegram_id) in _get_staff_telegram_ids():
         return False
 
     now = timezone.now()
@@ -664,6 +680,8 @@ def notify_overdue(order):
 
 def notify_debt_reminder(client):
     if not client.telegram_id:
+        return False
+    if str(client.telegram_id) in _get_staff_telegram_ids():
         return False
     debt = float(client.get_debt()) if hasattr(client, 'get_debt') else abs(float(client.get_wallet_balance()))
     if debt <= 0:
@@ -777,6 +795,9 @@ def _handle_custom_broadcast_send(chat_id, data, role, director_profile=None):
         chat_ids = list(base_qs.filter(id__in=overdue_ids).exclude(telegram_id__isnull=True).exclude(telegram_id='').values_list('telegram_id', flat=True))
     else:
         chat_ids = [c.telegram_id for c in base_qs.exclude(telegram_id__isnull=True).exclude(telegram_id='') if float(c.get_wallet_balance()) < 0]
+
+    staff_ids = _get_staff_telegram_ids()
+    chat_ids = [cid for cid in chat_ids if str(cid) not in staff_ids]
 
     from apps.main.telegram_bot_complete import send_custom_broadcast, get_director_keyboard, get_admin_keyboard
     sent, failed = send_custom_broadcast(chat_ids, custom_text)
