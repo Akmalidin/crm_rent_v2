@@ -1,129 +1,210 @@
 {% extends 'base_dark.html' %}
 {% load static %}
-{% block title %}Панель создателя — CRM{% endblock %}
+{% block title %}Управление системой — CRM{% endblock %}
 
 {% block extra_css %}
-.sp-header{margin-bottom:28px}
-.sp-header h1{font-size:28px;font-weight:700;color:var(--text1);margin-bottom:4px}
-.sp-header p{font-size:14px;color:var(--text3)}
+/* ── Page layout ── */
+.sp-wrap { max-width: 1200px; }
 
-/* Stats row */
-.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
-.stat-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 18px;text-align:center}
-.stat-card .val{font-size:30px;font-weight:700;color:var(--text1);line-height:1}
-.stat-card .lbl{font-size:12px;color:var(--text3);margin-top:6px}
-.stat-card.danger .val{color:#ef4444}
-.stat-card.warn .val{color:#f59e0b}
+/* ── Header ── */
+.sp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:12px; }
+.sp-head h1 { font-size:24px; font-weight:800; color:var(--text1); margin:0; }
+.sp-head p  { font-size:13px; color:var(--text3); margin:2px 0 0; }
 
-/* Section */
-.section{background:var(--card);border:1px solid var(--border);border-radius:20px;margin-bottom:20px;overflow:hidden}
-.section-hdr{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.section-hdr h2{font-size:16px;font-weight:700;color:var(--text1)}
-.section-hdr .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
-.badge-red{background:rgba(239,68,68,.15);color:#f87171}
-.badge-green{background:rgba(16,185,129,.15);color:#34d399}
-.section-body{padding:0}
+/* ── Stats bar ── */
+.sp-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:22px; }
+.sp-stat { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px 18px; display:flex; align-items:center; gap:14px; }
+.sp-stat-icon { font-size:24px; width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.sp-stat-icon.purple { background:rgba(124,58,237,.15); }
+.sp-stat-icon.blue   { background:rgba(96,165,250,.15); }
+.sp-stat-icon.green  { background:rgba(16,185,129,.15); }
+.sp-stat-icon.amber  { background:rgba(245,158,11,.15); }
+.sp-stat-val { font-size:26px; font-weight:800; color:var(--text1); line-height:1; }
+.sp-stat-lbl { font-size:11px; color:var(--text3); margin-top:3px; }
 
-/* User rows */
-.user-row{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);transition:background .15s}
-.user-row:last-child{border-bottom:none}
-.user-row:hover{background:var(--card2)}
-.u-avatar{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#06b6d4);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:15px;flex-shrink:0}
-.u-avatar.pending{background:linear-gradient(135deg,#f59e0b,#ef4444)}
-.u-name{font-size:14px;font-weight:600;color:var(--text1)}
-.u-meta{font-size:12px;color:var(--text3);margin-top:2px}
-.u-info{flex:1}
-.u-status{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
-.status-active{background:rgba(16,185,129,.15);color:#34d399}
-.status-pending{background:rgba(245,158,11,.15);color:#fbbf24}
-.status-super{background:rgba(124,58,237,.15);color:#a78bfa}
-.u-actions{display:flex;gap:8px}
+/* ── Pending alert ── */
+.pending-alert {
+    background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.25);
+    border-radius:16px; padding:0; margin-bottom:20px; overflow:hidden;
+}
+.pending-alert-hdr {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 20px; border-bottom:1px solid rgba(245,158,11,.2);
+    cursor:pointer; user-select:none;
+}
+.pending-alert-title { font-size:14px; font-weight:700; color:#fbbf24; display:flex; align-items:center; gap:8px; }
+.pending-badge { background:#f59e0b; color:#fff; border-radius:20px; font-size:11px; font-weight:800; padding:2px 9px; }
+.pending-note  { font-size:12px; color:#f59e0b; padding:10px 20px; background:rgba(245,158,11,.05); border-bottom:1px solid rgba(245,158,11,.15); }
+.pending-row { display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:1px solid rgba(245,158,11,.1); }
+.pending-row:last-child { border-bottom:none; }
+.pa-avatar { width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,#f59e0b,#ef4444); display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff; font-size:14px; flex-shrink:0; }
+.pa-name { font-size:14px; font-weight:600; color:var(--text1); }
+.pa-meta { font-size:11px; color:var(--text3); margin-top:1px; }
+.pa-info { flex:1; }
 
-/* Action buttons */
-.btn-approve{padding:7px 14px;border-radius:8px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#34d399;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s}
-.btn-approve:hover{background:rgba(16,185,129,.25)}
-.btn-reject{padding:7px 14px;border-radius:8px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#f87171;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s}
-.btn-reject:hover{background:rgba(239,68,68,.2)}
-.btn-deactivate{padding:7px 14px;border-radius:8px;background:var(--card2);border:1px solid var(--border);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;text-decoration:none;display:inline-flex;align-items:center}
-.btn-deactivate:hover{border-color:rgba(239,68,68,.4);color:#f87171}
+/* ── Tabs ── */
+.sp-tabs { display:flex; gap:4px; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:5px; margin-bottom:20px; }
+.sp-tab {
+    flex:1; padding:9px 14px; border-radius:10px; font-size:13px; font-weight:600;
+    color:var(--text3); background:none; border:none; cursor:pointer; font-family:inherit;
+    transition:all .2s; display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.sp-tab:hover { color:var(--text1); background:var(--card2); }
+.sp-tab.active { background:rgba(124,58,237,.18); color:#a78bfa; }
+.sp-tab-badge { background:#ef4444; color:#fff; border-radius:10px; font-size:10px; font-weight:800; padding:1px 6px; min-width:16px; text-align:center; }
+.sp-pane { display:none; }
+.sp-pane.active { display:block; }
 
-.empty-state{padding:32px;text-align:center;color:var(--text3);font-size:14px}
-.empty-icon{font-size:36px;margin-bottom:8px}
+/* ── Card wrapper ── */
+.sp-card { background:var(--card); border:1px solid var(--border); border-radius:18px; overflow:hidden; margin-bottom:16px; }
+.sp-card-hdr { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.sp-card-title { font-size:14px; font-weight:700; color:var(--text1); display:flex; align-items:center; gap:8px; }
+.sp-card-cnt { font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px; background:rgba(124,58,237,.15); color:#a78bfa; }
 
-/* Quick links */
-.links-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:18px 22px}
-.quick-link{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;border-radius:14px;background:var(--card2);border:1px solid var(--border);text-decoration:none;color:var(--text2);transition:all .2s;text-align:center}
-.quick-link:hover{border-color:rgba(124,58,237,.4);color:var(--text1);background:rgba(124,58,237,.08)}
-.quick-link .ql-icon{font-size:24px}
-.quick-link .ql-label{font-size:12px;font-weight:600}
+/* ── Directors table ── */
+.dir-table { width:100%; border-collapse:collapse; font-size:13px; }
+.dir-table th { padding:10px 14px; text-align:left; color:var(--text3); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; background:var(--card2); border-bottom:1px solid var(--border); white-space:nowrap; }
+.dir-table th.r { text-align:right; }
+.dir-table th.c { text-align:center; }
+.dir-table td { padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.dir-table tr:last-child td { border-bottom:none; }
+.dir-table tr:hover td { background:rgba(255,255,255,.025); }
+.dir-avatar { width:32px; height:32px; border-radius:9px; background:linear-gradient(135deg,var(--accent),var(--accent2)); display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff; font-size:12px; flex-shrink:0; }
+.dir-name-wrap { display:flex; align-items:center; gap:10px; }
+.dir-username { font-weight:700; color:var(--text1); font-size:13px; }
+.dir-email { font-size:11px; color:var(--text3); margin-top:1px; }
+.num-badge { background:rgba(16,185,129,.12); color:#34d399; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; }
+.rev-val { font-weight:700; color:var(--accent2); font-size:13px; }
+
+/* ── Users list ── */
+.u-row { display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:1px solid var(--border); transition:background .15s; }
+.u-row:last-child { border-bottom:none; }
+.u-row:hover { background:var(--card2); }
+.u-av { width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,#7c3aed,#06b6d4); display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff; font-size:14px; flex-shrink:0; }
+.u-name { font-size:13px; font-weight:600; color:var(--text1); }
+.u-meta { font-size:11px; color:var(--text3); margin-top:1px; }
+.u-info { flex:1; min-width:0; }
+.u-role { padding:2px 9px; border-radius:20px; font-size:11px; font-weight:700; flex-shrink:0; }
+.role-creator  { background:rgba(124,58,237,.15); color:#a78bfa; }
+.role-director { background:rgba(96,165,250,.15); color:#60a5fa; }
+.role-active   { background:rgba(16,185,129,.15); color:#34d399; }
+.role-inactive { background:rgba(245,158,11,.12); color:#fbbf24; }
+.u-btn { padding:5px 12px; border-radius:7px; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; text-decoration:none; border:1px solid var(--border); background:var(--card2); color:var(--text2); transition:all .2s; display:inline-flex; align-items:center; }
+.u-btn:hover { border-color:rgba(239,68,68,.4); color:#f87171; }
+
+/* ── Quick links ── */
+.ql-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; padding:18px; }
+.ql-item { display:flex; flex-direction:column; align-items:center; gap:7px; padding:16px 10px; border-radius:12px; background:var(--card2); border:1px solid var(--border); text-decoration:none; color:var(--text2); transition:all .2s; text-align:center; }
+.ql-item:hover { border-color:rgba(124,58,237,.4); color:var(--text1); background:rgba(124,58,237,.07); }
+.ql-icon { font-size:22px; }
+.ql-label { font-size:11px; font-weight:600; line-height:1.3; }
+
+/* ── Action btns ── */
+.btn-approve { padding:6px 12px; border-radius:7px; background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.25); color:#34d399; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; transition:all .2s; }
+.btn-approve:hover { background:rgba(16,185,129,.22); }
+.btn-reject  { padding:6px 12px; border-radius:7px; background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.2); color:#f87171; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; transition:all .2s; }
+.btn-reject:hover { background:rgba(239,68,68,.18); }
+
+/* ── Empty ── */
+.sp-empty { padding:28px; text-align:center; color:var(--text3); font-size:13px; }
+.sp-empty-icon { font-size:32px; margin-bottom:8px; }
+
+/* ── Messages badge ── */
+.msg-box { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px 18px; display:flex; align-items:center; gap:12px; }
+.msg-box-icon { font-size:22px; }
+.msg-count { background:rgba(239,68,68,.15); color:#f87171; border-radius:8px; padding:2px 10px; font-size:12px; font-weight:800; }
 {% endblock %}
 
 {% block content %}
-<div class="sp-header">
-    <h1>🛡️ Панель создателя</h1>
-    <p>Управление пользователями и системой. Только для суперадминистратора.</p>
+<div class="sp-wrap">
+
+<!-- Header -->
+<div class="sp-head">
+    <div>
+        <h1>🛡️ Управление системой</h1>
+        <p>Только для создателя системы</p>
+    </div>
+    {% if unread_messages_count %}
+    <a href="{% url 'main:ticket_list' %}" class="msg-box" style="text-decoration:none">
+        <span class="msg-box-icon">📬</span>
+        <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text1)">Непрочитанные обращения</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:1px">от директоров</div>
+        </div>
+        <span class="msg-count">{{ unread_messages_count }}</span>
+    </a>
+    {% endif %}
 </div>
 
 {% if messages %}
 {% for msg in messages %}
-<div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:#34d399;border-radius:12px;padding:12px 16px;font-size:14px;margin-bottom:16px;">{{ msg }}</div>
+<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);color:#34d399;border-radius:11px;padding:11px 16px;font-size:13px;margin-bottom:14px;">{{ msg }}</div>
 {% endfor %}
 {% endif %}
 
 <!-- Stats -->
-<div class="stat-grid">
-    <div class="stat-card {% if stats.pending_users > 0 %}warn{% endif %}">
-        <div class="val">{{ stats.pending_users }}</div>
-        <div class="lbl">⏳ Ожидают одобрения</div>
+<div class="sp-stats">
+    <div class="sp-stat">
+        <div class="sp-stat-icon amber">⏳</div>
+        <div>
+            <div class="sp-stat-val" style="{% if stats.pending_users > 0 %}color:#f59e0b{% endif %}">{{ stats.pending_users }}</div>
+            <div class="sp-stat-lbl">Ожидают одобрения</div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="val">{{ stats.total_users }}</div>
-        <div class="lbl">👥 Всего пользователей</div>
+    <div class="sp-stat">
+        <div class="sp-stat-icon purple">👥</div>
+        <div>
+            <div class="sp-stat-val">{{ stats.total_users }}</div>
+            <div class="sp-stat-lbl">Пользователей</div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="val">{{ stats.total_clients }}</div>
-        <div class="lbl">🧑 Клиентов</div>
+    <div class="sp-stat">
+        <div class="sp-stat-icon blue">🧑</div>
+        <div>
+            <div class="sp-stat-val">{{ stats.total_clients }}</div>
+            <div class="sp-stat-lbl">Клиентов</div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="val">{{ stats.open_orders }}</div>
-        <div class="lbl">📦 Активных заказов</div>
+    <div class="sp-stat">
+        <div class="sp-stat-icon green">📦</div>
+        <div>
+            <div class="sp-stat-val">{{ stats.open_orders }}</div>
+            <div class="sp-stat-lbl">Активных заказов</div>
+        </div>
     </div>
 </div>
 
-<!-- Pending users -->
-<div class="section">
-    <div class="section-hdr">
-        <h2>⏳ Новые заявки на регистрацию компании</h2>
-        {% if stats.pending_users > 0 %}
-        <span class="badge badge-red">{{ stats.pending_users }}</span>
-        {% else %}
-        <span class="badge badge-green">Нет</span>
-        {% endif %}
+<!-- Pending users alert (always visible if any) -->
+{% if pending_users %}
+<div class="pending-alert">
+    <div class="pending-alert-hdr" onclick="togglePending()">
+        <div class="pending-alert-title">
+            ⚠️ Новые заявки на регистрацию
+            <span class="pending-badge">{{ stats.pending_users }}</span>
+        </div>
+        <svg id="pa-arrow" width="16" height="16" fill="none" stroke="#fbbf24" stroke-width="2.5" viewBox="0 0 24 24" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
-    {% if stats.pending_users > 0 %}
-    <div style="padding:10px 22px 0;font-size:12px;color:#f59e0b;background:rgba(245,158,11,.06);border-bottom:1px solid var(--border);">
-        ⚠️ <b>Внимание:</b> «Одобрить» — пользователь станет <b>Директором новой компании</b>.
-        Если это ваш сотрудник — нажмите «Отклонить» и добавьте его через раздел «Пользователи → Создать сотрудника».
-    </div>
-    {% endif %}
-    <div class="section-body">
-        {% if pending_users %}
+    <div id="pa-body">
+        <div class="pending-note">
+            ⚠️ <b>«Одобрить»</b> — пользователь станет Директором новой компании.
+            Если это ваш сотрудник — нажмите «Отклонить» и добавьте через Пользователи → Создать сотрудника.
+        </div>
         {% for u in pending_users %}
-        <div class="user-row">
-            <div class="u-avatar pending">{{ u.username|slice:":1"|upper }}</div>
-            <div class="u-info">
-                <div class="u-name">{{ u.username }}</div>
-                <div class="u-meta">{{ u.email|default:"Email не указан" }} · Зарегистрирован {{ u.date_joined|date:"d.m.Y H:i" }}</div>
+        <div class="pending-row">
+            <div class="pa-avatar">{{ u.username|slice:":1"|upper }}</div>
+            <div class="pa-info">
+                <div class="pa-name">{{ u.username }}</div>
+                <div class="pa-meta">{{ u.email|default:"Email не указан" }} · {{ u.date_joined|date:"d.m.Y H:i" }}</div>
             </div>
-            <span class="u-status" style="background:rgba(124,58,237,.15);color:#a78bfa;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">🏢 → Директор</span>
-            <div class="u-actions">
-                <form method="POST" style="display:inline" onsubmit="return confirm('Одобрить {{ u.username }} как ДИРЕКТОРА новой компании?')">
+            <span style="background:rgba(124,58,237,.12);color:#a78bfa;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0">🏢 Директор</span>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+                <form method="POST" style="margin:0" onsubmit="return confirm('Одобрить {{ u.username }} как директора?')">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="approve">
                     <input type="hidden" name="user_id" value="{{ u.id }}">
-                    <button type="submit" class="btn-approve">✅ Одобрить (Директор)</button>
+                    <button type="submit" class="btn-approve">✅ Одобрить</button>
                 </form>
-                <form method="POST" style="display:inline" onsubmit="return confirm('Отклонить и удалить пользователя {{ u.username }}?')">
+                <form method="POST" style="margin:0" onsubmit="return confirm('Отклонить и удалить {{ u.username }}?')">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="reject">
                     <input type="hidden" name="user_id" value="{{ u.id }}">
@@ -132,158 +213,190 @@
             </div>
         </div>
         {% endfor %}
-        {% else %}
-        <div class="empty-state">
-            <div class="empty-icon">✅</div>
-            Нет пользователей, ожидающих одобрения
+    </div>
+</div>
+{% endif %}
+
+<!-- Tabs -->
+<div class="sp-tabs">
+    <button class="sp-tab active" onclick="switchTab('directors', this)">
+        🏢 Директора
+        <span class="sp-tab-badge" style="background:rgba(96,165,250,.2);color:#60a5fa">{{ director_data|length }}</span>
+    </button>
+    <button class="sp-tab" onclick="switchTab('users', this)">
+        👥 Пользователи
+        <span class="sp-tab-badge" style="background:rgba(124,58,237,.2);color:#a78bfa">{{ all_users|length }}</span>
+    </button>
+    <button class="sp-tab" onclick="switchTab('tools', this)">
+        🔗 Инструменты
+    </button>
+</div>
+
+<!-- Pane: Directors -->
+<div class="sp-pane active" id="pane-directors">
+    <div class="sp-card">
+        <div class="sp-card-hdr">
+            <span class="sp-card-title">🏢 Компании и директора</span>
+            <a href="{% url 'main:creator_directors' %}?export=csv" style="font-size:12px;color:var(--accent2);text-decoration:none;padding:5px 12px;border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:5px">📥 CSV</a>
         </div>
+        {% if director_data %}
+        <div style="overflow-x:auto">
+        <table class="dir-table">
+            <thead>
+                <tr>
+                    <th>Директор</th>
+                    <th class="c">Клиентов</th>
+                    <th class="c">Товаров</th>
+                    <th class="c">Заказов</th>
+                    <th class="c">Сотрудников</th>
+                    <th class="r">Доход</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for d in director_data %}
+            <tr>
+                <td>
+                    <div class="dir-name-wrap">
+                        <div class="dir-avatar">{{ d.user.username|slice:":1"|upper }}</div>
+                        <div>
+                            <div class="dir-username">{{ d.user.username }}</div>
+                            <div class="dir-email">{{ d.user.email|default:"—" }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td style="text-align:center;font-weight:700;color:var(--text1)">{{ d.clients }}</td>
+                <td style="text-align:center;color:var(--text2)">{{ d.products }}</td>
+                <td style="text-align:center">
+                    {% if d.open_orders > 0 %}
+                    <span class="num-badge">{{ d.open_orders }}</span>
+                    {% else %}<span style="color:var(--text3)">0</span>{% endif %}
+                </td>
+                <td style="text-align:center;color:var(--text2)">{{ d.employees }}</td>
+                <td style="text-align:right"><span class="rev-val">{{ d.revenue|floatformat:0 }} сом</span></td>
+                <td style="text-align:right">
+                    <a href="{% url 'main:creator_director_detail' d.user.id %}" style="font-size:12px;color:var(--accent2);text-decoration:none;padding:5px 11px;border:1px solid var(--border);border-radius:7px;white-space:nowrap">Подробнее →</a>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <div class="sp-empty"><div class="sp-empty-icon">🏢</div>Нет зарегистрированных директоров</div>
         {% endif %}
     </div>
 </div>
 
-<!-- All users -->
-<div class="section">
-    <div class="section-hdr">
-        <h2>👥 Все пользователи</h2>
-        <span class="badge badge-green">{{ stats.total_users }}</span>
-    </div>
-    <div class="section-body">
+<!-- Pane: Users -->
+<div class="sp-pane" id="pane-users">
+    <div class="sp-card">
+        <div class="sp-card-hdr">
+            <span class="sp-card-title">👥 Все пользователи</span>
+            <span class="sp-card-cnt">{{ all_users|length }}</span>
+        </div>
         {% for u in all_users %}
-        <div class="user-row">
-            <div class="u-avatar">{{ u.username|slice:":1"|upper }}</div>
+        <div class="u-row">
+            <div class="u-av">{{ u.username|slice:":1"|upper }}</div>
             <div class="u-info">
                 <div class="u-name">
                     {{ u.username }}
-                    {% if u.is_superuser and u.is_staff %}<span style="font-size:11px;color:#a78bfa;margin-left:6px;">👑 Создатель</span>{% elif u.is_superuser %}<span style="font-size:11px;color:#60a5fa;margin-left:6px;">🏢 Директор</span>{% endif %}
+                    {% if u.is_superuser and u.is_staff %}<span style="font-size:10px;color:#a78bfa;margin-left:5px">👑 Создатель</span>
+                    {% elif u.is_superuser %}<span style="font-size:10px;color:#60a5fa;margin-left:5px">🏢 Директор</span>{% endif %}
                 </div>
-                <div class="u-meta">
-                    {{ u.email|default:"—" }} ·
-                    {% for g in u.groups.all %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% empty %}Роль не назначена{% endfor %}
-                    · {{ u.date_joined|date:"d.m.Y" }}
-                </div>
+                <div class="u-meta">{{ u.email|default:"—" }} · {{ u.date_joined|date:"d.m.Y" }}</div>
             </div>
             {% if u.is_superuser and u.is_staff %}
-            <span class="u-status status-super">👑 Создатель</span>
+            <span class="u-role role-creator">👑 Создатель</span>
             {% elif u.is_superuser %}
-            <span class="u-status" style="background:rgba(96,165,250,.15);color:#60a5fa">🏢 Директор</span>
+            <span class="u-role role-director">🏢 Директор</span>
             {% elif u.is_active %}
-            <span class="u-status status-active">✓ Активен</span>
+            <span class="u-role role-active">✓ Активен</span>
             {% else %}
-            <span class="u-status status-pending">⏳ Неактивен</span>
+            <span class="u-role role-inactive">⏳ Неактивен</span>
             {% endif %}
             {% if not u.is_superuser %}
-            <div class="u-actions">
-                <a href="{% url 'main:toggle_user_active' u.id %}" class="btn-deactivate"
-                   onclick="return confirm('{% if u.is_active %}Деактивировать{% else %}Активировать{% endif %} {{ u.username }}?')">
-                    {% if u.is_active %}Деактивировать{% else %}Активировать{% endif %}
-                </a>
-            </div>
+            <a href="{% url 'main:toggle_user_active' u.id %}" class="u-btn"
+               onclick="return confirm('{% if u.is_active %}Деактивировать{% else %}Активировать{% endif %} {{ u.username }}?')">
+                {% if u.is_active %}Деактивировать{% else %}Активировать{% endif %}
+            </a>
             {% endif %}
         </div>
+        {% empty %}
+        <div class="sp-empty"><div class="sp-empty-icon">👥</div>Нет пользователей</div>
         {% endfor %}
     </div>
 </div>
 
-<!-- Directors (companies) -->
-<div class="section" style="margin-bottom:20px">
-    <div class="section-hdr" style="display:flex;align-items:center;justify-content:space-between">
-        <h2>🏢 Компании (директора)</h2>
-        <a href="{% url 'main:creator_directors' %}?export=csv" style="font-size:12px;color:var(--accent2);text-decoration:none;padding:4px 10px;border:1px solid var(--border);border-radius:8px">📥 CSV</a>
-    </div>
-    {% if director_data %}
-    <div style="overflow-x:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <thead>
-            <tr style="background:var(--card2)">
-                <th style="padding:10px 16px;text-align:left;color:var(--text3);font-size:11px;font-weight:700;border-bottom:1px solid var(--border)">Директор</th>
-                <th style="padding:10px 16px;text-align:center;color:var(--text3);font-size:11px;font-weight:700;border-bottom:1px solid var(--border)">Клиентов</th>
-                <th style="padding:10px 16px;text-align:center;color:var(--text3);font-size:11px;font-weight:700;border-bottom:1px solid var(--border)">Товаров</th>
-                <th style="padding:10px 16px;text-align:center;color:var(--text3);font-size:11px;font-weight:700;border-bottom:1px solid var(--border)">Откр. заказов</th>
-                <th style="padding:10px 16px;text-align:center;color:var(--text3);font-size:11px;font-weight:700;border-bottom:1px solid var(--border)">Сотрудников</th>
-                <th style="padding:10px 16px;text-align:right;color:var(--text3);font-size:11px;font-weight:700;border-bottom:1px solid var(--border)">Доход</th>
-                <th style="padding:10px 16px;text-align:center;color:var(--text3);font-size:11px;font-weight:700;border-bottom:1px solid var(--border)">Склады</th>
-                <th style="padding:10px 16px;border-bottom:1px solid var(--border)"></th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for d in director_data %}
-        <tr style="border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--card2)'" onmouseout="this.style.background=''">
-            <td style="padding:12px 16px">
-                <div style="display:flex;align-items:center;gap:10px">
-                    <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px;flex-shrink:0">{{ d.user.username|slice:":1"|upper }}</div>
-                    <div>
-                        <div style="font-weight:700;color:var(--text1)">{{ d.user.username }}</div>
-                        <div style="font-size:11px;color:var(--text3)">{{ d.user.email|default:"—" }}</div>
-                    </div>
-                </div>
-            </td>
-            <td style="padding:12px 16px;text-align:center;font-weight:700;color:var(--text1)">{{ d.clients }}</td>
-            <td style="padding:12px 16px;text-align:center;color:var(--text2)">{{ d.products }}</td>
-            <td style="padding:12px 16px;text-align:center">
-                {% if d.open_orders > 0 %}<span style="background:rgba(16,185,129,.12);color:#34d399;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700">{{ d.open_orders }}</span>{% else %}<span style="color:var(--text3)">0</span>{% endif %}
-            </td>
-            <td style="padding:12px 16px;text-align:center;color:var(--text2)">{{ d.employees }}</td>
-            <td style="padding:12px 16px;text-align:right;font-weight:700;color:var(--accent2)">{{ d.revenue|floatformat:0 }} сом</td>
-            <td style="padding:12px 16px;text-align:center;color:var(--text3)">{{ d.max_warehouses }}</td>
-            <td style="padding:12px 16px;text-align:right">
-                <a href="{% url 'main:creator_director_detail' d.user.id %}" style="font-size:12px;color:var(--accent2);text-decoration:none;padding:4px 10px;border:1px solid var(--border);border-radius:7px">Подробнее →</a>
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-    </div>
-    {% else %}
-    <div class="empty-state"><div class="empty-icon">🏢</div>Нет зарегистрированных директоров</div>
-    {% endif %}
-</div>
-
-<!-- Quick links -->
-<div class="section">
-    <div class="section-hdr"><h2>🔗 Быстрые ссылки</h2></div>
-    <div class="links-grid">
-        <a href="{% url 'main:users_management' %}" class="quick-link">
-            <span class="ql-icon">👥</span>
-            <span class="ql-label">Управление пользователями</span>
-        </a>
-        <a href="{% url 'main:creator_directors' %}" class="quick-link">
-            <span class="ql-icon">🏢</span>
-            <span class="ql-label">Директора</span>
-        </a>
-        <a href="{% url 'main:permissions_matrix' %}" class="quick-link">
-            <span class="ql-icon">🔐</span>
-            <span class="ql-label">Матрица прав</span>
-        </a>
-        <a href="{% url 'main:dashboard' %}" class="quick-link">
-            <span class="ql-icon">🏠</span>
-            <span class="ql-label">Главная</span>
-        </a>
-        <a href="/admin/" class="quick-link" target="_blank">
-            <span class="ql-icon">⚙️</span>
-            <span class="ql-label">Django Admin</span>
-        </a>
-        <a href="{% url 'main:create_backup' %}" class="quick-link">
-            <span class="ql-icon">💾</span>
-            <span class="ql-label">Создать бэкап</span>
-        </a>
-        <a href="{% url 'main:reports_main' %}" class="quick-link">
-            <span class="ql-icon">📊</span>
-            <span class="ql-label">Отчёты</span>
-        </a>
-    </div>
-</div>
-
-<!-- Обращения от директоров -->
-{% if unread_messages_count %}
-<div style="margin-top:8px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 22px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-size:16px;font-weight:700;color:var(--text1)">
-            📬 Непрочитанные обращения
-            <span style="background:rgba(239,68,68,.15);color:#f87171;border-radius:8px;padding:2px 10px;font-size:13px;margin-left:8px">{{ unread_messages_count }}</span>
+<!-- Pane: Tools -->
+<div class="sp-pane" id="pane-tools">
+    <div class="sp-card">
+        <div class="sp-card-hdr">
+            <span class="sp-card-title">🔗 Быстрые ссылки</span>
         </div>
-        <a href="{% url 'main:ticket_list' %}" style="font-size:13px;color:var(--accent2);text-decoration:none">Все обращения →</a>
+        <div class="ql-grid">
+            <a href="{% url 'main:creator_directors' %}" class="ql-item">
+                <span class="ql-icon">🏢</span>
+                <span class="ql-label">Директора (экспорт)</span>
+            </a>
+            <a href="{% url 'main:permissions_matrix' %}" class="ql-item">
+                <span class="ql-icon">🔐</span>
+                <span class="ql-label">Матрица прав</span>
+            </a>
+            <a href="{% url 'main:broadcast_notifications' %}" class="ql-item">
+                <span class="ql-icon">📢</span>
+                <span class="ql-label">Рассылка</span>
+            </a>
+            <a href="{% url 'main:audit_log' %}" class="ql-item">
+                <span class="ql-icon">📋</span>
+                <span class="ql-label">Аудит-лог</span>
+            </a>
+            <a href="{% url 'main:ticket_list' %}" class="ql-item">
+                <span class="ql-icon">📬</span>
+                <span class="ql-label">Обращения</span>
+            </a>
+            <a href="{% url 'main:create_backup' %}" class="ql-item">
+                <span class="ql-icon">💾</span>
+                <span class="ql-label">Создать бэкап</span>
+            </a>
+            <a href="/admin/" class="ql-item" target="_blank">
+                <span class="ql-icon">⚙️</span>
+                <span class="ql-label">Django Admin</span>
+            </a>
+            <a href="{% url 'main:reports_main' %}" class="ql-item">
+                <span class="ql-icon">📊</span>
+                <span class="ql-label">Отчёты</span>
+            </a>
+        </div>
     </div>
-    <a href="{% url 'main:ticket_list' %}" style="display:inline-block;padding:9px 18px;background:var(--accent);color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">Открыть список обращений</a>
 </div>
-{% endif %}
+
+</div><!-- /sp-wrap -->
+
+<script>
+function switchTab(name, btn) {
+    document.querySelectorAll('.sp-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.sp-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('pane-' + name).classList.add('active');
+    localStorage.setItem('sp_tab', name);
+}
+
+// Restore last tab
+(function() {
+    const saved = localStorage.getItem('sp_tab');
+    if (saved) {
+        const btn = document.querySelector(`.sp-tab[onclick*="'${saved}'"]`);
+        if (btn) switchTab(saved, btn);
+    }
+})();
+
+// Pending toggle
+var _paOpen = true;
+function togglePending() {
+    _paOpen = !_paOpen;
+    document.getElementById('pa-body').style.display = _paOpen ? '' : 'none';
+    document.getElementById('pa-arrow').style.transform = _paOpen ? '' : 'rotate(-90deg)';
+}
+</script>
 {% endblock %}

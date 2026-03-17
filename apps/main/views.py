@@ -2840,11 +2840,19 @@ def superuser_panel(request):
             'employees': _employees,
         })
 
+    # All users for the users tab (same logic as users_management for creator)
+    director_ids = UserProfile.objects.filter(role='director').values_list('user_id', flat=True)
+    all_users_list = User.objects.filter(
+        Q(id__in=director_ids) | Q(is_staff=True)
+    ).prefetch_related('groups', 'profile').order_by('-date_joined')
+    groups = Group.objects.all()
+
     return render(request, 'main/superuser_panel.html', {
         'pending_users': pending_users,
         'stats': stats,
-        'all_users': User.objects.order_by('-date_joined')[:20],
+        'all_users': all_users_list,
         'director_data': director_data,
+        'groups': groups,
     })
 
 

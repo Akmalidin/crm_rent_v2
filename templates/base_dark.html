@@ -176,10 +176,21 @@
                      style="overflow:hidden;transition:max-height .25s ease;max-height:0">
                     <div style="padding:4px 0 4px 14px;border-left:2px solid var(--border);margin:4px 12px 4px 18px">
 
+                        {% if user.is_staff %}
+                        <!-- Creator: unified panel has users + everything -->
+                        <a href="{% url 'main:superuser_panel' %}"
+                           class="sb-link sb-sub {% if 'users' in request.path or 'superadmin' in request.path %}active{% endif %}">
+                            <span class="sb-icon">🛡️</span>
+                            <span style="flex:1">Управление</span>
+                            {% if pending_users_count %}<span style="background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:2px 6px">{{ pending_users_count }}</span>{% endif %}
+                        </a>
+                        {% else %}
+                        <!-- Director: sees only their employees -->
                         <a href="{% url 'main:users_management' %}"
                            class="sb-link sb-sub {% if 'users' in request.path and 'superadmin' not in request.path and 'activity' not in request.path and 'password' not in request.path %}active{% endif %}">
                             <span class="sb-icon">👥</span><span>Пользователи</span>
                         </a>
+                        {% endif %}
                         <a href="{% url 'main:permissions_matrix' %}"
                            class="sb-link sb-sub {% if 'permissions' in request.path %}active{% endif %}">
                             <span class="sb-icon">🔑</span><span>Права доступа</span>
@@ -197,12 +208,6 @@
                             <span class="sb-icon">📬</span>
                             <span style="flex:1">Обращения</span>
                             {% if unread_messages_count %}<span style="background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:2px 6px">{{ unread_messages_count }}</span>{% endif %}
-                        </a>
-                        <a href="{% url 'main:superuser_panel' %}"
-                           class="sb-link sb-sub {% if 'superadmin' in request.path %}active{% endif %}">
-                            <span class="sb-icon">🛡️</span>
-                            <span style="flex:1">Панель создателя</span>
-                            {% if pending_users_count %}<span style="background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:2px 6px">{{ pending_users_count }}</span>{% endif %}
                         </a>
                         {% endif %}
                         {% if user.is_superuser %}
