@@ -45,27 +45,28 @@ def register_view(request):
         password = request.POST.get('password')
         password_confirm = request.POST.get('password_confirm')
         email = request.POST.get('email')
-        
+        phone = request.POST.get('phone', '').strip()
+
         # Валидация
         if not username or not password:
             messages.error(request, 'Заполните все поля')
             return render(request, 'registration/register.html')
-        
+
         if password != password_confirm:
             messages.error(request, 'Пароли не совпадают')
             return render(request, 'registration/register.html')
-        
+
         if User.objects.filter(username=username).exists():
             messages.error(request, 'Пользователь с таким именем уже существует')
             return render(request, 'registration/register.html')
-        
+
         # Создаём пользователя
         user = User.objects.create_user(
             username=username,
             email=email,
             password=password
         )
-        
+
         # Первый пользователь = создатель системы
         is_first_user = not User.objects.filter(is_staff=True, is_superuser=True).exclude(id=user.id).exists()
 
@@ -77,16 +78,20 @@ def register_view(request):
             admin_group, _ = Group.objects.get_or_create(name='Администратор')
             user.groups.add(admin_group)
             user.save()
-            # UserProfile: owner=None → сам является владельцем своей компании
-            UserProfile.objects.get_or_create(user=user, defaults={'owner': None})
+            profile, _ = UserProfile.objects.get_or_create(user=user, defaults={'owner': None})
+            if phone:
+                profile.phone = phone
+                profile.save()
         else:
             # Новая компания — ждёт одобрения создателем системы
             user.is_active = False
             user.is_staff = False
             user.is_superuser = False
             user.save()
-            # Профиль: owner=None → станет владельцем своей компании после одобрения
-            UserProfile.objects.get_or_create(user=user, defaults={'owner': None})
+            profile, _ = UserProfile.objects.get_or_create(user=user, defaults={'owner': None})
+            if phone:
+                profile.phone = phone
+                profile.save()
 
         # Уведомление администратора в Telegram о новой регистрации
         try:
@@ -106,7 +111,8 @@ def register_view(request):
                 bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', None)
                 chat_id = getattr(settings, 'TELEGRAM_ADMIN_CHAT_ID', None)
                 if bot_token and chat_id:
-                    text = f"🏢 <b>Новая заявка на регистрацию компании</b>\n\n👤 Директор: <code>{user.username}</code>\n📧 Email: {user.email or '—'}\n\n⚠️ После одобрения — станет Директором новой компании."
+                    phone_line = f"\n📞 Телефон: {phone}" if phone else ""
+                    text = f"🏢 <b>Новая заявка на регистрацию компании</b>\n\n👤 Директор: <code>{user.username}</code>\n📧 Email: {user.email or '—'}{phone_line}\n\n⚠️ После одобрения — станет Директором новой компании."
                     keyboard = {
                         "inline_keyboard": [[
                             {"text": "✅ Одобрить", "callback_data": f"approve_{user.id}"},

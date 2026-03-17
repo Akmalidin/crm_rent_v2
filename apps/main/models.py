@@ -42,6 +42,10 @@ class UserProfile(models.Model):
         'Telegram Chat ID', max_length=50, blank=True, default='',
         help_text='ID из Telegram бота (команда /myid)',
     )
+    phone = models.CharField(
+        'Телефон', max_length=30, blank=True, default='',
+        help_text='Номер телефона для связи',
+    )
 
     class Meta:
         verbose_name = 'Профиль пользователя'
