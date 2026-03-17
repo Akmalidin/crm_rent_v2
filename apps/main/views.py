@@ -1651,13 +1651,26 @@ def reset_client_balance(request, client_id):
     client = get_object_or_404(Client, id=client_id)
     balance = round(client.get_wallet_balance(), 2)
 
-    if balance >= 0:
-        messages.info(request, 'Баланс клиента уже нулевой или положительный — списание не требуется.')
+    if abs(balance) < 0.005:
+        messages.info(request, 'Баланс клиента уже нулевой.')
         return redirect('main:client_detail', client_id=client_id)
 
+    if balance > 0:
+        # Аванс — записываем отрицательный платёж для обнуления
+        Payment.objects.create(
+            client=client,
+            amount=-balance,
+            payment_method='writeoff',
+            notes=f'Списание аванса (обнуление баланса): -{balance:.0f} сом',
+        )
+        log_activity(request.user, 'reset_balance',
+                     f'Обнулил аванс клиента {client.get_full_name()} (списано {balance:.0f} сом)')
+        messages.success(request, f'Аванс {balance:.0f} сом списан. Баланс обнулён.')
+        return redirect('main:client_detail', client_id=client_id)
+
+    # Долг — записываем положительный платёж-списание с распределением по заказам
     debt = abs(balance)
 
-    # Собираем все заказы с остатком долга и распределяем списание
     def _dist_amt(notes_text, oid):
         if notes_text and 'Распределение:' in notes_text:
             for ln in notes_text.split('\n'):
@@ -2800,10 +2813,38 @@ def superuser_panel(request):
         'open_orders':   RentalOrder.objects.filter(status='open').count(),  # system-wide
     }
 
+    # Director list (merged from creator_directors)
+    from apps.inventory.models import Product, Warehouse
+    from apps.rental.models import Payment as _Pmt
+    from django.db.models import Sum as _Sum
+    directors = User.objects.filter(is_superuser=True, is_staff=False, is_active=True)
+    director_data = []
+    for d in directors:
+        from apps.clients.models import Client as _Cli
+        _clients = _Cli.objects.filter(owner=d).count()
+        _products = Product.objects.filter(owner=d).count()
+        _orders = RentalOrder.objects.filter(client__owner=d, status='open').count()
+        _revenue = _Pmt.objects.filter(client__owner=d).aggregate(t=_Sum('amount'))['t'] or 0
+        _employees = UserProfile.objects.filter(owner=d).count()
+        try:
+            _max_wh = d.profile.max_warehouses
+        except Exception:
+            _max_wh = 1
+        director_data.append({
+            'user': d,
+            'clients': _clients,
+            'products': _products,
+            'open_orders': _orders,
+            'revenue': int(_revenue),
+            'max_warehouses': _max_wh,
+            'employees': _employees,
+        })
+
     return render(request, 'main/superuser_panel.html', {
         'pending_users': pending_users,
         'stats': stats,
         'all_users': User.objects.order_by('-date_joined')[:20],
+        'director_data': director_data,
     })
 
 

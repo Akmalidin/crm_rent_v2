@@ -17,8 +17,25 @@ def _get_owner(request):
 
 
 @login_required
+@login_required
 def reports_main(request):
-    return render(request, 'reports/main.html')
+    from apps.clients.models import Client
+    from apps.rental.models import RentalOrder, Payment
+    from django.db.models import Sum
+    owner = _get_owner(request)
+    total_clients = Client.objects.filter(owner=owner).count()
+    open_orders = RentalOrder.objects.filter(client__owner=owner, status='open').count()
+    total_income = Payment.objects.filter(client__owner=owner).aggregate(t=Sum('amount'))['t'] or 0
+    total_debt = sum(
+        float(o.get_current_total())
+        for o in RentalOrder.objects.filter(client__owner=owner, status='open')
+    )
+    return render(request, 'reports/main.html', {
+        'total_clients': total_clients,
+        'open_orders': open_orders,
+        'total_income': int(total_income),
+        'total_debt': int(total_debt),
+    })
 
 
 @login_required

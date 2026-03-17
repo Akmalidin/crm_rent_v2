@@ -260,24 +260,8 @@
         </form>
         </div>
         
-        <!-- Right column: быстрые действия -->
+        <!-- Right column -->
         <div class="space-y-6">
-            <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                <p class="font-extrabold text-gray-900">⚡ Быстрые действия</p>
-                <p class="text-sm text-gray-600 mt-1">Быстро перейти к форме и подставить сумму долга.</p>
-                <div class="mt-4 flex flex-col gap-2">
-                    <button type="button"
-                            onclick="window.scrollTo({ top: 0, behavior: 'smooth' });"
-                            class="px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold text-gray-700">
-                        Поднять к форме
-                    </button>
-                    <button type="button"
-                            id="fill-debt-btn-sidebar"
-                            class="px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold">
-                        Подставить сумму долга
-                    </button>
-                </div>
-            </div>
 
             <!-- Клиенты с долгами -->
             {% if clients_with_debt %}

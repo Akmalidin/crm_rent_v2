@@ -140,6 +140,13 @@
                     🗑 Обнулить баланс
                 </button>
             </form>
+            {% elif request.user.is_superuser and credit > 0 %}
+            <form method="post" action="{% url 'main:reset_client_balance' client.id %}" style="margin-top:8px" onsubmit="return confirm('Списать аванс {{ credit|floatformat:0 }} сом и обнулить баланс клиента?')">
+                {% csrf_token %}
+                <button type="submit" style="background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+                    🗑 Обнулить аванс
+                </button>
+            </form>
             {% endif %}
         </div>
         <div class="cd-balance-stats">

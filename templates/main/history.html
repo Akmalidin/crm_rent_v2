@@ -115,21 +115,60 @@
     <div class="h-select-wrap">
         <label>Выберите клиента</label>
         <div class="h-select-row">
-            <form method="get" style="flex:1;display:flex;gap:8px">
-                <select name="client_id" onchange="this.form.submit()" style="flex:1">
-                    <option value="">— Все клиенты —</option>
+            <div style="flex:1;position:relative">
+                <input type="text" id="hClientSearch"
+                    placeholder="🔍 Поиск по имени или телефону..."
+                    autocomplete="off"
+                    value="{% if selected_client %}{{ selected_client.get_full_name }}{% endif %}"
+                    style="width:100%;padding:10px 14px;background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--text1);font-size:14px;outline:none;box-sizing:border-box">
+                <div id="hClientDrop" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:12px;z-index:200;max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.35)">
                     {% for client in clients %}
-                    <option value="{{ client.id }}" {% if selected_client_id == client.id|stringformat:"s" %}selected{% endif %}>
-                        {{ client.get_full_name }}
-                    </option>
+                    <a href="{% url 'main:history' %}?client_id={{ client.id }}"
+                       class="h-client-opt"
+                       data-name="{{ client.get_full_name|lower }}"
+                       style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;text-decoration:none;border-bottom:1px solid var(--border)">
+                        <span style="font-weight:600;color:var(--text1)">{{ client.get_full_name }}</span>
+                        {% for phone in client.phones.all|slice:":1" %}
+                        <span style="font-size:12px;color:var(--text3)">{{ phone.phone_number }}</span>
+                        {% endfor %}
+                    </a>
                     {% endfor %}
-                </select>
-            </form>
+                </div>
+            </div>
             {% if selected_client %}
             <a href="{% url 'main:history' %}" class="h-reset">✕</a>
             {% endif %}
         </div>
     </div>
+    <script>
+    (function(){
+        var inp = document.getElementById('hClientSearch');
+        var drop = document.getElementById('hClientDrop');
+        var opts = Array.from(drop.querySelectorAll('.h-client-opt'));
+        function showDrop(){ drop.style.display='block'; }
+        function hideDrop(){ setTimeout(function(){ drop.style.display='none'; }, 150); }
+        inp.addEventListener('focus', function(){
+            filterOpts(inp.value);
+            showDrop();
+        });
+        inp.addEventListener('input', function(){
+            filterOpts(inp.value);
+            showDrop();
+        });
+        inp.addEventListener('blur', hideDrop);
+        function filterOpts(q){
+            q = q.toLowerCase().trim();
+            var any = false;
+            opts.forEach(function(o){
+                var match = !q || o.dataset.name.indexOf(q) !== -1
+                    || (o.querySelector('span:last-child') && o.querySelector('span:last-child').textContent.indexOf(q) !== -1);
+                o.style.display = match ? '' : 'none';
+                if(match) any = true;
+            });
+            drop.style.display = any ? 'block' : 'none';
+        }
+    })();
+    </script>
 
     {% if selected_client %}
 
