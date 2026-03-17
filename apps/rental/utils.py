@@ -10,17 +10,17 @@ def calculate_order_debt(order, total_paid_for_order, client_balance):
     current_cost = Decimal(str(order.get_current_total()))
     paid = Decimal(str(total_paid_for_order))
     
-    # Базовый долг по заказу
-    base_debt = current_cost - paid
-    
+    # Базовый долг по заказу (округляем до копеек)
+    base_debt = (current_cost - paid).quantize(Decimal('0.01'))
+
     # Если есть аванс клиента, он уменьшает долг
     if client_balance > 0:
         # Аванс покрывает часть или весь долг
-        if Decimal(str(client_balance)) >= base_debt:
+        if Decimal(str(client_balance)).quantize(Decimal('0.01')) >= base_debt:
             return Decimal('0')  # Аванс покрыл весь долг
         else:
-            return base_debt - Decimal(str(client_balance))
-    
+            return (base_debt - Decimal(str(client_balance))).quantize(Decimal('0.01'))
+
     return base_debt
 
 

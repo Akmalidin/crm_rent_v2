@@ -1,0 +1,62 @@
+{% extends 'portal/base.html' %}
+{% block title %}Мои заявки{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+    <h1 style="font-size:24px;font-weight:700;">Мои заявки на бронирование</h1>
+    <a href="{% url 'main:portal_catalog' portal_client.portal_token.token %}" class="btn btn-primary btn-sm">
+        + Новая заявка
+    </a>
+</div>
+
+{% if bookings %}
+<div class="p-card" style="overflow-x:auto;">
+    <table class="p-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Товар</th>
+                <th>Кол-во</th>
+                <th>Период</th>
+                <th>Статус</th>
+                <th>Дата заявки</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in bookings %}
+            <tr>
+                <td style="color:var(--text3);">{{ b.id }}</td>
+                <td style="font-weight:600;">{{ b.product.name }}</td>
+                <td>{{ b.quantity }} шт.</td>
+                <td style="font-size:13px;">{{ b.start_date|date:"d.m.Y" }} — {{ b.end_date|date:"d.m.Y" }}</td>
+                <td>
+                    {% if b.status == 'pending' %}
+                    <span class="badge badge-pending">Ожидает</span>
+                    {% elif b.status == 'approved' %}
+                    <span class="badge badge-approved">Одобрено</span>
+                    {% else %}
+                    <span class="badge badge-rejected">Отклонено</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:13px;color:var(--text3);">{{ b.created_at|date:"d.m.Y H:i" }}</td>
+            </tr>
+            {% if b.admin_comment %}
+            <tr>
+                <td colspan="6" style="padding:4px 12px 14px;font-size:13px;color:var(--text2);border-bottom:1px solid var(--border);">
+                    <span style="color:var(--accent2);font-weight:600;">Ответ:</span> {{ b.admin_comment }}
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="p-card" style="text-align:center;color:var(--text3);padding:40px;">
+    У вас пока нет заявок на бронирование.
+    <div style="margin-top:12px;">
+        <a href="{% url 'main:portal_catalog' portal_client.portal_token.token %}" class="btn btn-primary btn-sm">Перейти в каталог</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

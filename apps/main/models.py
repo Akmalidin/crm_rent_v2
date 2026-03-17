@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
@@ -158,6 +159,33 @@ class ActivityLog(models.Model):
         return f'{self.user.username} — {self.get_action_display()}'
 
 
+class RequestLog(models.Model):
+    """Лог HTTP-запросов (каждое обращение к серверу)"""
+    user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='request_logs', verbose_name='Пользователь'
+    )
+    username = models.CharField('Логин', max_length=150, blank=True)
+    ip = models.GenericIPAddressField('IP-адрес', null=True, blank=True)
+    method = models.CharField('Метод', max_length=10)
+    path = models.CharField('URL', max_length=500)
+    query = models.CharField('Параметры', max_length=500, blank=True)
+    status_code = models.PositiveSmallIntegerField('Статус')
+    response_ms = models.PositiveIntegerField('Время ответа (мс)', default=0)
+    user_agent = models.CharField('User-Agent', max_length=500, blank=True)
+    referer = models.CharField('Referer', max_length=500, blank=True)
+    event = models.CharField('Событие', max_length=50, blank=True)  # login/logout/page_close
+    created_at = models.DateTimeField('Время', auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'Запрос'
+        verbose_name_plural = 'Лог запросов'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.username} {self.method} {self.path} {self.status_code}'
+
+
 class RainDay(models.Model):
     """Глобальный дождливый день для компании (владельца)."""
     owner = models.ForeignKey(
@@ -188,3 +216,118 @@ def create_user_profile(sender, instance, created, **kwargs):
                 'role': 'director' if instance.is_superuser else 'employee',
             }
         )
+
+
+class Expense(models.Model):
+    """Расходы компании (директора)"""
+    CATEGORY_CHOICES = [
+        ('rent',        'Аренда помещения'),
+        ('salary',      'Зарплата'),
+        ('transport',   'Транспорт'),
+        ('repair',      'Ремонт техники'),
+        ('utilities',   'Коммунальные услуги'),
+        ('marketing',   'Реклама'),
+        ('purchase',    'Закупка оборудования'),
+        ('other',       'Прочее'),
+    ]
+
+    owner       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses', verbose_name='Компания')
+    category    = models.CharField('Категория', max_length=20, choices=CATEGORY_CHOICES, default='other')
+    amount      = models.DecimalField('Сумма', max_digits=12, decimal_places=2)
+    description = models.CharField('Описание', max_length=300, blank=True)
+    date        = models.DateField('Дата')
+    created_at  = models.DateTimeField('Добавлено', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Расход'
+        verbose_name_plural = 'Расходы'
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f'{self.get_category_display()} — {self.amount} — {self.date}'
+
+
+class ClientPortalToken(models.Model):
+    """Токен для доступа клиента к порталу бронирования."""
+    client = models.OneToOneField(
+        'clients.Client', on_delete=models.CASCADE,
+        related_name='portal_token', verbose_name='Клиент',
+    )
+    token = models.UUIDField('Токен', default=uuid.uuid4, unique=True, editable=False)
+    is_active = models.BooleanField('Активен', default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Токен клиентского портала'
+        verbose_name_plural = 'Токены клиентского портала'
+
+    def __str__(self):
+        return f'Токен: {self.client} ({self.token})'
+
+
+class Notification(models.Model):
+    """Push-уведомления для пользователей (SSE)"""
+    TYPE_ORDER   = 'order'
+    TYPE_PAYMENT = 'payment'
+    TYPE_BOOKING = 'booking'
+    TYPE_TICKET  = 'ticket'
+    TYPE_OVERDUE = 'overdue'
+    TYPE_INFO    = 'info'
+    TYPE_CHOICES = [
+        ('order',   'Новый заказ'),
+        ('payment', 'Оплата'),
+        ('booking', 'Заявка'),
+        ('ticket',  'Сообщение'),
+        ('overdue', 'Просрочка'),
+        ('info',    'Информация'),
+    ]
+
+    user       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications', verbose_name='Получатель')
+    type       = models.CharField('Тип', max_length=20, choices=TYPE_CHOICES, default='info')
+    title      = models.CharField('Заголовок', max_length=200)
+    message    = models.CharField('Текст', max_length=500, blank=True)
+    link       = models.CharField('Ссылка', max_length=300, blank=True)
+    is_read    = models.BooleanField('Прочитано', default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Уведомление'
+        verbose_name_plural = 'Уведомления'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user.username}: {self.title}'
+
+
+class BookingRequest(models.Model):
+    """Заявка на бронирование от клиента через портал."""
+    STATUS_CHOICES = [
+        ('pending', 'Ожидает'),
+        ('approved', 'Одобрено'),
+        ('rejected', 'Отклонено'),
+    ]
+
+    client = models.ForeignKey(
+        'clients.Client', on_delete=models.CASCADE,
+        related_name='booking_requests', verbose_name='Клиент',
+    )
+    product = models.ForeignKey(
+        'inventory.Product', on_delete=models.CASCADE,
+        related_name='booking_requests', verbose_name='Товар',
+    )
+    quantity = models.PositiveIntegerField('Количество', default=1)
+    start_date = models.DateField('Дата начала')
+    end_date = models.DateField('Дата окончания')
+    comment = models.TextField('Комментарий клиента', blank=True)
+    status = models.CharField('Статус', max_length=10, choices=STATUS_CHOICES, default='pending')
+    admin_comment = models.TextField('Комментарий администратора', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Заявка на бронирование'
+        verbose_name_plural = 'Заявки на бронирование'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Бронь #{self.pk} — {self.client} — {self.product}'

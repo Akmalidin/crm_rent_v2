@@ -1,0 +1,61 @@
+{% extends 'portal/base.html' %}
+{% block title %}Мои заказы{% endblock %}
+
+{% block content %}
+<h1 style="font-size:24px;font-weight:700;margin-bottom:20px;">Мои заказы</h1>
+
+{% if orders %}
+{% for order in orders %}
+<div class="p-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+        <div>
+            <span style="font-size:16px;font-weight:700;">Заказ #{{ order.order_number|default:order.id }}</span>
+            <span style="font-size:13px;color:var(--text3);margin-left:8px;">{{ order.created_at|date:"d.m.Y" }}</span>
+        </div>
+        {% if order.status == 'open' %}
+        <span class="badge badge-approved">Активен</span>
+        {% else %}
+        <span class="badge" style="background:rgba(108,108,136,.15);color:var(--text3);">Закрыт</span>
+        {% endif %}
+    </div>
+
+    <table class="p-table" style="margin-bottom:0;">
+        <thead>
+            <tr>
+                <th>Товар</th>
+                <th>Кол-во</th>
+                <th>Осталось вернуть</th>
+                <th>Вернуть до</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order.items.all %}
+            <tr>
+                <td style="font-weight:600;">{{ item.product.name }}</td>
+                <td>{{ item.quantity_taken }} шт.</td>
+                <td>
+                    {% if item.quantity_remaining > 0 %}
+                    <span style="color:var(--yellow);font-weight:600;">{{ item.quantity_remaining }} шт.</span>
+                    {% else %}
+                    <span style="color:var(--green);">Возвращено</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:13px;">
+                    {% if item.planned_return_date %}
+                    {{ item.planned_return_date|date:"d.m.Y H:i" }}
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endfor %}
+{% else %}
+<div class="p-card" style="text-align:center;color:var(--text3);padding:40px;">
+    У вас пока нет заказов.
+</div>
+{% endif %}
+{% endblock %}

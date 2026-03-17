@@ -72,6 +72,17 @@
 /* Empty */
 .cd-empty{padding:36px;text-align:center;color:var(--text3)}
 .cd-empty .icon{font-size:36px;margin-bottom:8px}
+
+/* Rating */
+.cd-rating{display:inline-flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px 18px;margin-bottom:18px}
+.cd-rating-bar{width:120px;height:8px;background:var(--card2);border-radius:4px;overflow:hidden}
+.cd-rating-fill{height:100%;border-radius:4px;transition:width .3s}
+.cd-rating-score{font-size:20px;font-weight:800}
+.cd-rating-label{font-size:12px;font-weight:600;padding:3px 10px;border-radius:8px}
+.rating-excellent .cd-rating-fill{background:#10b981}.rating-excellent .cd-rating-score{color:#10b981}.rating-excellent .cd-rating-label{background:rgba(16,185,129,.12);color:#10b981}
+.rating-good .cd-rating-fill{background:#3b82f6}.rating-good .cd-rating-score{color:#3b82f6}.rating-good .cd-rating-label{background:rgba(59,130,246,.12);color:#3b82f6}
+.rating-average .cd-rating-fill{background:#f59e0b}.rating-average .cd-rating-score{color:#f59e0b}.rating-average .cd-rating-label{background:rgba(245,158,11,.12);color:#f59e0b}
+.rating-poor .cd-rating-fill{background:#ef4444}.rating-poor .cd-rating-score{color:#ef4444}.rating-poor .cd-rating-label{background:rgba(239,68,68,.12);color:#ef4444}
 {% endblock %}
 
 {% block content %}
@@ -88,17 +99,31 @@
         <div class="cd-head-btns">
             <a href="{% url 'main:edit_client' client_id=client.id %}" class="cd-btn btn-ghost">✏️ Редактировать</a>
             <a href="/rental/create/?client={{ client.id }}" data-turbo="false" class="cd-btn btn-blue">➕ Новый заказ</a>
+            <a href="{% url 'main:client_discounts' client_id=client.id %}" class="cd-btn btn-green">🏷️ Скидки</a>
+            <a href="{% url 'main:send_portal_link' client_id=client.id %}" class="cd-btn" style="background:var(--accent);color:#fff;">🔗 Портал клиента</a>
         </div>
     </div>
+
+    <!-- ══ РЕЙТИНГ ══ -->
+    {% with rating=client.get_rating label=client.get_rating_label display=client.get_rating_display %}
+    <div class="cd-rating rating-{{ label }}">
+        <span class="cd-rating-score">{{ rating }}</span>
+        <div>
+            <div class="cd-rating-bar"><div class="cd-rating-fill" style="width:{{ rating }}%"></div></div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">из 100</div>
+        </div>
+        <span class="cd-rating-label">{{ display }}</span>
+    </div>
+    {% endwith %}
 
     <!-- ══ БАЛАНС ══ -->
     <div class="cd-balance">
         <div class="cd-balance-main">
             <div class="cd-balance-label">💰 Баланс кошелька</div>
-            {% if balance < 0 %}
+            {% if debt > 0 %}
             <div class="cd-balance-amount">-{{ debt|floatformat:0 }} сом</div>
             <div class="cd-balance-sub">⚠️ Задолженность</div>
-            {% elif balance > 0 %}
+            {% elif credit > 0 %}
             <div class="cd-balance-amount">+{{ credit|floatformat:0 }} сом</div>
             <div class="cd-balance-sub">✅ Переплата (аванс)</div>
             {% else %}
@@ -107,6 +132,14 @@
             {% endif %}
             {% if debt > 0 %}
             <a href="/payment/?client={{ client.id }}" data-turbo="false" class="cd-pay-btn">💵 Принять оплату</a>
+            {% endif %}
+            {% if request.user.is_superuser and debt > 0 %}
+            <form method="post" action="{% url 'main:reset_client_balance' client.id %}" style="margin-top:8px" onsubmit="return confirm('Списать долг {{ debt|floatformat:0 }} сом и обнулить баланс клиента?')">
+                {% csrf_token %}
+                <button type="submit" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+                    🗑 Обнулить баланс
+                </button>
+            </form>
             {% endif %}
         </div>
         <div class="cd-balance-stats">
@@ -138,6 +171,12 @@
             <span style="color:var(--text3);font-size:14px">Нет телефонов</span>
             {% endfor %}
         </div>
+        {% if client.email %}
+        <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:13px;color:var(--text3)">📧</span>
+            <a href="mailto:{{ client.email }}" style="font-size:14px;color:var(--accent);text-decoration:none;">{{ client.email }}</a>
+        </div>
+        {% endif %}
     </div>
 
     <!-- ══ ЗАКАЗЫ ══ -->

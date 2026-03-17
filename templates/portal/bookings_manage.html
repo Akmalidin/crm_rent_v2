@@ -1,0 +1,143 @@
+{% extends 'base_dark.html' %}
+{% block title %}Заявки на бронирование{% endblock %}
+
+{% block extra_css %}
+/* Director cards */
+.dir-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:12px; margin-bottom:24px; }
+.dir-card {
+    background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:16px; cursor:pointer; transition:all .15s; text-decoration:none; color:inherit; display:block;
+}
+.dir-card:hover { border-color:var(--accent); }
+.dir-card.active { border-color:var(--accent); background:rgba(124,58,237,.08); }
+.dir-name { font-size:15px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+.dir-badge { background:var(--accent); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; }
+.dir-stats { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+.dir-stat { font-size:12px; color:var(--text3); }
+.dir-stat b { color:var(--text1); }
+/* Filters */
+.bm-filters { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+.bm-filter { padding:7px 16px; border-radius:10px; font-size:13px; font-weight:600; border:1px solid var(--border); color:var(--text2); background:transparent; cursor:pointer; text-decoration:none; }
+.bm-filter:hover, .bm-filter.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+/* Booking cards */
+.bm-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:14px; }
+.bm-top { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+.bm-client { font-weight:700; font-size:15px; }
+.bm-product { font-size:14px; color:var(--text2); }
+.bm-dates { font-size:13px; color:var(--text3); margin-top:4px; }
+.bm-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:center; }
+.bm-actions form { display:inline-flex; gap:6px; align-items:center; }
+.bm-actions input[type=text] { padding:6px 10px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; color:var(--text1); font-size:13px; width:200px; }
+.bm-btn { padding:6px 14px; border-radius:8px; font-size:13px; font-weight:600; border:none; cursor:pointer; }
+.bm-approve { background:#10b981; color:#fff; }
+.bm-reject { background:#ef4444; color:#fff; }
+.badge { padding:4px 10px; border-radius:8px; font-size:12px; font-weight:600; display:inline-block; }
+.badge-pending { background:rgba(251,191,36,.15); color:#fbbf24; }
+.badge-approved { background:rgba(16,185,129,.15); color:#10b981; }
+.badge-rejected { background:rgba(239,68,68,.15); color:#ef4444; }
+{% endblock %}
+
+{% block content %}
+<div style="max-width:900px;margin:0 auto;">
+    <h1 style="font-size:24px;font-weight:700;margin-bottom:20px;">Заявки на бронирование</h1>
+
+    {% if is_creator and directors %}
+    <!-- Director selector for creator -->
+    <div class="dir-grid">
+        <a href="?status={{ status_filter }}" class="dir-card {% if not selected_director %}active{% endif %}">
+            <div class="dir-name">
+                Все директора
+                {% with total=directors|length %}
+                <span style="font-size:12px;color:var(--text3);">({{ total }})</span>
+                {% endwith %}
+            </div>
+        </a>
+        {% for d in directors %}
+        <a href="?director={{ d.user.id }}&status={{ status_filter }}" class="dir-card {% if selected_director.id == d.user.id %}active{% endif %}">
+            <div class="dir-name">
+                {{ d.user.username }}
+                {% if d.pending > 0 %}
+                <span class="dir-badge">{{ d.pending }}</span>
+                {% endif %}
+            </div>
+            <div class="dir-stats">
+                <div class="dir-stat">Клиентов: <b>{{ d.clients }}</b></div>
+                <div class="dir-stat">Товаров: <b>{{ d.products }}</b></div>
+                <div class="dir-stat">Заказов: <b>{{ d.open_orders }}</b></div>
+                <div class="dir-stat">Доход: <b>{{ d.revenue }} сом</b></div>
+            </div>
+            <div style="font-size:12px;color:var(--text3);margin-top:6px;">
+                Заявок: {{ d.total }} (ожидает: {{ d.pending }})
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Status filters -->
+    {% if selected_director %}
+    {% with dp=selected_director.id %}
+    <div class="bm-filters">
+        <a href="?director={{ dp }}&status=" class="bm-filter {% if not status_filter %}active{% endif %}">Все</a>
+        <a href="?director={{ dp }}&status=pending" class="bm-filter {% if status_filter == 'pending' %}active{% endif %}">Ожидают</a>
+        <a href="?director={{ dp }}&status=approved" class="bm-filter {% if status_filter == 'approved' %}active{% endif %}">Одобренные</a>
+        <a href="?director={{ dp }}&status=rejected" class="bm-filter {% if status_filter == 'rejected' %}active{% endif %}">Отклонённые</a>
+    </div>
+    {% endwith %}
+    {% else %}
+    <div class="bm-filters">
+        <a href="?status=" class="bm-filter {% if not status_filter %}active{% endif %}">Все</a>
+        <a href="?status=pending" class="bm-filter {% if status_filter == 'pending' %}active{% endif %}">Ожидают</a>
+        <a href="?status=approved" class="bm-filter {% if status_filter == 'approved' %}active{% endif %}">Одобренные</a>
+        <a href="?status=rejected" class="bm-filter {% if status_filter == 'rejected' %}active{% endif %}">Отклонённые</a>
+    </div>
+    {% endif %}
+
+    <!-- Bookings list -->
+    {% for b in bookings %}
+    <div class="bm-card">
+        <div class="bm-top">
+            <div>
+                <div class="bm-client">
+                    {{ b.client.get_full_name }}
+                    {% if is_creator %}
+                    <span style="font-size:12px;color:var(--text3);font-weight:400;margin-left:6px;">({{ b.client.owner.username }})</span>
+                    {% endif %}
+                </div>
+                <div class="bm-product">{{ b.product.name }} — {{ b.quantity }} шт.</div>
+                <div class="bm-dates">{{ b.start_date|date:"d.m.Y" }} — {{ b.end_date|date:"d.m.Y" }} | Заявка от {{ b.created_at|date:"d.m.Y H:i" }}</div>
+                {% if b.comment %}<div style="font-size:13px;color:var(--text2);margin-top:4px;">{{ b.comment }}</div>{% endif %}
+            </div>
+            <div>
+                {% if b.status == 'pending' %}<span class="badge badge-pending">Ожидает</span>
+                {% elif b.status == 'approved' %}<span class="badge badge-approved">Одобрено</span>
+                {% else %}<span class="badge badge-rejected">Отклонено</span>{% endif %}
+            </div>
+        </div>
+        {% if b.admin_comment %}
+        <div style="font-size:13px;color:var(--accent2);margin-bottom:8px;">Комментарий: {{ b.admin_comment }}</div>
+        {% endif %}
+        {% if b.status == 'pending' %}
+        <div class="bm-actions">
+            <form method="POST" action="{% url 'main:booking_approve' b.id %}">
+                {% csrf_token %}
+                <input type="text" name="comment" placeholder="Комментарий (необяз.)">
+                <button type="submit" class="bm-btn bm-approve">Одобрить</button>
+            </form>
+            <form method="POST" action="{% url 'main:booking_reject' b.id %}">
+                {% csrf_token %}
+                <input type="text" name="comment" placeholder="Причина отказа">
+                <button type="submit" class="bm-btn bm-reject">Отклонить</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="bm-card" style="text-align:center;color:var(--text3);padding:40px;">
+        Заявок нет
+    </div>
+    {% endfor %}
+
+    {% include 'includes/pagination.html' %}
+</div>
+{% endblock %}

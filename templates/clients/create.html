@@ -52,59 +52,88 @@
                 </div>
                 <div id="phoneHint" style="font-size:11px;color:var(--text3);margin-top:6px;">Формат: +996 XXX XXX XXX</div>
             </div>
+
+            <!-- Email -->
+            <div class="fi">
+                <label>Email</label>
+                <input type="email" name="email" placeholder="client@example.com" autocomplete="email">
+                <p style="font-size:11px;color:var(--text3);margin-top:4px;">Необязательно — для email-уведомлений</p>
+            </div>
         </div>
 
         <!-- Фото паспорта -->
         <div class="card">
-            <div class="sec-title">🪪 Фото паспорта</div>
-            <p style="font-size:13px;color:var(--text3);margin:-12px 0 20px;">Нажмите на зону — выберите фото или откройте камеру</p>
+            <div class="sec-title">🪪 Фото паспорта <span style="font-size:12px;font-weight:400;color:var(--text3)">(необязательно)</span></div>
+            <p style="font-size:13px;color:var(--text3);margin:-12px 0 20px;">Нажмите на зону — появится выбор: камера или галерея</p>
+
+            <!-- Попап выбора источника -->
+            <div id="passport-picker" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);align-items:flex-end;justify-content:center;">
+                <div style="background:var(--card);border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;">
+                    <div style="font-size:15px;font-weight:600;color:var(--text1);margin-bottom:16px;text-align:center" id="picker-title">Выберите источник</div>
+                    <div style="display:flex;gap:12px;">
+                        <button type="button" onclick="pickerChoose('camera')"
+                                style="flex:1;padding:14px;border:none;border-radius:12px;background:#7c3aed;color:#fff;font-size:15px;font-weight:600;cursor:pointer;">
+                            📷 Камера
+                        </button>
+                        <button type="button" onclick="pickerChoose('gallery')"
+                                style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--bg2);color:var(--text1);font-size:15px;font-weight:600;cursor:pointer;">
+                            🖼️ Галерея
+                        </button>
+                    </div>
+                    <button type="button" onclick="pickerClose()"
+                            style="width:100%;margin-top:10px;padding:12px;border:none;border-radius:12px;background:transparent;color:var(--text3);font-size:14px;cursor:pointer;">
+                        Отмена
+                    </button>
+                </div>
+            </div>
 
             <div class="upload-grid">
                 <!-- Лицевая -->
                 <div>
-                    <p class="upload-label-text">Лицевая сторона <span style="color:#f87171">*</span></p>
-                    <div class="upload-zone" id="zone-front" onclick="triggerUpload('inp-front')">
+                    <p class="upload-label-text">Лицевая сторона</p>
+                    <div class="upload-zone" id="zone-front" onclick="openPicker('front')">
                         <img class="preview" id="prev-front" style="display:none" alt="">
                         <div class="upload-ph" id="ph-front">
                             <div class="icon">🪪</div>
                             <div class="hint">Нажмите для загрузки</div>
                             <div class="tags">
-                                <span class="tag">📁 Файл</span>
                                 <span class="tag">📷 Камера</span>
+                                <span class="tag">🖼️ Галерея</span>
                             </div>
                         </div>
                     </div>
-                    <input type="file" id="inp-front" name="passport_front" accept="image/*"
-                           required style="display:none"
-                           onchange="showPreview(this,'prev-front','zone-front','ph-front')">
+                    <!-- Камера -->
+                    <input type="file" id="inp-front-cam" name="passport_front" accept="image/*" capture="environment"
+                           style="display:none" onchange="showPreview(this,'prev-front','zone-front','ph-front')">
+                    <!-- Галерея -->
+                    <input type="file" id="inp-front-gal" name="passport_front" accept="image/*"
+                           style="display:none" onchange="showPreview(this,'prev-front','zone-front','ph-front')">
                     <p id="lbl-front" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></p>
                 </div>
 
                 <!-- Обратная -->
                 <div>
-                    <p class="upload-label-text">Обратная сторона <span style="color:#f87171">*</span></p>
-                    <div class="upload-zone" id="zone-back" onclick="triggerUpload('inp-back')">
+                    <p class="upload-label-text">Обратная сторона</p>
+                    <div class="upload-zone" id="zone-back" onclick="openPicker('back')">
                         <img class="preview" id="prev-back" style="display:none" alt="">
                         <div class="upload-ph" id="ph-back">
                             <div class="icon">🔖</div>
                             <div class="hint">Нажмите для загрузки</div>
                             <div class="tags">
-                                <span class="tag">📁 Файл</span>
                                 <span class="tag">📷 Камера</span>
+                                <span class="tag">🖼️ Галерея</span>
                             </div>
                         </div>
                     </div>
-                    <input type="file" id="inp-back" name="passport_back" accept="image/*"
-                           required style="display:none"
-                           onchange="showPreview(this,'prev-back','zone-back','ph-back')">
+                    <!-- Камера -->
+                    <input type="file" id="inp-back-cam" name="passport_back" accept="image/*" capture="environment"
+                           style="display:none" onchange="showPreview(this,'prev-back','zone-back','ph-back')">
+                    <!-- Галерея -->
+                    <input type="file" id="inp-back-gal" name="passport_back" accept="image/*"
+                           style="display:none" onchange="showPreview(this,'prev-back','zone-back','ph-back')">
                     <p id="lbl-back" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></p>
                 </div>
             </div>
-
-            <!-- Подсказка про камеру -->
-            <p style="font-size:12px;color:var(--text3);margin-top:16px;text-align:center;">
-                📱 На мобильном устройстве при нажатии откроется выбор: <strong style="color:var(--text2)">Камера</strong> или <strong style="color:var(--text2)">Галерея</strong>
-            </p>
         </div>
 
         <div style="display:flex;gap:12px;">
@@ -156,13 +185,42 @@ function updateHidden() {
 }
 
 // ─── Passport upload & preview ────────────────────────────────────────────────
-function triggerUpload(inputId) {
+let _pickerSide = null;
+
+function openPicker(side) {
+    _pickerSide = side;
+    const picker = document.getElementById('passport-picker');
+    picker.style.display = 'flex';
+}
+
+function pickerClose() {
+    document.getElementById('passport-picker').style.display = 'none';
+    _pickerSide = null;
+}
+
+function pickerChoose(source) {
+    pickerClose();
+    if (!_pickerSide) return;
+    const inputId = source === 'camera'
+        ? 'inp-' + _pickerSide + '-cam'
+        : 'inp-' + _pickerSide + '-gal';
     document.getElementById(inputId).click();
 }
+
+// Закрыть по клику на фон
+document.getElementById('passport-picker').addEventListener('click', function(e) {
+    if (e.target === this) pickerClose();
+});
 
 function showPreview(input, previewId, zoneId, phId) {
     if (!input.files || !input.files[0]) return;
     const file = input.files[0];
+    // Очищаем парный input (камера/галерея), чтобы не отправился пустой
+    const side = input.id.includes('front') ? 'front' : 'back';
+    const source = input.id.includes('-cam') ? '-gal' : '-cam';
+    const twinId = 'inp-' + side + source;
+    const twin = document.getElementById(twinId);
+    if (twin) twin.value = '';
     // Show filename
     const lblId = zoneId === 'zone-front' ? 'lbl-front' : 'lbl-back';
     document.getElementById(lblId).textContent = '✓ ' + file.name;
@@ -173,7 +231,6 @@ function showPreview(input, previewId, zoneId, phId) {
         img.src = e.target.result;
         img.style.display = 'block';
         document.getElementById(zoneId).classList.add('filled');
-        // Update hint text
         document.getElementById(phId).querySelector('.hint').textContent = 'Нажмите для замены';
     };
     reader.readAsDataURL(file);

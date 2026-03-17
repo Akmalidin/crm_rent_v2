@@ -54,6 +54,13 @@
                 <p class="hint-text">Оставьте пустым чтобы не менять</p>
             </div>
 
+            <!-- Email -->
+            <div class="fi">
+                <label>Email</label>
+                <input type="email" name="email" value="{{ client.email|default:'' }}" placeholder="client@example.com" autocomplete="email">
+                <p class="hint-text">Для email-уведомлений (необязательно)</p>
+            </div>
+
             <!-- Telegram ID -->
             <div class="fi">
                 <label>Telegram ID</label>

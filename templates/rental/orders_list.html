@@ -11,11 +11,17 @@
 <div class="space-y-6">
 
     <!-- Заголовок -->
-    <div class="flex justify-between items-center">
+    <div class="flex justify-between items-center flex-wrap gap-3">
         <h1 class="text-3xl font-bold text-gray-800">📦 Все заказы</h1>
-        <a href="/rental/create/" data-turbo="false" class="px-5 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-semibold">
-            + Новый заказ
-        </a>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a href="{% url 'main:export_orders' %}{% if request.GET.status %}?status={{ request.GET.status }}{% endif %}"
+               style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border:1px solid var(--border);border-radius:10px;color:var(--text2);text-decoration:none;font-size:13px;font-weight:600;background:var(--card)">
+                📥 Excel
+            </a>
+            <a href="/rental/create/" data-turbo="false" class="px-5 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-semibold">
+                + Новый заказ
+            </a>
+        </div>
     </div>
 
     <!-- Статистика -->
@@ -145,7 +151,7 @@
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="px-5 py-3 bg-gray-50 border-b flex justify-between items-center">
             <span class="font-semibold text-gray-700">
-                Найдено: <span class="text-blue-600">{{ orders|length }}</span> заказов
+                Найдено: <span class="text-blue-600">{% if page_obj %}{{ page_obj.paginator.count }}{% else %}{{ orders|length }}{% endif %}</span> заказов
             </span>
         </div>
 
@@ -226,6 +232,8 @@
         </div>
         {% endif %}
     </div>
+
+    {% include 'includes/pagination.html' %}
 
 </div>
 {% endblock %}

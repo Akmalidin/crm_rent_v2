@@ -161,7 +161,8 @@ class OrderItem(models.Model):
     original_total_cost = models.DecimalField('Изначальная стоимость', max_digits=10, decimal_places=2)
     current_total_cost = models.DecimalField('Текущая стоимость', max_digits=10, decimal_places=2)
     actual_cost = models.DecimalField('Фактическая стоимость', max_digits=10, decimal_places=2, null=True, blank=True)
-    
+    rain_applicable = models.BooleanField('Дождь не считается', default=False)
+
     class Meta:
         verbose_name = 'Товар в заказе'
         verbose_name_plural = 'Товары в заказе'
@@ -272,40 +273,36 @@ class OrderItem(models.Model):
     
     def get_actual_cost(self):
         """
-        Получить актуальную стоимость с учётом просрочки
-        
-        Returns:
-            Decimal: текущая стоимость + просрочка (если есть)
+        Актуальная стоимость позиции:
+        - возвращённые штуки: по факту (actual_days × price + repair_fee из ReturnItem)
+        - оставшиеся штуки: по плану + штраф за просрочку (если есть)
         """
         now = timezone.now()
-        
-        # Базовая стоимость (оригинальная, БЕЗ просрочки)
-        base_cost = Decimal(str(self.original_total_cost))
-
-        # Если товар полностью возвращён - возвращаем фактическую стоимость
-        if self.quantity_remaining == 0:
-            return Decimal(str(self.current_total_cost))
-        
-        # Если нет просрочки - возвращаем базовую стоимость
-        if self.planned_return_date >= now:
-            return base_cost
-        
-        # Есть просрочка - считаем доплату
-        overdue_time = now - self.planned_return_date
-        overdue_days = overdue_time.days
-        overdue_hours = overdue_time.seconds // 3600
-        
-        # Стоимость просрочки
         price_per_day = Decimal(str(self.price_per_day))
-        
+
+        # Сумма уже возвращённых штук (включает ремонт/чистку)
+        returned_actual = self.returns.aggregate(t=Sum('calculated_cost'))['t'] or Decimal('0')
+        returned_actual = Decimal(str(returned_actual))
+
+        # Все штуки возвращены — только фактические затраты
+        if self.quantity_remaining == 0:
+            return returned_actual
+
+        # Плановая стоимость оставшихся штук
+        remaining_base = price_per_day * Decimal(str(self.quantity_remaining)) * Decimal(str(self.rental_days))
+
+        # Нет просрочки
+        if self.planned_return_date >= now:
+            return returned_actual + remaining_base
+
+        # Просрочка — доплата только за оставшиеся штуки
+        overdue_time = now - self.planned_return_date
         if overdue_time.total_seconds() < 86400:
-            # Менее суток - считаем по часам
-            overdue_cost = (price_per_day / 24) * Decimal(str(overdue_hours)) * Decimal(str(self.quantity_remaining))
+            overdue_cost = (price_per_day / 24) * Decimal(str(overdue_time.seconds // 3600)) * Decimal(str(self.quantity_remaining))
         else:
-            # Больше суток - считаем по дням
-            overdue_cost = price_per_day * Decimal(str(overdue_days)) * Decimal(str(self.quantity_remaining))
-        
-        return base_cost + overdue_cost
+            overdue_cost = price_per_day * Decimal(str(overdue_time.days)) * Decimal(str(self.quantity_remaining))
+
+        return returned_actual + remaining_base + overdue_cost
     
     @property
     def is_overdue(self):
@@ -389,6 +386,11 @@ class ReturnItem(models.Model):
         self.actual_days = int(total_seconds // 86400)
         remaining_seconds = total_seconds % 86400
         self.actual_hours = int(remaining_seconds // 3600)
+        # Если товар тарифицируется по дням (нет цены за час),
+        # округляем вверх до полных суток, часы не считаем
+        if self.order_item.price_per_hour == 0 and self.actual_hours > 0:
+            self.actual_days += 1
+            self.actual_hours = 0
     
     def calculate_cost(self):
         base = float(self.quantity * (float(self.order_item.price_per_day) * self.actual_days + float(self.order_item.price_per_hour) * self.actual_hours))
@@ -397,22 +399,25 @@ class ReturnItem(models.Model):
     def save(self, *args, **kwargs):
         self.calculate_actual_time()
         self.calculated_cost = self.calculate_cost()
-        
+
         self.order_item.quantity_returned += self.quantity
         self.order_item.quantity_remaining -= self.quantity
-        
-        if self.order_item.quantity_remaining == 0:
-            self.order_item.current_total_cost = self.calculated_cost
-        else:
-            returned_cost = self.calculated_cost
-            cost_per_item_plan = float(self.order_item.original_total_cost) / self.order_item.quantity_taken
-            remaining_cost = cost_per_item_plan * self.order_item.quantity_remaining
-            self.order_item.current_total_cost = returned_cost + remaining_cost
-        
+
+        # Накопленная стоимость предыдущих возвратов (до сохранения текущего)
+        prev_returned = self.order_item.returns.aggregate(t=Sum('calculated_cost'))['t'] or Decimal('0')
+        prev_returned = Decimal(str(prev_returned))
+        total_returned = prev_returned + Decimal(str(self.calculated_cost))
+
+        # Плановая стоимость оставшихся штук (по исходной ставке)
+        cost_per_item_plan = Decimal(str(self.order_item.original_total_cost)) / self.order_item.quantity_taken
+        remaining_cost = cost_per_item_plan * self.order_item.quantity_remaining
+
+        self.order_item.current_total_cost = total_returned + remaining_cost
+
         self.order_item.save()
         self.order_item.product.quantity_available += self.quantity
         self.order_item.product.save()
-        
+
         super().save(*args, **kwargs)
 
 
@@ -424,6 +429,7 @@ class Payment(models.Model):
         ('card', 'Карта'),
         ('transfer', 'Перевод'),
         ('credit', 'Зачёт аванса'),
+        ('writeoff', 'Списание долга'),
     ]
     
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='payments', verbose_name='Клиент')
@@ -466,3 +472,33 @@ class OrderExcludedDay(models.Model):
     def __str__(self):
         item_name = self.order_item.product.name if self.order_item_id else '—'
         return f"{self.order.order_code} / {item_name} — {self.date}"
+
+class OrderAttachment(models.Model):
+    """Файлы прикреплённые к заказу"""
+    order      = models.ForeignKey(RentalOrder, on_delete=models.CASCADE, related_name='attachments', verbose_name='Заказ')
+    file       = models.FileField('Файл', upload_to='orders/attachments/')
+    name       = models.CharField('Название', max_length=255)
+    uploaded_by = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='order_attachments', verbose_name='Загрузил',
+    )
+    uploaded_at = models.DateTimeField('Дата загрузки', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Файл заказа'
+        verbose_name_plural = 'Файлы заказов'
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def is_image(self):
+        ext = self.name.rsplit('.', 1)[-1].lower() if '.' in self.name else ''
+        return ext in ('jpg', 'jpeg', 'png', 'gif', 'webp')
+
+    @property
+    def icon(self):
+        ext = self.name.rsplit('.', 1)[-1].lower() if '.' in self.name else ''
+        icons = {'pdf': 'pdf', 'doc': 'doc', 'docx': 'doc', 'xls': 'xls', 'xlsx': 'xls'}
+        return icons.get(ext, 'file')

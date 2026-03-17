@@ -154,7 +154,7 @@
             <div class="u-info">
                 <div class="u-name">
                     {{ u.username }}
-                    {% if u.is_superuser %}<span style="font-size:11px;color:#a78bfa;margin-left:6px;">👑 Создатель</span>{% endif %}
+                    {% if u.is_superuser and u.is_staff %}<span style="font-size:11px;color:#a78bfa;margin-left:6px;">👑 Создатель</span>{% elif u.is_superuser %}<span style="font-size:11px;color:#60a5fa;margin-left:6px;">🏢 Директор</span>{% endif %}
                 </div>
                 <div class="u-meta">
                     {{ u.email|default:"—" }} ·
@@ -162,8 +162,10 @@
                     · {{ u.date_joined|date:"d.m.Y" }}
                 </div>
             </div>
-            {% if u.is_superuser %}
-            <span class="u-status status-super">👑 Суперадмин</span>
+            {% if u.is_superuser and u.is_staff %}
+            <span class="u-status status-super">👑 Создатель</span>
+            {% elif u.is_superuser %}
+            <span class="u-status" style="background:rgba(96,165,250,.15);color:#60a5fa">🏢 Директор</span>
             {% elif u.is_active %}
             <span class="u-status status-active">✓ Активен</span>
             {% else %}
@@ -217,32 +219,17 @@
     </div>
 </div>
 
-<!-- Messages from Directors -->
-<div id="messages">
-{% with msgs=unread_messages %}
-{% if msgs %}
-<div style="margin-top:28px">
-    <div style="font-size:16px;font-weight:700;color:var(--text1);margin-bottom:14px">
-        📬 Сообщения от директоров
-        <span style="background:rgba(239,68,68,.15);color:#f87171;border-radius:8px;padding:2px 10px;font-size:13px;margin-left:8px">{{ msgs|length }} новых</span>
-    </div>
-    {% for msg in msgs %}
-    <div style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-            <div style="font-weight:600;color:var(--text1)">{{ msg.sender.username }} — {{ msg.subject }}</div>
-            <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:11px;color:var(--text3)">{{ msg.created_at|date:"d.m.Y H:i" }}</span>
-                <form method="POST" action="{% url 'main:mark_message_read' msg_id=msg.id %}" style="margin:0">
-                    {% csrf_token %}
-                    <button type="submit" style="background:rgba(16,185,129,.1);color:#34d399;border:none;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:inherit">Прочитано ✓</button>
-                </form>
-            </div>
+<!-- Обращения от директоров -->
+{% if unread_messages_count %}
+<div style="margin-top:8px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 22px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:16px;font-weight:700;color:var(--text1)">
+            📬 Непрочитанные обращения
+            <span style="background:rgba(239,68,68,.15);color:#f87171;border-radius:8px;padding:2px 10px;font-size:13px;margin-left:8px">{{ unread_messages_count }}</span>
         </div>
-        <div style="font-size:13px;color:var(--text2)">{{ msg.message }}</div>
+        <a href="{% url 'main:ticket_list' %}" style="font-size:13px;color:var(--accent2);text-decoration:none">Все обращения →</a>
     </div>
-    {% endfor %}
+    <a href="{% url 'main:ticket_list' %}" style="display:inline-block;padding:9px 18px;background:var(--accent);color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">Открыть список обращений</a>
 </div>
 {% endif %}
-{% endwith %}
-</div>
 {% endblock %}

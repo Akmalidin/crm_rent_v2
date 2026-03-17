@@ -6,6 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}CRM Аренда{% endblock %}</title>
 
+    <!-- PWA -->
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <meta name="theme-color" content="#7c3aed">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
+
     <!-- Apply saved theme immediately to prevent flash on Turbo navigation -->
     <script>!function(){var t=localStorage.getItem('crmTheme')||'dark';document.documentElement.setAttribute('data-theme',t)}()</script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -71,15 +78,33 @@
                 <span class="sb-icon">📦</span>
                 <span>Заказы</span>
             </a>
-            <a href="/products/"
-               class="sb-link {% if 'products' in request.path %}active{% endif %}">
+            <button type="button"
+                class="sb-link sb-drop-toggle {% if 'products' in request.path or 'warehouses' in request.path %}active{% endif %}"
+                onclick="toggleInvDrop()">
                 <span class="sb-icon">🔧</span>
-                <span>Товары</span>
-            </a>
+                <span>Инвентарь</span>
+                <svg id="inv-drop-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:auto;transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="sb-drop-items" id="inv-drop-items" style="max-height:0;overflow:hidden;transition:max-height .25s ease">
+                <a href="/products/" class="sb-link sb-sub {% if 'products' in request.path and 'create' not in request.path %}active{% endif %}">
+                    <span class="sb-icon">📦</span><span>Все товары</span>
+                </a>
+                <a href="/products/create/" class="sb-link sb-sub {% if 'products/create' in request.path %}active{% endif %}">
+                    <span class="sb-icon">➕</span><span>Добавить товар</span>
+                </a>
+                <a href="/warehouses/" class="sb-link sb-sub {% if 'warehouses' in request.path %}active{% endif %}">
+                    <span class="sb-icon">🏭</span><span>Склады</span>
+                </a>
+            </div>
             <a href="/rental/returns/"
                class="sb-link {% if 'returns' in request.path %}active{% endif %}">
                 <span class="sb-icon">↩️</span>
                 <span>Возвраты</span>
+            </a>
+            <a href="/bookings/"
+               class="sb-link {% if 'bookings' in request.path %}active{% endif %}">
+                <span class="sb-icon">📩</span>
+                <span>Заявки</span>
             </a>
 
             <div class="sb-section" style="margin-top:8px;">
@@ -89,6 +114,11 @@
                class="sb-link {% if 'payment' in request.path %}active{% endif %}">
                 <span class="sb-icon">💰</span>
                 <span>Оплаты</span>
+            </a>
+            <a href="/expenses/"
+               class="sb-link {% if 'expenses' in request.path %}active{% endif %}">
+                <span class="sb-icon">📉</span>
+                <span>Расходы</span>
             </a>
 
             <div class="sb-section" style="margin-top:8px;">
@@ -110,53 +140,82 @@
                 <span>Календарь</span>
             </a>
 
-            {% if user.is_staff or user.is_superuser %}
-            <div class="sb-section" style="margin-top:8px;">
-                <div class="sb-section-label">Администрация</div>
-            </div>
-            <a href="{% url 'main:users_management' %}"
-               class="sb-link {% if 'users' in request.path and 'superadmin' not in request.path and 'activity' not in request.path and 'password' not in request.path %}active{% endif %}">
-                <span class="sb-icon">⚙️</span>
-                <span>Пользователи</span>
-            </a>
-            <a href="{% url 'main:permissions_matrix' %}"
-               class="sb-link {% if 'permissions' in request.path %}active{% endif %}">
-                <span class="sb-icon">🔑</span>
-                <span>Права доступа</span>
-            </a>
-            <a href="{% url 'main:broadcast_notifications' %}"
-               class="sb-link {% if 'notifications' in request.path %}active{% endif %}">
-                <span class="sb-icon">📢</span>
-                <span>Рассылка</span>
-            </a>
-            <a href="{% url 'main:create_backup' %}" data-turbo="false"
-               class="sb-link">
-                <span class="sb-icon">🗄️</span>
-                <span>Бэкап</span>
-            </a>
-            {% endif %}
-            {% if user.is_staff %}
-            <a href="{% url 'main:superuser_panel' %}"
-               class="sb-link {% if 'superadmin' in request.path %}active{% endif %}"
-               style="{% if 'superadmin' not in request.path %}border:1px solid rgba(124,58,237,.3);margin:4px 10px;{% endif %}">
-                <span class="sb-icon">🛡️</span>
-                <span style="flex:1">Панель создателя</span>
-                {% if pending_users_count %}
-                <span style="background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:2px 7px;min-width:18px;text-align:center;">{{ pending_users_count }}</span>
-                {% endif %}
-            </a>
-            <a href="{% url 'main:ticket_list' %}" class="sb-link">
-                <span class="sb-icon">📬</span>
-                <span style="flex:1">Обращения</span>
-                {% if unread_messages_count %}<span style="background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:2px 7px;min-width:18px;text-align:center;">{{ unread_messages_count }}</span>{% endif %}
-            </a>
-            {% endif %}
             {% if not user.is_staff and user.is_authenticated %}
             <a href="{% url 'main:ticket_list' %}" class="sb-link {% if 'messages' in request.path %}active{% endif %}">
                 <span class="sb-icon">📨</span>
                 <span style="flex:1">Обращения</span>
                 {% if unread_reply_count %}<span style="background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:2px 7px;min-width:18px;text-align:center;">{{ unread_reply_count }}</span>{% endif %}
             </a>
+            {% endif %}
+
+            {% if user.is_staff or user.is_superuser %}
+            <div class="sb-section" style="margin-top:8px;">
+                <div class="sb-section-label">Администрация</div>
+            </div>
+            <!-- Дропдаун -->
+            <div class="sb-dropdown" id="sb-admin-drop">
+                <button class="sb-link sb-drop-toggle {% if 'users' in request.path or 'permissions' in request.path or 'notifications' in request.path or 'audit' in request.path or 'superadmin' in request.path or 'messages' in request.path or 'xsec' in request.path %}active{% endif %}"
+                        onclick="toggleSbDrop()"
+                        style="width:100%;background:none;border:none;cursor:pointer;text-align:left;">
+                    <span class="sb-icon">⚙️</span>
+                    <span style="flex:1">
+                        Управление
+                        {% if pending_users_count or unread_messages_count %}
+                        <span style="background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:2px 6px;margin-left:4px">
+                            {{ pending_users_count|add:unread_messages_count }}
+                        </span>
+                        {% endif %}
+                    </span>
+                    <svg id="sb-drop-arrow" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                         style="flex-shrink:0;transition:transform .22s;color:var(--text3)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+
+                <div class="sb-drop-items" id="sb-drop-items"
+                     style="overflow:hidden;transition:max-height .25s ease;max-height:0">
+                    <div style="padding:4px 0 4px 14px;border-left:2px solid var(--border);margin:4px 12px 4px 18px">
+
+                        <a href="{% url 'main:users_management' %}"
+                           class="sb-link sb-sub {% if 'users' in request.path and 'superadmin' not in request.path and 'activity' not in request.path and 'password' not in request.path %}active{% endif %}">
+                            <span class="sb-icon">👥</span><span>Пользователи</span>
+                        </a>
+                        <a href="{% url 'main:permissions_matrix' %}"
+                           class="sb-link sb-sub {% if 'permissions' in request.path %}active{% endif %}">
+                            <span class="sb-icon">🔑</span><span>Права доступа</span>
+                        </a>
+                        <a href="{% url 'main:broadcast_notifications' %}"
+                           class="sb-link sb-sub {% if 'notifications' in request.path %}active{% endif %}">
+                            <span class="sb-icon">📢</span><span>Рассылка</span>
+                        </a>
+                        <a href="{% url 'main:audit_log' %}"
+                           class="sb-link sb-sub {% if 'audit' in request.path and 'xsec' not in request.path %}active{% endif %}">
+                            <span class="sb-icon">📋</span><span>Аудит-лог</span>
+                        </a>
+                        {% if user.is_staff %}
+                        <a href="{% url 'main:ticket_list' %}" class="sb-link sb-sub {% if 'messages' in request.path %}active{% endif %}">
+                            <span class="sb-icon">📬</span>
+                            <span style="flex:1">Обращения</span>
+                            {% if unread_messages_count %}<span style="background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:2px 6px">{{ unread_messages_count }}</span>{% endif %}
+                        </a>
+                        <a href="{% url 'main:superuser_panel' %}"
+                           class="sb-link sb-sub {% if 'superadmin' in request.path %}active{% endif %}">
+                            <span class="sb-icon">🛡️</span>
+                            <span style="flex:1">Панель создателя</span>
+                            {% if pending_users_count %}<span style="background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:2px 6px">{{ pending_users_count }}</span>{% endif %}
+                        </a>
+                        {% endif %}
+                        {% if user.is_superuser %}
+                        <a href="/xsec-audit/"
+                           class="sb-link sb-sub {% if 'xsec' in request.path %}active{% endif %}"
+                           style="border-top:1px solid var(--border);margin-top:4px;padding-top:8px">
+                            <span class="sb-icon">🔐</span><span>Аудит-центр</span>
+                        </a>
+                        {% endif %}
+
+                    </div>
+                </div>
+            </div>
             {% endif %}
         </nav>
 
@@ -227,6 +286,21 @@
 
             <!-- Right side -->
             <div class="topbar-right">
+                <!-- Push notifications bell (SSE) -->
+                <div class="pn-wrap" id="pnWrap">
+                    <button class="bell-btn" id="pnBtn" type="button" title="Уведомления">
+                        <span class="bell-icon">📨</span>
+                        <span class="bell-badge" id="pnBadge" style="display:none;"></span>
+                    </button>
+                    <div class="bell-dropdown" id="pnDropdown" style="min-width:300px">
+                        <div class="bell-dd-hdr" style="display:flex;justify-content:space-between;align-items:center">
+                            <span>📨 Уведомления</span>
+                            <button onclick="clearPushNotifications()" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;padding:2px 6px;border-radius:6px;hover:background:var(--card2)">Очистить</button>
+                        </div>
+                        <div id="pnBody"><div class="bell-dd-empty">Нет новых уведомлений ✅</div></div>
+                    </div>
+                </div>
+
                 <!-- Bell notification -->
                 <div class="bell-wrap" id="bellWrap">
                     <button class="bell-btn" id="bellBtn" type="button" title="Просроченные заказы">
@@ -297,6 +371,67 @@ _hamburger.addEventListener('click', openSidebar);
 _sbOverlay.addEventListener('click', closeSidebar);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar(); });
 })();
+
+/* ── Sidebar admin dropdown ── */
+function _initSbDrop() {
+    const items = document.getElementById('sb-drop-items');
+    const arrow = document.getElementById('sb-drop-arrow');
+    if (!items) return;
+    const stored = localStorage.getItem('sb_admin_open');
+    // Авто-открыть если активен один из пунктов или был открыт ранее
+    const hasActive = items.querySelector('.sb-sub.active');
+    const shouldOpen = hasActive || stored === '1';
+    if (shouldOpen) {
+        items.style.maxHeight = items.scrollHeight + 'px';
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
+    }
+}
+function toggleSbDrop() {
+    const items = document.getElementById('sb-drop-items');
+    const arrow = document.getElementById('sb-drop-arrow');
+    if (!items) return;
+    const isOpen = items.style.maxHeight !== '0px' && items.style.maxHeight !== '';
+    if (isOpen) {
+        items.style.maxHeight = '0';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+        localStorage.setItem('sb_admin_open', '0');
+    } else {
+        items.style.maxHeight = items.scrollHeight + 'px';
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
+        localStorage.setItem('sb_admin_open', '1');
+    }
+}
+document.addEventListener('turbo:load', _initSbDrop);
+document.addEventListener('DOMContentLoaded', _initSbDrop);
+
+function _initInvDrop() {
+    const items = document.getElementById('inv-drop-items');
+    const arrow = document.getElementById('inv-drop-arrow');
+    if (!items) return;
+    const stored = localStorage.getItem('sb_inv_open');
+    const hasActive = items.querySelector('.sb-sub.active');
+    if (hasActive || stored === '1') {
+        items.style.maxHeight = items.scrollHeight + 'px';
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
+    }
+}
+function toggleInvDrop() {
+    const items = document.getElementById('inv-drop-items');
+    const arrow = document.getElementById('inv-drop-arrow');
+    if (!items) return;
+    const isOpen = items.style.maxHeight !== '0px' && items.style.maxHeight !== '';
+    if (isOpen) {
+        items.style.maxHeight = '0';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+        localStorage.setItem('sb_inv_open', '0');
+    } else {
+        items.style.maxHeight = items.scrollHeight + 'px';
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
+        localStorage.setItem('sb_inv_open', '1');
+    }
+}
+document.addEventListener('turbo:load', _initInvDrop);
+document.addEventListener('DOMContentLoaded', _initInvDrop);
 
 /* ── GLOBAL SEARCH ── */
 (function() {
@@ -436,6 +571,146 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar
     }
 })();
 
+/* ── PUSH NOTIFICATIONS (polling) ── */
+(function() {
+    // Используем window для хранения состояния — переживает Turbo-навигацию
+    if (window._pnInited) return;
+    window._pnInited = true;
+
+    // lastId и shownIds в sessionStorage — переживают навигацию, сбрасываются при закрытии вкладки
+    function getLastId() { return parseInt(sessionStorage.getItem('pn_lastId') || '0'); }
+    function setLastId(id) { sessionStorage.setItem('pn_lastId', id); }
+    function getShown() {
+        try { return new Set(JSON.parse(sessionStorage.getItem('pn_shown') || '[]')); } catch(e) { return new Set(); }
+    }
+    function addShown(id) {
+        var s = getShown(); s.add(id);
+        // держим не более 200 ID
+        var arr = Array.from(s); if (arr.length > 200) arr = arr.slice(-200);
+        sessionStorage.setItem('pn_shown', JSON.stringify(arr));
+    }
+
+    var unread = 0;
+    var colors = {order:'#3b82f6', payment:'#10b981', booking:'#f59e0b', ticket:'#7c3aed', overdue:'#ef4444', info:'#6b7280'};
+
+    function getEls() {
+        return {
+            btn:   document.getElementById('pnBtn'),
+            drop:  document.getElementById('pnDropdown'),
+            body:  document.getElementById('pnBody'),
+            badge: document.getElementById('pnBadge'),
+        };
+    }
+
+    function updateBadge() {
+        var el = document.getElementById('pnBadge');
+        if (!el) return;
+        el.textContent = unread > 99 ? '99+' : unread;
+        el.style.display = unread > 0 ? 'flex' : 'none';
+    }
+
+    function addToPanel(note) {
+        var els = getEls();
+        if (!els.body) return;
+        var empty = els.body.querySelector('.bell-dd-empty');
+        if (empty) empty.remove();
+        var item = document.createElement('a');
+        item.className = 'bell-dd-item';
+        item.dataset.notifId = note.id;
+        if (note.link) item.href = note.link;
+        item.innerHTML =
+            '<div style="font-weight:600;font-size:13px;color:var(--text1);">' + note.title + '</div>' +
+            (note.message ? '<div style="font-size:12px;color:var(--text2);margin-top:2px;">' + note.message + '</div>' : '');
+        item.addEventListener('click', function() { if (els.drop) els.drop.classList.remove('show'); });
+        els.body.insertBefore(item, els.body.firstChild);
+        var all = els.body.querySelectorAll('.bell-dd-item');
+        if (all.length > 15) all[all.length - 1].remove();
+    }
+
+    function showToast(note) {
+        if (typeof Toastify === 'undefined') return;
+        Toastify({
+            text: note.title + (note.message ? '\n' + note.message : ''),
+            duration: 6000, close: true, gravity: 'top', position: 'right',
+            onClick: note.link ? function() { window.location.href = note.link; } : undefined,
+            style: { borderRadius: '12px', fontFamily: 'inherit', fontSize: '13px' },
+            backgroundColor: colors[note.type] || colors.info,
+        }).showToast();
+    }
+
+    function poll() {
+        var lastId = getLastId();
+        var shown = getShown();
+        fetch('/notifications/mark-read/?poll=1&last_id=' + lastId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.notes || !data.notes.length) return;
+                var els = getEls();
+                data.notes.forEach(function(note) {
+                    if (shown.has(note.id)) return;
+                    addShown(note.id);
+                    if (note.id > getLastId()) setLastId(note.id);
+                    // Показываем только непрочитанные
+                    if (note.is_read) return;
+                    unread++;
+                    updateBadge();
+                    addToPanel(note);
+                    if (!els.drop || !els.drop.classList.contains('show')) showToast(note);
+                });
+            })
+            .catch(function() {});
+    }
+
+    poll();
+    setInterval(poll, 6000);
+
+    // Слушаем клики — используем делегирование чтобы работало после Turbo-навигации
+    document.addEventListener('click', function(e) {
+        var btn  = document.getElementById('pnBtn');
+        var wrap = document.getElementById('pnWrap');
+        var drop = document.getElementById('pnDropdown');
+        var body = document.getElementById('pnBody');
+        if (!btn) return;
+
+        if (btn.contains(e.target)) {
+            e.stopPropagation();
+            var isOpen = drop && drop.classList.contains('show');
+            if (drop) drop.classList.toggle('show');
+            if (!isOpen && unread > 0 && body) {
+                var ids = Array.from(body.querySelectorAll('.bell-dd-item[data-notif-id]')).map(function(el) { return el.dataset.notifId; });
+                if (ids.length) {
+                    var fd = new FormData();
+                    ids.forEach(function(id) { fd.append('ids[]', id); });
+                    fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                    fetch('/notifications/mark-read/', { method: 'POST', body: fd }).catch(function() {});
+                }
+                unread = 0;
+                updateBadge();
+            }
+        } else if (wrap && !wrap.contains(e.target)) {
+            if (drop) drop.classList.remove('show');
+        }
+    });
+
+    window.clearPushNotifications = function() {
+        var body = document.getElementById('pnBody');
+        var drop = document.getElementById('pnDropdown');
+        if (body) {
+            var ids = Array.from(body.querySelectorAll('.bell-dd-item[data-notif-id]')).map(function(el) { return el.dataset.notifId; });
+            if (ids.length) {
+                var fd = new FormData();
+                ids.forEach(function(id) { fd.append('ids[]', id); });
+                fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                fetch('/notifications/mark-read/', { method: 'POST', body: fd }).catch(function() {});
+            }
+            body.innerHTML = '<div class="bell-dd-empty">Нет новых уведомлений ✅</div>';
+        }
+        unread = 0;
+        updateBadge();
+        if (drop) drop.classList.remove('show');
+    };
+})();
+
 /* ── TOASTIFY ── works on both initial load and Turbo navigation */
 {% if messages %}{% for message in messages %}
 Toastify({
@@ -448,6 +723,21 @@ Toastify({
 {% endfor %}{% endif %}
 </script>
 
+<!-- PWA Service Worker -->
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/service-worker.js').catch(() => {});
+}
+</script>
 {% block extra_js %}{% endblock %}
+{% if user.is_authenticated %}
+<script>
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+        navigator.sendBeacon('/xsec-beacon/', JSON.stringify({path: location.pathname + location.search}));
+    }
+});
+</script>
+{% endif %}
 </body>
 </html>

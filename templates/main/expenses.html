@@ -1,0 +1,168 @@
+{% extends 'base_dark.html' %}
+{% load static %}
+{% block title %}Расходы — CRM{% endblock %}
+
+{% block extra_css %}
+.exp-wrap{max-width:900px;margin:0 auto;padding-bottom:60px}
+.exp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.exp-head h1{font-size:24px;font-weight:800;color:var(--text1);margin:0}
+.exp-nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.exp-nav a{font-size:13px;padding:6px 14px;border-radius:20px;border:1px solid var(--border);color:var(--text2);text-decoration:none;transition:.15s}
+.exp-nav a:hover{border-color:var(--accent);color:var(--accent)}
+.exp-nav a.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.exp-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+.exp-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px}
+.exp-card-label{font-size:12px;color:var(--text3);margin-bottom:4px}
+.exp-card-val{font-size:22px;font-weight:800;color:var(--text1)}
+.exp-card-val.red{color:#f87171}
+.exp-add{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px}
+.exp-add h2{font-size:15px;font-weight:700;color:var(--text1);margin:0 0 14px}
+.exp-form-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.exp-fi{display:flex;flex-direction:column;gap:4px;flex:1;min-width:120px}
+.exp-fi label{font-size:12px;color:var(--text3)}
+.exp-fi input,.exp-fi select{background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--text1);padding:9px 12px;font-size:14px;font-family:inherit;outline:none;width:100%;box-sizing:border-box}
+.exp-fi input:focus,.exp-fi select:focus{border-color:var(--accent)}
+.exp-fi input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.6)}
+.btn-add-exp{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:9px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;height:40px;align-self:flex-end}
+.exp-table{width:100%;border-collapse:collapse}
+.exp-table th{padding:10px 14px;text-align:left;font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;border-bottom:1px solid var(--border)}
+.exp-table td{padding:13px 14px;border-bottom:1px solid var(--border);font-size:14px;color:var(--text1);vertical-align:middle}
+.exp-table tr:last-child td{border-bottom:none}
+.exp-table tr:hover td{background:var(--card2)}
+.cat-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(124,58,237,.15);color:#a78bfa}
+.btn-del{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit}
+.btn-del:hover{background:rgba(239,68,68,.2)}
+.by-cat{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:24px}
+.by-cat-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+.by-cat-name{font-size:13px;color:var(--text2)}
+.by-cat-val{font-size:15px;font-weight:700;color:var(--text1)}
+@media(max-width:700px){.exp-cards{grid-template-columns:repeat(2,1fr)}.by-cat{grid-template-columns:1fr}}
+{% endblock %}
+
+{% block content %}
+<div class="exp-wrap">
+
+    <div class="exp-head">
+        <h1>Расходы</h1>
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:12px;padding:12px 16px;margin-bottom:12px">{{ msg }}</div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Навигация по месяцам -->
+    <div class="exp-nav">
+        {% for m in months %}
+        <a href="?year={{ year }}&month={{ m.num }}"
+           class="{% if m.num == month %}active{% endif %}">{{ m.name }}</a>
+        {% endfor %}
+    </div>
+
+    <!-- Итоги месяца -->
+    <div class="exp-cards">
+        <div class="exp-card">
+            <div class="exp-card-label">{{ month_name }} {{ year }}</div>
+            <div class="exp-card-val red">{{ total|floatformat:0 }} сом</div>
+        </div>
+        <div class="exp-card">
+            <div class="exp-card-label">Записей</div>
+            <div class="exp-card-val">{{ expenses|length }}</div>
+        </div>
+        <div class="exp-card">
+            <div class="exp-card-label">Категорий</div>
+            <div class="exp-card-val">{{ by_category|length }}</div>
+        </div>
+    </div>
+
+    <!-- По категориям -->
+    {% if by_category %}
+    <div class="by-cat">
+        {% for cat, val in by_category.items %}
+        <div class="by-cat-item">
+            <span class="by-cat-name">{{ cat }}</span>
+            <span class="by-cat-val">{{ val|floatformat:0 }} сом</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Форма добавления -->
+    <div class="exp-add">
+        <h2>+ Добавить расход</h2>
+        <form method="post" action="{% url 'main:create_expense' %}">
+            {% csrf_token %}
+            <div class="exp-form-row">
+                <div class="exp-fi" style="max-width:160px">
+                    <label>Дата *</label>
+                    <input type="date" name="date" id="expDate" required>
+                </div>
+                <div class="exp-fi" style="max-width:200px">
+                    <label>Категория</label>
+                    <select name="category">
+                        {% for val, label in categories %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="exp-fi" style="max-width:150px">
+                    <label>Сумма (сом) *</label>
+                    <input type="number" name="amount" min="0.01" step="0.01" placeholder="0" required>
+                </div>
+                <div class="exp-fi">
+                    <label>Описание</label>
+                    <input type="text" name="description" placeholder="Необязательно" maxlength="300">
+                </div>
+                <button type="submit" class="btn-add-exp">Добавить</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Таблица расходов -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+        {% if expenses %}
+        <table class="exp-table">
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Категория</th>
+                    <th>Описание</th>
+                    <th style="text-align:right">Сумма</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for exp in expenses %}
+            <tr>
+                <td style="color:var(--text3);font-size:13px">{{ exp.date|date:"d.m.Y" }}</td>
+                <td><span class="cat-badge">{{ exp.get_category_display }}</span></td>
+                <td style="color:var(--text2)">{{ exp.description|default:"—" }}</td>
+                <td style="text-align:right;font-weight:700;color:#f87171">{{ exp.amount|floatformat:0 }} сом</td>
+                <td style="text-align:right">
+                    <form method="post" action="{% url 'main:delete_expense' exp.id %}" onsubmit="return confirm('Удалить расход?')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-del">x</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align:center;padding:48px 20px;color:var(--text3)">
+            <div style="font-size:40px;margin-bottom:12px">📭</div>
+            <p>Расходов за {{ month_name }} {{ year }} нет</p>
+        </div>
+        {% endif %}
+
+        {% include 'includes/pagination.html' %}
+    </div>
+
+</div>
+
+<script>
+var d = new Date();
+document.getElementById('expDate').value = d.toISOString().split('T')[0];
+</script>
+{% endblock %}

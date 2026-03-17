@@ -43,6 +43,7 @@
             <th>Товаров</th>
             <th>Открытых заказов</th>
             <th>Доход</th>
+            <th>Макс. складов</th>
             <th>Дата рег.</th>
             <th>Действия</th>
         </tr>
@@ -84,7 +85,7 @@
     </tr>
     <!-- Inline edit form -->
     <tr id="edit-{{ d.user.id }}" style="display:none;background:rgba(124,58,237,.05)">
-        <td colspan="10" style="padding:16px">
+        <td colspan="11" style="padding:16px">
             <form method="POST" action="{% url 'main:edit_director_settings' user_id=d.user.id %}" style="display:flex;align-items:center;gap:16px">
                 {% csrf_token %}
                 <label style="font-size:13px;color:var(--text2)">Макс. складов:</label>

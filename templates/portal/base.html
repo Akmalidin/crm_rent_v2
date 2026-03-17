@@ -1,0 +1,136 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Аренда инструментов{% endblock %}</title>
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <meta name="theme-color" content="#7c3aed">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
+    <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+        --bg: #0f0f17; --bg2: #181825; --card: #1e1e2e; --card2: #252538;
+        --border: #2d2d44; --text1: #e2e2f0; --text2: #a0a0b8;
+        --text3: #6c6c88; --accent: #7c3aed; --accent2: #a78bfa;
+        --green: #10b981; --red: #ef4444; --yellow: #fbbf24;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: var(--bg); color: var(--text1);
+        min-height: 100dvh; padding: 0;
+    }
+    a { color: var(--accent2); text-decoration: none; }
+    /* Header */
+    .portal-header {
+        background: var(--card); border-bottom: 1px solid var(--border);
+        padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
+        position: sticky; top: 0; z-index: 50;
+    }
+    .portal-logo { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+    .portal-nav { display: flex; gap: 6px; }
+    .portal-nav a {
+        padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 600;
+        color: var(--text2); transition: all .15s;
+    }
+    .portal-nav a:hover, .portal-nav a.active { background: var(--accent); color: #fff; }
+    /* Content */
+    .portal-content { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+    /* Cards */
+    .p-card {
+        background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+        padding: 20px; margin-bottom: 16px;
+    }
+    .p-card-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+    /* Product grid */
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+    .product-card {
+        background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+        overflow: hidden; transition: border-color .15s;
+    }
+    .product-card:hover { border-color: var(--accent); }
+    .product-img {
+        width: 100%; height: 180px; object-fit: cover; background: var(--bg2);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 48px; color: var(--text3);
+    }
+    .product-img img { width: 100%; height: 100%; object-fit: cover; }
+    .product-info { padding: 14px 16px; }
+    .product-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .product-cat { font-size: 12px; color: var(--text3); }
+    .product-price { font-size: 16px; font-weight: 700; color: var(--accent2); margin-top: 8px; }
+    .product-avail { font-size: 12px; margin-top: 4px; }
+    .avail-yes { color: var(--green); } .avail-no { color: var(--red); }
+    /* Buttons */
+    .btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 10px 20px; border-radius: 12px; font-size: 14px;
+        font-weight: 600; border: none; cursor: pointer; transition: all .15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #6d28d9; }
+    .btn-sm { padding: 6px 14px; font-size: 13px; border-radius: 8px; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent2); }
+    /* Forms */
+    .fi { margin-bottom: 14px; }
+    .fi label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+    .fi input, .fi select, .fi textarea {
+        width: 100%; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border);
+        border-radius: 10px; color: var(--text1); font-size: 14px; outline: none;
+    }
+    .fi input:focus, .fi select:focus, .fi textarea:focus { border-color: var(--accent); }
+    /* Status badges */
+    .badge { padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; display: inline-block; }
+    .badge-pending { background: rgba(251,191,36,.15); color: var(--yellow); }
+    .badge-approved { background: rgba(16,185,129,.15); color: var(--green); }
+    .badge-rejected { background: rgba(239,68,68,.15); color: var(--red); }
+    /* Table */
+    .p-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .p-table th { text-align: left; font-size: 12px; color: var(--text3); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    .p-table td { padding: 12px; border-bottom: 1px solid var(--border); }
+    /* Toast */
+    .toast {
+        position: fixed; top: 20px; right: 20px; z-index: 999;
+        padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 600;
+        color: #fff; animation: slideIn .3s ease;
+    }
+    .toast-success { background: var(--green); }
+    .toast-error { background: var(--red); }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: none; opacity: 1; } }
+    /* Responsive */
+    @media (max-width: 600px) {
+        .portal-header { flex-direction: column; gap: 10px; }
+        .product-grid { grid-template-columns: 1fr; }
+    }
+    {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body>
+    <header class="portal-header">
+        <div class="portal-logo">
+            <span>🔧</span> Аренда инструментов
+        </div>
+        {% if portal_client %}
+        <nav class="portal-nav">
+            <a href="{% url 'main:portal_catalog' portal_client.portal_token.token %}" class="{% if request.path|slugify == 'catalog' or 'catalog' in request.path %}active{% endif %}">Каталог</a>
+            <a href="{% url 'main:portal_my_bookings' portal_client.portal_token.token %}" class="{% if 'bookings' in request.path %}active{% endif %}">Мои заявки</a>
+            <a href="{% url 'main:portal_my_orders' portal_client.portal_token.token %}" class="{% if 'orders' in request.path %}active{% endif %}">Мои заказы</a>
+        </nav>
+        {% endif %}
+    </header>
+
+    <main class="portal-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/static/service-worker.js').catch(() => {});
+    }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

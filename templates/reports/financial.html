@@ -12,12 +12,24 @@
 <div class="space-y-6">
     
     <!-- Header -->
-    <div>
-        <a href="/reports/" class="text-blue-600 hover:underline text-sm mb-2 inline-block">
-            ← Назад к отчётам
-        </a>
-        <h1 class="text-3xl font-bold text-gray-800">💰 Финансовый отчёт</h1>
-        <p class="text-gray-600">Общая финансовая статистика</p>
+    <div class="flex justify-between items-start flex-wrap gap-3">
+        <div>
+            <a href="/reports/" class="text-blue-600 hover:underline text-sm mb-2 inline-block">
+                ← Назад к отчётам
+            </a>
+            <h1 class="text-3xl font-bold text-gray-800">💰 Финансовый отчёт</h1>
+            <p class="text-gray-600">Общая финансовая статистика</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:28px;flex-wrap:wrap">
+            <a href="{% url 'main:print_financial_report' %}" target="_blank"
+               style="display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border:1px solid var(--border);border-radius:12px;color:var(--text1);text-decoration:none;font-size:14px;font-weight:600;background:var(--card)">
+                🖨️ Скачать PDF
+            </a>
+            <a href="{% url 'main:export_payments' %}"
+               style="display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border:1px solid var(--border);border-radius:12px;color:var(--text1);text-decoration:none;font-size:14px;font-weight:600;background:var(--card)">
+                📥 Экспорт оплат (Excel)
+            </a>
+        </div>
     </div>
     
     <!-- Main Stats -->
@@ -26,36 +38,43 @@
         <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-lg p-6">
             <div class="flex items-center justify-between mb-2">
                 <p class="text-blue-100 text-sm uppercase">Общий доход (план)</p>
-                <svg class="w-8 h-8 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                </svg>
             </div>
             <p class="text-4xl font-bold">{{ total_income|floatformat:0 }} сом</p>
             <p class="text-blue-100 text-sm mt-2">Сумма всех заказов</p>
         </div>
-        
+
         <!-- Total Paid -->
         <div class="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow-lg p-6">
             <div class="flex items-center justify-between mb-2">
                 <p class="text-green-100 text-sm uppercase">Получено</p>
-                <svg class="w-8 h-8 text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
             </div>
             <p class="text-4xl font-bold">{{ total_paid|floatformat:0 }} сом</p>
             <p class="text-green-100 text-sm mt-2">Все оплаты клиентов</p>
         </div>
-        
+
         <!-- Total Debt -->
         <div class="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg shadow-lg p-6">
             <div class="flex items-center justify-between mb-2">
                 <p class="text-red-100 text-sm uppercase">Задолженность</p>
-                <svg class="w-8 h-8 text-red-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
             </div>
             <p class="text-4xl font-bold">{{ total_debt|floatformat:0 }} сом</p>
             <p class="text-red-100 text-sm mt-2">Общий долг клиентов</p>
+        </div>
+    </div>
+
+    <!-- Expenses + Net Profit -->
+    <div class="grid grid-cols-2 gap-6">
+        <div class="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg shadow-lg p-6">
+            <p class="text-orange-100 text-sm uppercase mb-2">Расходы (всего)</p>
+            <p class="text-4xl font-bold">{{ total_expenses|floatformat:0 }} сом</p>
+            <p class="text-orange-100 text-sm mt-2">
+                <a href="{% url 'main:expenses_list' %}" style="color:rgba(255,255,255,.8);text-decoration:underline">Управление расходами →</a>
+            </p>
+        </div>
+        <div class="bg-gradient-to-br {% if net_profit >= 0 %}from-emerald-600 to-emerald-700{% else %}from-red-700 to-red-800{% endif %} text-white rounded-lg shadow-lg p-6">
+            <p class="text-sm uppercase mb-2" style="color:rgba(255,255,255,.7)">Чистая прибыль</p>
+            <p class="text-4xl font-bold">{{ net_profit|floatformat:0 }} сом</p>
+            <p class="text-sm mt-2" style="color:rgba(255,255,255,.7)">Получено − Расходы</p>
         </div>
     </div>
     
@@ -155,11 +174,25 @@ new Chart(ctx, {
             {% for month in payments_monthly %}'{{ month.month }}'{% if not forloop.last %},{% endif %}{% endfor %}
         ],
         datasets: [{
-            label: 'Оплаты (сом)',
+            label: 'Получено',
             data: [{% for month in payments_monthly %}{{ month.total }}{% if not forloop.last %},{% endif %}{% endfor %}],
             backgroundColor: 'rgba(34, 197, 94, 0.5)',
             borderColor: 'rgb(34, 197, 94)',
             borderWidth: 2
+        }, {
+            label: 'Расходы',
+            data: [{% for month in payments_monthly %}{{ month.expenses }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            backgroundColor: 'rgba(249, 115, 22, 0.5)',
+            borderColor: 'rgb(249, 115, 22)',
+            borderWidth: 2
+        }, {
+            label: 'Чистая прибыль',
+            data: [{% for month in payments_monthly %}{{ month.net }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            backgroundColor: 'rgba(59, 130, 246, 0.3)',
+            borderColor: 'rgb(59, 130, 246)',
+            borderWidth: 2,
+            type: 'line',
+            tension: 0.4
         }]
     },
     options: {

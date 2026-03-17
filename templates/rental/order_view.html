@@ -211,9 +211,9 @@
                 <td class="r" style="color:var(--text2)">{{ item.rental_days }} д{% if item.rental_hours %} {{ item.rental_hours }} ч{% endif %}</td>
                 <td class="r" style="color:var(--text3)">{{ item.price_per_day|floatformat:0 }}</td>
                 <td class="r">
-                    <div class="cost-val">{{ item.get_cost_excluding_rain|floatformat:0 }} сом</div>
+                    <div class="cost-val">{{ item.original_total_cost|floatformat:0 }} сом</div>
                     {% if item.excluded_days.count > 0 %}
-                    <div class="rain-adj">было {{ item.current_total_cost|floatformat:0 }}</div>
+                    <div class="rain-adj">без дождя {{ item.get_cost_excluding_rain|floatformat:0 }}</div>
                     {% endif %}
                 </td>
             </tr>
@@ -344,7 +344,7 @@
 
         {% if order.status == 'open' and total_owed_order > 0 %}
         <div style="margin-top:14px">
-            <a href="/payment/?client={{ client.id }}" class="ov-btn btn-amber" style="width:100%;justify-content:center">
+            <a href="/payment/?client={{ client.id }}" data-turbo="false" class="ov-btn btn-amber" style="width:100%;justify-content:center">
                 💵 Принять оплату · осталось {{ total_owed_order|floatformat:0 }} сом
             </a>
         </div>
@@ -383,8 +383,23 @@
             <div class="ret-info">
                 <div class="ret-name">{{ ret.order_item.product.name }}</div>
                 <div class="ret-sub">
-                    {{ ret.quantity }} шт · {{ ret.actual_days }} д {{ ret.actual_hours }} ч ·
                     {{ ret.return_document.return_date|date:"d.m.Y H:i" }}
+                </div>
+                <!-- Формула расчёта -->
+                <div style="margin-top:6px;font-size:12px;color:var(--text3);line-height:1.6">
+                    {% if ret.actual_days > 0 and ret.actual_hours > 0 %}
+                        {% with base_label=ret.quantity|stringformat:"s" %}
+                        {{ ret.quantity }} шт × {{ ret.order_item.price_per_day|floatformat:0 }} сом/д × {{ ret.actual_days }} д {{ ret.actual_hours }} ч
+                        {% endwith %}
+                    {% elif ret.actual_days > 0 %}
+                        {{ ret.quantity }} шт × {{ ret.order_item.price_per_day|floatformat:0 }} сом/д × {{ ret.actual_days }} д
+                    {% else %}
+                        {{ ret.quantity }} шт × {{ ret.order_item.price_per_day|floatformat:0 }} сом/д × {{ ret.actual_hours }} ч
+                    {% endif %}
+                    {% if ret.repair_fee and ret.repair_fee > 0 %}
+                        <span style="color:#fb923c"> + {{ ret.repair_fee|floatformat:0 }} сом ({{ ret.repair_notes|default:"ремонт" }})</span>
+                    {% endif %}
+                    = <span style="color:var(--text2);font-weight:600">{{ ret.calculated_cost|floatformat:0 }} сом</span>
                 </div>
             </div>
             <div class="ret-amount">{{ ret.calculated_cost|floatformat:0 }} сом</div>
@@ -402,6 +417,47 @@
             <a href="{% url 'main:print_return' order.id %}" target="_blank" class="ov-btn btn-ghost">📦 Акт возврата</a>
             <a href="{% url 'main:client_payments' client.id %}?order={{ order.id }}" class="ov-btn btn-purple">💰 Квитанции</a>
         </div>
+    </div>
+
+    <!-- ══ ФАЙЛЫ ══ -->
+    <div class="ov-card">
+        <h2 class="ov-card-title">📎 Файлы и документы</h2>
+
+        {% if attachments %}
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+            {% for att in attachments %}
+            <div style="display:flex;align-items:center;justify-content:space-between;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;gap:10px">
+                <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                    <span style="font-size:20px;flex-shrink:0">
+                        {% if att.is_image %}🖼️{% else %}📄{% endif %}
+                    </span>
+                    <div style="min-width:0">
+                        <a href="{{ att.file.url }}" target="_blank" style="color:var(--accent);text-decoration:none;font-size:14px;font-weight:600;word-break:break-all">{{ att.name }}</a>
+                        <div style="font-size:11px;color:var(--text3);margin-top:2px">
+                            {{ att.uploaded_at|date:"d.m.Y H:i" }}
+                            {% if att.uploaded_by %}&bull; {{ att.uploaded_by.get_full_name|default:att.uploaded_by.username }}{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <form method="post" action="{% url 'main:delete_order_attachment' att.id %}" onsubmit="return confirm('Удалить файл?')" style="flex-shrink:0">
+                    {% csrf_token %}
+                    <button type="submit" style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">✕</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p style="font-size:13px;color:var(--text3);margin-bottom:16px">Файлов нет. Прикрепите договор, фото техники или другие документы.</p>
+        {% endif %}
+
+        <form method="post" action="{% url 'main:upload_order_attachment' order.id %}" enctype="multipart/form-data" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            {% csrf_token %}
+            <input type="file" name="file" required
+                   style="flex:1;min-width:200px;background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--text1);padding:8px 12px;font-size:13px;box-sizing:border-box">
+            <button type="submit" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">
+                + Прикрепить
+            </button>
+        </form>
     </div>
 
     <!-- ══ ЗАМЕТКА ══ -->

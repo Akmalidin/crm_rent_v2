@@ -27,7 +27,7 @@
         </div>
     </div>
 
-    <form method="POST">
+    <form method="POST" enctype="multipart/form-data">
         {% csrf_token %}
 
         <div class="card">
@@ -36,6 +36,22 @@
             <div class="fi">
                 <label>Название <span style="color:#f87171">*</span></label>
                 <input type="text" name="name" required value="{{ product.name }}">
+            </div>
+
+            <div class="fi">
+                <label>Фото товара</label>
+                {% if product.photo %}
+                <div style="margin-bottom:10px">
+                    <img src="{{ product.photo.url }}" alt="фото" style="max-width:200px;max-height:160px;border-radius:10px;object-fit:cover;border:1px solid var(--border)">
+                    <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+                        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text3);cursor:pointer">
+                            <input type="checkbox" name="remove_photo"> Удалить фото
+                        </label>
+                    </div>
+                </div>
+                {% endif %}
+                <input type="file" name="photo" accept="image/*" style="background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--text1);padding:8px 12px;font-size:14px;width:100%;box-sizing:border-box">
+                <p class="hint-text">{% if product.photo %}Загрузите новое фото чтобы заменить{% else %}JPG, PNG — необязательно{% endif %}</p>
             </div>
 
             <div class="fi">

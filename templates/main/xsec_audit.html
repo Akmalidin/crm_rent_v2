@@ -1,0 +1,316 @@
+{% extends 'base_dark.html' %}
+{% load static %}
+{% block title %}Аудит-центр{% endblock %}
+
+{% block extra_css %}
+*{box-sizing:border-box}
+.xa{max-width:1200px;margin:0 auto;padding-bottom:60px}
+.xa-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:20px}
+.xa-head h1{font-size:22px;font-weight:800;color:var(--text1);margin:0}
+.xa-warning{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:10px 16px;font-size:13px;color:#f87171;margin-bottom:16px}
+
+/* Статы */
+.xa-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.xa-stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center}
+.xa-stat-v{font-size:26px;font-weight:900;color:var(--accent);line-height:1}
+.xa-stat-l{font-size:11px;color:var(--text3);margin-top:4px}
+
+/* Табы */
+.xa-tabs{display:flex;gap:4px;background:var(--card2);border-radius:10px;padding:4px;margin-bottom:16px;width:fit-content}
+.xa-tab{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;color:var(--text3);text-decoration:none;border:none;background:none;cursor:pointer}
+.xa-tab.active{background:var(--accent);color:#fff}
+
+/* Фильтры */
+.xa-filters{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.xa-filters input,.xa-filters select{background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text1);padding:7px 12px;font-size:13px;font-family:inherit}
+.xa-filters label{font-size:11px;color:var(--text3);display:block;margin-bottom:3px}
+.xa-btn{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;border:none;cursor:pointer;font-family:inherit}
+.xa-btn-v{background:var(--accent);color:#fff}
+.xa-btn-r{background:var(--card2);border:1px solid var(--border);color:var(--text2);text-decoration:none}
+.xa-btn-g{background:#059669;color:#fff}
+.xa-btn-red{background:#dc2626;color:#fff}
+.xa-btn-dl{background:#0284c7;color:#fff}
+.xa-btn-sm{padding:5px 10px;font-size:11px}
+
+/* Таблица */
+.xa-card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px}
+.xa-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.xa-tbl th{padding:9px 12px;background:var(--card2);color:var(--text3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+.xa-tbl td{padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle}
+.xa-tbl tr:last-child td{border-bottom:none}
+.xa-tbl tr:hover td{background:rgba(124,58,237,.04)}
+.tag-login{background:rgba(16,185,129,.15);color:#34d399;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700}
+.tag-logout{background:rgba(107,114,128,.15);color:#9ca3af;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700}
+.tag-close{background:rgba(245,158,11,.12);color:#fbbf24;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700}
+.tag-4xx{background:rgba(239,68,68,.12);color:#f87171;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700}
+.tag-5xx{background:rgba(220,38,38,.2);color:#fca5a5;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700}
+.tag-2xx{background:rgba(16,185,129,.1);color:#6ee7b7;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700}
+.tag-3xx{background:rgba(59,130,246,.1);color:#93c5fd;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700}
+.path-cell{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;color:var(--text1)}
+.ua-cell{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text3)}
+.user-lnk{font-weight:700;color:var(--accent2)}
+
+/* Бэкапы */
+.xa-backup-row{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
+.xa-backup-row:last-child{border-bottom:none}
+.xa-backup-name{font-family:monospace;font-size:12px;color:var(--text1);font-weight:600}
+.xa-backup-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.xa-backup-btns{display:flex;gap:6px;flex-wrap:wrap}
+
+@media(max-width:700px){
+  .xa-stats{grid-template-columns:repeat(2,1fr)}
+  .xa-tbl th:nth-child(n+5),.xa-tbl td:nth-child(n+5){display:none}
+}
+{% endblock %}
+
+{% block content %}
+<div class="xa">
+
+    <div class="xa-head">
+        <h1>🔐 Аудит-центр</h1>
+        <span style="font-size:12px;color:var(--text3)">Скрытая страница · только суперюзер</span>
+    </div>
+
+    <div class="xa-warning">
+        ⚠️ Эта страница содержит конфиденциальные данные. Не передавайте ссылку посторонним.
+        URL: <code>/xsec-audit/</code>
+    </div>
+
+    <!-- Статистика -->
+    <div class="xa-stats">
+        <div class="xa-stat">
+            <div class="xa-stat-v">{{ total_requests }}</div>
+            <div class="xa-stat-l">Всего запросов</div>
+        </div>
+        <div class="xa-stat">
+            <div class="xa-stat-v" style="color:#34d399">{{ total_logins }}</div>
+            <div class="xa-stat-l">Входов в систему</div>
+        </div>
+        <div class="xa-stat">
+            <div class="xa-stat-v" style="color:#f87171">{{ total_errors }}</div>
+            <div class="xa-stat-l">Ошибок (4xx/5xx)</div>
+        </div>
+        <div class="xa-stat">
+            <div class="xa-stat-v" style="color:#fbbf24">{{ active_users }}</div>
+            <div class="xa-stat-l">Активных (24ч)</div>
+        </div>
+    </div>
+
+    <!-- Табы -->
+    <div class="xa-tabs">
+        <a href="?tab=requests" class="xa-tab {% if tab == 'requests' %}active{% endif %}">📡 Запросы</a>
+        <a href="?tab=actions"  class="xa-tab {% if tab == 'actions'  %}active{% endif %}">📋 Действия</a>
+        <a href="?tab=backups"  class="xa-tab {% if tab == 'backups'  %}active{% endif %}">💾 Бэкапы</a>
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div style="padding:10px 16px;margin-bottom:12px;border-radius:9px;font-size:13px;
+        background:{% if msg.tags == 'success' %}rgba(16,185,129,.15){% else %}rgba(239,68,68,.15){% endif %};
+        color:{% if msg.tags == 'success' %}#34d399{% else %}#f87171{% endif %};
+        border:1px solid {% if msg.tags == 'success' %}rgba(16,185,129,.3){% else %}rgba(239,68,68,.3){% endif %}">
+        {{ msg }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- ══ ТАБ: ЗАПРОСЫ ══ -->
+    {% if tab == 'requests' %}
+    <form method="get" class="xa-filters">
+        <input type="hidden" name="tab" value="requests">
+        <div>
+            <label>Пользователь</label>
+            <input type="text" name="u" value="{{ user_filter }}" placeholder="логин...">
+        </div>
+        <div>
+            <label>URL содержит</label>
+            <input type="text" name="p" value="{{ path_filter }}" placeholder="/clients...">
+        </div>
+        <div>
+            <label>Событие</label>
+            <select name="ev">
+                <option value="">Все</option>
+                <option value="login"  {% if event_filter == 'login'  %}selected{% endif %}>Входы</option>
+                <option value="logout" {% if event_filter == 'logout' %}selected{% endif %}>Выходы</option>
+                <option value="close"  {% if event_filter == 'close'  %}selected{% endif %}>Закрытие страниц</option>
+                <option value="errors" {% if event_filter == 'errors' %}selected{% endif %}>Ошибки (4xx/5xx)</option>
+            </select>
+        </div>
+        <div>
+            <label>С даты</label>
+            <input type="date" name="df" value="{{ date_from }}">
+        </div>
+        <div>
+            <label>По дату</label>
+            <input type="date" name="dt" value="{{ date_to }}">
+        </div>
+        <button type="submit" class="xa-btn xa-btn-v">Фильтр</button>
+        <a href="?tab=requests" class="xa-btn xa-btn-r">Сброс</a>
+    </form>
+
+    <div class="xa-card">
+        {% if page_obj %}
+        <table class="xa-tbl">
+            <thead>
+                <tr>
+                    <th>Время</th>
+                    <th>Пользователь</th>
+                    <th>Метод</th>
+                    <th>URL</th>
+                    <th>Статус</th>
+                    <th>мс</th>
+                    <th>IP</th>
+                    <th>Событие</th>
+                    <th>User-Agent</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for log in page_obj %}
+            <tr>
+                <td style="white-space:nowrap;color:var(--text3);font-size:11px">{{ log.created_at|date:"d.m.Y H:i:s" }}</td>
+                <td class="user-lnk">{{ log.username|default:"—" }}</td>
+                <td style="font-family:monospace;font-size:11px;color:var(--text3)">{{ log.method }}</td>
+                <td class="path-cell" title="{{ log.path }}{% if log.query %}?{{ log.query }}{% endif %}">
+                    {{ log.path }}{% if log.query %}<span style="color:var(--text3)">?{{ log.query }}</span>{% endif %}
+                </td>
+                <td>
+                    {% if log.status_code >= 500 %}<span class="tag-5xx">{{ log.status_code }}</span>
+                    {% elif log.status_code >= 400 %}<span class="tag-4xx">{{ log.status_code }}</span>
+                    {% elif log.status_code >= 300 %}<span class="tag-3xx">{{ log.status_code }}</span>
+                    {% else %}<span class="tag-2xx">{{ log.status_code }}</span>{% endif %}
+                </td>
+                <td style="font-size:11px;color:var(--text3)">{{ log.response_ms }}</td>
+                <td style="font-size:11px;font-family:monospace;color:var(--text3)">{{ log.ip|default:"—" }}</td>
+                <td>
+                    {% if log.event == 'login' %}<span class="tag-login">🔑 вход</span>
+                    {% elif log.event == 'logout' %}<span class="tag-logout">🚪 выход</span>
+                    {% elif log.event == 'page_close' %}<span class="tag-close">❌ закрыл</span>
+                    {% endif %}
+                </td>
+                <td class="ua-cell" title="{{ log.user_agent }}">{{ log.user_agent }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% include 'includes/pagination.html' %}
+        {% else %}
+        <div style="padding:40px;text-align:center;color:var(--text3)">Записей не найдено</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- ══ ТАБ: ДЕЙСТВИЯ ══ -->
+    {% if tab == 'actions' %}
+    <form method="get" class="xa-filters">
+        <input type="hidden" name="tab" value="actions">
+        <div>
+            <label>Пользователь</label>
+            <input type="text" name="u" value="{{ user_filter }}" placeholder="логин...">
+        </div>
+        <div>
+            <label>С даты</label>
+            <input type="date" name="df" value="{{ date_from }}">
+        </div>
+        <div>
+            <label>По дату</label>
+            <input type="date" name="dt" value="{{ date_to }}">
+        </div>
+        <button type="submit" class="xa-btn xa-btn-v">Фильтр</button>
+        <a href="?tab=actions" class="xa-btn xa-btn-r">Сброс</a>
+    </form>
+
+    <div class="xa-card">
+        {% if alogs %}
+        <table class="xa-tbl">
+            <thead>
+                <tr>
+                    <th>Время</th>
+                    <th>Пользователь</th>
+                    <th>Действие</th>
+                    <th>Описание</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for log in alogs %}
+            <tr>
+                <td style="white-space:nowrap;color:var(--text3);font-size:11px">{{ log.created_at|date:"d.m.Y H:i:s" }}</td>
+                <td class="user-lnk">{{ log.user.username }}</td>
+                <td><span style="background:rgba(124,58,237,.12);color:var(--accent);padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700">{{ log.get_action_display }}</span></td>
+                <td>{{ log.description }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% include 'includes/pagination.html' with page_obj=alogs page_query=alogs_query %}
+        {% else %}
+        <div style="padding:40px;text-align:center;color:var(--text3)">Записей не найдено</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- ══ ТАБ: БЭКАПЫ ══ -->
+    {% if tab == 'backups' %}
+    <div class="xa-card" style="margin-bottom:14px">
+        <div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+            <div>
+                <div style="font-size:15px;font-weight:700;color:var(--text1)">💾 Бэкапы базы данных SQLite</div>
+                <div style="font-size:12px;color:var(--text3);margin-top:3px">Хранится последних 30 бэкапов · автосохранение перед восстановлением</div>
+            </div>
+            <form method="post" action="{% url 'main:xsec_backup_create' %}">
+                {% csrf_token %}
+                <button type="submit" class="xa-btn xa-btn-g"
+                    onclick="return confirm('Создать бэкап прямо сейчас?')">
+                    📦 Создать бэкап сейчас
+                </button>
+            </form>
+        </div>
+
+        {% if backups %}
+        {% for b in backups %}
+        <div class="xa-backup-row">
+            <div>
+                <div class="xa-backup-name">{{ b.name }}</div>
+                <div class="xa-backup-meta">{{ b.mtime }} · {{ b.size_kb }} КБ</div>
+            </div>
+            <div class="xa-backup-btns">
+                <!-- Скачать -->
+                <a href="{% url 'main:xsec_backup_download' b.name %}"
+                   class="xa-btn xa-btn-dl xa-btn-sm">⬇ Скачать</a>
+                <!-- Восстановить -->
+                <form method="post" action="{% url 'main:xsec_backup_restore' b.name %}" style="display:inline">
+                    {% csrf_token %}
+                    <button type="submit" class="xa-btn xa-btn-v xa-btn-sm"
+                        onclick="return confirm('ВНИМАНИЕ!\nВосстановить базу из {{ b.name }}?\n\nТекущая база будет сохранена как бэкап автоматически.')">
+                        ♻️ Восстановить
+                    </button>
+                </form>
+                <!-- Удалить -->
+                <form method="post" action="{% url 'main:xsec_backup_delete' b.name %}" style="display:inline">
+                    {% csrf_token %}
+                    <button type="submit" class="xa-btn xa-btn-red xa-btn-sm"
+                        onclick="return confirm('Удалить бэкап {{ b.name }}?')">
+                        🗑
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="padding:40px;text-align:center;color:var(--text3)">
+            <div style="font-size:36px;margin-bottom:10px">📂</div>
+            Бэкапов ещё нет. Нажмите «Создать бэкап сейчас».
+        </div>
+        {% endif %}
+    </div>
+
+    <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:14px 16px;font-size:13px;color:#fbbf24">
+        <strong>Как восстановить базу:</strong><br>
+        1. Нажмите «♻️ Восстановить» напротив нужного бэкапа<br>
+        2. Текущая база автоматически сохранится перед заменой<br>
+        3. После восстановления перезапустите сервер Django<br>
+        4. Все данные после даты бэкапа будут утеряны — только если это необходимо
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

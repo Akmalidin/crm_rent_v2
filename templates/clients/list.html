@@ -29,7 +29,7 @@
 .btn-filter-reset:hover{color:var(--text1)}
 
 /* Table */
-.cl-table-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.cl-table-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:scroll}
 .cl-table{width:100%;border-collapse:collapse}
 .cl-table thead th{background:var(--card2);color:var(--text3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:11px 16px;text-align:left;border-bottom:1px solid var(--border)}
 .cl-table tbody tr{border-bottom:1px solid var(--border);transition:background .15s;cursor:pointer}
@@ -65,7 +65,10 @@ a.sort-th:hover{color:var(--text1)}
 <!-- Header -->
 <div class="cl-header">
     <h1>🧑 Клиенты</h1>
-    <a href="{% url 'main:create_client' %}" class="btn-p">+ Новый клиент</a>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a href="{% url 'main:export_clients' %}" class="btn-s" style="font-size:13px;padding:8px 16px">📥 Excel</a>
+        <a href="{% url 'main:create_client' %}" class="btn-p">+ Новый клиент</a>
+    </div>
 </div>
 
 <!-- Stats -->
@@ -148,6 +151,7 @@ a.sort-th:hover{color:var(--text1)}
                 </th>
                 <th>Телефон</th>
                 <th>Баланс</th>
+                <th>Рейтинг</th>
                 <th>Всего заказов</th>
                 <th>
                     <a class="sort-th"
@@ -193,6 +197,17 @@ a.sort-th:hover{color:var(--text1)}
                     {% endif %}
                 </td>
 
+                <!-- Rating -->
+                <td>
+                    {% with rl=client.get_rating_label rv=client.get_rating %}
+                    <span style="font-size:12px;font-weight:700;padding:3px 8px;border-radius:8px;
+                        {% if rl == 'excellent' %}background:rgba(16,185,129,.12);color:#10b981
+                        {% elif rl == 'good' %}background:rgba(59,130,246,.12);color:#3b82f6
+                        {% elif rl == 'average' %}background:rgba(245,158,11,.12);color:#f59e0b
+                        {% else %}background:rgba(239,68,68,.12);color:#ef4444{% endif %}">{{ rv }}</span>
+                    {% endwith %}
+                </td>
+
                 <!-- Orders -->
                 <td style="font-size:13px;color:var(--text2);">
                     {{ client.rental_orders.count }}
@@ -221,6 +236,8 @@ a.sort-th:hover{color:var(--text1)}
         </div>
     </div>
     {% endif %}
+
+    {% include 'includes/pagination.html' %}
 </div>
 
 {% endblock %}

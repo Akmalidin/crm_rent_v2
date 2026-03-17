@@ -2,7 +2,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Count, Q
 from apps.clients.models import Client
-from apps.rental.models import RentalOrder, OrderItem, Payment, ReturnDocument, Product
+from apps.rental.models import RentalOrder, OrderItem, Payment, ReturnDocument
 from apps.inventory.models import Product, Category
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -17,6 +17,7 @@ from django.contrib.auth.models import User, Group, Permission
 from .decorators import admin_required, manager_required, cashier_required
 from django.contrib.auth import login, authenticate
 from apps.main.models import UserProfile
+from apps.main.pagination import paginate
 
 
 def get_tenant_owner(user):
@@ -215,9 +216,10 @@ def edit_company(request):
 
 @login_required
 def dashboard(request):
-    """Современный дашборд с графиками"""
+    """Современный дашборд с графиками (кэширование тяжёлых данных)"""
     from django.db.models import Sum
     from decimal import Decimal
+    from django.core.cache import cache
 
     # Если новый директор ещё не настроил компанию — направить на setup
     if request.user.is_superuser and not request.user.is_staff:
@@ -231,113 +233,121 @@ def dashboard(request):
             pass
 
     owner = get_tenant_owner(request.user)
-
     now = timezone.now()
-    week_ago = now - timedelta(days=7)
-    month_ago = now - timedelta(days=30)
 
-    # === СТАТИСТИКА ===
-    total_clients = Client.objects.filter(owner=owner).count()
-    new_clients_week = Client.objects.filter(owner=owner, created_at__gte=week_ago).count()
+    # Принудительное обновление кэша по ?refresh=1
+    force_refresh = request.GET.get('refresh') == '1'
+    cache_key = f'dashboard_{owner.id}'
+    CACHE_TTL = 120  # 2 минуты
 
-    active_orders = RentalOrder.objects.filter(status='open', client__owner=owner).count()
-    total_orders = RentalOrder.objects.filter(client__owner=owner).count()
-
-    # === ДОЛГИ (правильный расчёт через клиентов) ===
-    # Общий долг = сумма долгов всех клиентов
-    total_debt = sum(float(c.get_debt()) for c in Client.objects.filter(owner=owner))
-
-    # Должники (у кого баланс < 0)
-    debtors_count = sum(1 for c in Client.objects.filter(owner=owner) if c.get_wallet_balance() < 0)
-
-    # === ДОХОД ===
-    total_payments = Payment.objects.filter(client__owner=owner).aggregate(total=Sum('amount'))['total'] or Decimal('0')
-    revenue_month = float(total_payments)
-
-    # Рост дохода
-    prev_month_start = month_ago - timedelta(days=30)
-    revenue_prev_month = Payment.objects.filter(
-        client__owner=owner,
-        payment_date__gte=prev_month_start,
-        payment_date__lt=month_ago
-    ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
-
-    revenue_prev_float = float(revenue_prev_month)
-    if revenue_prev_float > 0:
-        revenue_growth = int(((revenue_month - revenue_prev_float) / revenue_prev_float) * 100)
+    cached = None if force_refresh else cache.get(cache_key)
+    if cached:
+        ctx = cached
     else:
-        revenue_growth = 100 if revenue_month > 0 else 0
+        week_ago = now - timedelta(days=7)
+        month_ago = now - timedelta(days=30)
 
-    # === ГРАФИК ДОХОДОВ ПО ДНЯМ ===
-    revenue_labels = []
-    revenue_data = []
-    for i in range(6, -1, -1):
-        day = now - timedelta(days=i)
-        revenue_labels.append(day.strftime('%d.%m'))
-        day_revenue = Payment.objects.filter(
+        # === СТАТИСТИКА ===
+        total_clients = Client.objects.filter(owner=owner).count()
+        new_clients_week = Client.objects.filter(owner=owner, created_at__gte=week_ago).count()
+        active_orders = RentalOrder.objects.filter(status='open', client__owner=owner).count()
+        total_orders = RentalOrder.objects.filter(client__owner=owner).count()
+
+        # === ДОЛГИ ===
+        all_clients = list(Client.objects.filter(owner=owner))
+        total_debt = sum(float(c.get_debt()) for c in all_clients)
+        debtors_count = sum(1 for c in all_clients if c.get_wallet_balance() < 0)
+        total_credit = sum(float(c.get_credit()) for c in all_clients)
+
+        # === ДОХОД ===
+        total_payments = Payment.objects.filter(client__owner=owner).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        revenue_month = float(total_payments)
+        total_paid = float(total_payments)
+
+        prev_month_start = month_ago - timedelta(days=30)
+        revenue_prev_month = Payment.objects.filter(
             client__owner=owner,
-            payment_date__date=day.date()
-        ).aggregate(total=Sum('amount'))['total'] or 0
-        revenue_data.append(float(day_revenue))
+            payment_date__gte=prev_month_start,
+            payment_date__lt=month_ago
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
 
-    # === КРУГОВАЯ ДИАГРАММА ===
-    # Оплачено всего
-    total_paid = float(total_payments)
+        revenue_prev_float = float(revenue_prev_month)
+        if revenue_prev_float > 0:
+            revenue_growth = int(((revenue_month - revenue_prev_float) / revenue_prev_float) * 100)
+        else:
+            revenue_growth = 100 if revenue_month > 0 else 0
 
-    # Аванс (переплата) = сумма кредитов всех клиентов
-    total_credit = sum(float(c.get_credit()) for c in Client.objects.filter(owner=owner))
+        # === ГРАФИК ДОХОДОВ ПО ДНЯМ ===
+        revenue_labels = []
+        revenue_data = []
+        for i in range(6, -1, -1):
+            day = now - timedelta(days=i)
+            revenue_labels.append(day.strftime('%d.%m'))
+            day_revenue = Payment.objects.filter(
+                client__owner=owner,
+                payment_date__date=day.date()
+            ).aggregate(total=Sum('amount'))['total'] or 0
+            revenue_data.append(float(day_revenue))
 
-    # Для диаграммы: оплачено, долги, аванс
-    # Но долги уже включены в "оплачено" как неоплаченная часть
-    # Поэтому показываем: реально оплачено vs ещё должен
+        # === ГРАФИК ЗАКАЗОВ ===
+        orders_labels = []
+        orders_open_data = []
+        orders_closed_data = []
+        for i in range(6, -1, -1):
+            day = now - timedelta(days=i)
+            orders_labels.append(day.strftime('%d.%m'))
+            orders_open_data.append(RentalOrder.objects.filter(
+                client__owner=owner, created_at__date=day.date(), status='open'
+            ).count())
+            orders_closed_data.append(RentalOrder.objects.filter(
+                client__owner=owner, created_at__date=day.date(), status='closed'
+            ).count())
 
-    # === ГРАФИК ЗАКАЗОВ ===
-    orders_labels = []
-    orders_open_data = []
-    orders_closed_data = []
-    for i in range(6, -1, -1):
-        day = now - timedelta(days=i)
-        orders_labels.append(day.strftime('%d.%m'))
+        # === ТОП-5 ТОВАРОВ ===
+        products_stats = OrderItem.objects.filter(order__client__owner=owner).values('product__name').annotate(
+            rental_count=Count('id')
+        ).order_by('-rental_count')[:5]
+        max_count = products_stats[0]['rental_count'] if products_stats else 1
+        top_products = [
+            {
+                'name': p['product__name'],
+                'rental_count': p['rental_count'],
+                'percentage': int((p['rental_count'] / max_count) * 100)
+            }
+            for p in products_stats
+        ]
 
-        open_count = RentalOrder.objects.filter(
-            client__owner=owner,
-            created_at__date=day.date(),
-            status='open'
-        ).count()
-        closed_count = RentalOrder.objects.filter(
-            client__owner=owner,
-            created_at__date=day.date(),
-            status='closed'
-        ).count()
+        # === ЗАКАЗЫ ПО ДНЯМ НЕДЕЛИ ===
+        weekday_names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+        weekday_counts = [0] * 7
+        for order in RentalOrder.objects.filter(client__owner=owner):
+            weekday_counts[order.created_at.weekday()] += 1
+        weekday_labels = json.dumps(weekday_names)
+        weekday_data = json.dumps(weekday_counts)
 
-        orders_open_data.append(open_count)
-        orders_closed_data.append(closed_count)
-
-    # === ТОП-5 ТОВАРОВ ===
-    products_stats = OrderItem.objects.filter(order__client__owner=owner).values('product__name').annotate(
-        rental_count=Count('id')
-    ).order_by('-rental_count')[:5]
-
-    max_count = products_stats[0]['rental_count'] if products_stats else 1
-    top_products = [
-        {
-            'name': p['product__name'],
-            'rental_count': p['rental_count'],
-            'percentage': int((p['rental_count'] / max_count) * 100)
+        ctx = {
+            'total_clients': total_clients,
+            'new_clients_week': new_clients_week,
+            'active_orders': active_orders,
+            'total_orders': total_orders,
+            'total_debt': total_debt,
+            'debtors_count': debtors_count,
+            'revenue_month': revenue_month,
+            'revenue_growth': revenue_growth,
+            'revenue_labels': json.dumps(revenue_labels),
+            'revenue_data': json.dumps(revenue_data),
+            'total_paid': total_paid,
+            'total_credit': total_credit,
+            'orders_labels': json.dumps(orders_labels),
+            'orders_open_data': json.dumps(orders_open_data),
+            'orders_closed_data': json.dumps(orders_closed_data),
+            'top_products': top_products,
+            'weekday_labels': weekday_labels,
+            'weekday_data': weekday_data,
         }
-        for p in products_stats
-    ]
+        cache.set(cache_key, ctx, CACHE_TTL)
 
-    # === ЗАКАЗЫ ПО ДНЯМ НЕДЕЛИ ===
-    weekday_names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
-    weekday_counts = [0] * 7
-    for order in RentalOrder.objects.filter(client__owner=owner):
-        wd = order.created_at.weekday()  # 0=Mon, 6=Sun
-        weekday_counts[wd] += 1
-    weekday_labels = json.dumps(weekday_names)
-    weekday_data = json.dumps(weekday_counts)
-
-    # === ПРОСРОЧЕННЫЕ ЗАКАЗЫ ===
+    # === ПРОСРОЧЕННЫЕ ЗАКАЗЫ (всегда свежие, не кэшируем) ===
     overdue_orders = []
     for order in RentalOrder.objects.filter(status='open', client__owner=owner).prefetch_related('items__product', 'client')[:50]:
         overdue_items_list = [
@@ -353,32 +363,12 @@ def dashboard(request):
                 'overdue_items': len(overdue_items_list),
                 'total': order.get_current_total(),
             })
-
     overdue_orders.sort(key=lambda x: x['days_overdue'], reverse=True)
-    
-    # context = {
-    #     'now': now,
-    #     'total_clients': total_clients,
-    #     'new_clients_week': new_clients_week,
-    #     'active_orders': active_orders,
-    #     'total_orders': total_orders,
-    #     'total_debt': total_debt,
-    #     'debtors_count': debtors_count,
-    #     'revenue_month': revenue_month,
-    #     'revenue_growth': revenue_growth,
-    #     'revenue_labels': json.dumps(revenue_labels),
-    #     'revenue_data': json.dumps(revenue_data),
-    #     'total_paid': total_paid,
-    #     'debt_for_chart': total_debt,  # Для круговой диаграммы
-    #     'total_credit': total_credit,
-    #     'orders_labels': json.dumps(orders_labels),
-    #     'orders_open_data': json.dumps(orders_open_data),
-    #     'orders_closed_data': json.dumps(orders_closed_data),
-    #     'top_products': top_products,
-    #     'overdue_orders': overdue_orders,
-    # }
-    
-    return render(request, 'main/dashboard.html', locals())
+
+    ctx['now'] = now
+    ctx['overdue_orders'] = overdue_orders
+
+    return render(request, 'main/dashboard.html', ctx)
 
 @login_required
 def clients_list(request):
@@ -449,8 +439,13 @@ def clients_list(request):
     credit_count = sum(1 for c in all_clients if float(c.get_wallet_balance()) > 0)
     active_count = sum(1 for c in all_clients if c.rental_orders.filter(status='open').exists())
     
+    # Пагинация
+    page_obj, page_query = paginate(request, clients)
+
     context = {
-        'clients': clients,
+        'clients': page_obj,
+        'page_obj': page_obj,
+        'page_query': page_query,
         'total_clients': all_clients.count(),
         'debt_count': debt_count,
         'credit_count': credit_count,
@@ -463,7 +458,7 @@ def clients_list(request):
         'current_sort': sort_by,
         'filters_active': any([filter_type, date_range, amount_min, amount_max]),
     }
-    
+
     return render(request, 'clients/list.html', context)
 
 @login_required
@@ -568,42 +563,95 @@ def create_order(request):
 
     # GET запрос - показываем форму
     if request.method == 'GET':
-        # Получаем клиентов текущего тенанта
+        import json as _json
+        from apps.inventory.models import Category
         clients = Client.objects.filter(owner=owner).prefetch_related('phones')
+        categories = Category.objects.filter(owner=owner).order_by('name')
+        # Build products JSON grouped by category for JS
+        all_products = Product.objects.filter(owner=owner, is_active=True).select_related('category').order_by('name')
+        products_by_cat = {}
+        for p in all_products:
+            cid = str(p.category_id)
+            if cid not in products_by_cat:
+                products_by_cat[cid] = []
+            products_by_cat[cid].append({
+                'id': p.id,
+                'name': p.name,
+                'available': p.quantity_available,
+                'price_per_day': float(p.price_per_day),
+                'price_per_hour': float(p.price_per_hour),
+            })
 
-        # Получаем доступные товары текущего тенанта
-        products = Product.objects.filter(owner=owner, quantity_available__gt=0)
-        
+        # Build clients JSON for search
+        clients_json = []
+        for c in clients:
+            primary_phone = ''
+            all_phones = []
+            for ph in c.phones.all():
+                all_phones.append(ph.phone_number)
+                if ph.is_primary:
+                    primary_phone = ph.phone_number
+            clients_json.append({
+                'id': c.id,
+                'name': c.get_full_name(),
+                'phone': primary_phone,
+                'phones': all_phones,
+            })
+
+        preselect_client = request.GET.get('client', '')
+
         context = {
-            'clients': clients,
-            'products': products,
+            'categories': categories,
+            'clients_json': _json.dumps(clients_json),
+            'products_by_cat_json': _json.dumps(products_by_cat),
+            'preselect_client': preselect_client,
         }
-        
         return render(request, 'rental/create_order.html', context)
     
     # POST запрос - обрабатываем форму
     if request.method == 'POST':
         try:
-            # Получаем данные из формы
+            import json as _json
+            from decimal import Decimal as _Dec
             client_id = request.POST.get('client')
-            product_ids = request.POST.getlist('products[]')
-            quantities = request.POST.getlist('quantities[]')
-            days = request.POST.getlist('days[]')
-            hours = request.POST.getlist('hours[]')
-            
-            # Валидация
+            # New format: cart_json = '[{"pid":1,"qty":2,"price":500,"rain":true},...]'
+            cart_json = request.POST.get('cart_json', '[]')
+            cart = _json.loads(cart_json)
+
             if not client_id:
                 messages.error(request, 'Выберите клиента')
-                return redirect('create_order')
-            
-            if not product_ids or not product_ids[0]:
+                return redirect('main:create_order')
+
+            if not cart:
                 messages.error(request, 'Добавьте хотя бы один товар')
-                return redirect('create_order')
-            
-            # Получаем клиента (только текущего тенанта)
+                return redirect('main:create_order')
+
             client = Client.objects.get(id=client_id, owner=owner)
-            
-            # Создаём заказ
+
+            # Global dates
+            issued_date_str = request.POST.get('issued_date', '')
+            planned_return_str = request.POST.get('planned_return_date', '')
+            try:
+                from django.utils.dateparse import parse_datetime
+                issued_date = parse_datetime(issued_date_str) if issued_date_str else timezone.now()
+                planned_return_date = parse_datetime(planned_return_str) if planned_return_str else None
+                if issued_date and timezone.is_naive(issued_date):
+                    issued_date = timezone.make_aware(issued_date)
+                if planned_return_date and timezone.is_naive(planned_return_date):
+                    planned_return_date = timezone.make_aware(planned_return_date)
+            except Exception:
+                issued_date = timezone.now()
+                planned_return_date = None
+
+            if not planned_return_date or planned_return_date <= issued_date:
+                messages.error(request, 'Укажите корректные даты')
+                return redirect('main:create_order')
+
+            delta = planned_return_date - issued_date
+            total_seconds = delta.total_seconds()
+            global_days = int(total_seconds // 86400)
+            global_hours = int((total_seconds % 86400) // 3600)
+
             proof_file = request.FILES.get('proof_file')
             has_delivery = request.POST.get('has_delivery') == 'on'
             delivery_cost_val = 0
@@ -612,6 +660,7 @@ def create_order(request):
                     delivery_cost_val = float(request.POST.get('delivery_cost', '0') or '0')
                 except (ValueError, TypeError):
                     delivery_cost_val = 0
+
             order = RentalOrder.objects.create(
                 client=client,
                 status='open',
@@ -622,54 +671,55 @@ def create_order(request):
                 delivery_plate=request.POST.get('delivery_plate', '').strip() if has_delivery else '',
                 delivery_cost=delivery_cost_val,
             )
-            
-            # Добавляем товары в заказ
-            for i, product_id in enumerate(product_ids):
-                if not product_id:  # Пропускаем пустые
-                    continue
-                
+
+            for item in cart:
+                product_id = int(item['pid'])
+                quantity = int(item['qty'])
+                custom_price = float(item.get('price', 0))
+                rain_applicable = bool(item.get('rain', False))
+                by_hours = bool(item.get('byHours', False))
+
                 product = Product.objects.get(id=product_id, owner=owner)
-                quantity = int(quantities[i])
-                rental_days = int(days[i])
-                rental_hours = int(hours[i])
-                
-                # Проверяем доступность
+
                 if product.quantity_available < quantity:
-                    messages.error(request, f'Недостаточно товара "{product.name}". Доступно: {product.quantity_available}')
+                    messages.error(request, f'Недостаточно "{product.name}". Доступно: {product.quantity_available}')
                     order.delete()
                     return redirect('main:create_order')
-                
-                # Дата выдачи - сейчас
-                issued_date = timezone.now()
-                
-                # Планируемая дата возврата
-                planned_return_date = issued_date + timedelta(days=rental_days, hours=rental_hours)
-                
-                # Цены
-                price_per_day = product.price_per_day
-                price_per_hour = product.price_per_hour if (hasattr(product, 'price_per_hour') and product.price_per_hour) else (price_per_day / 24)
-                
-                # Изначальная стоимость
-                original_cost = quantity * (price_per_day * rental_days + price_per_hour * rental_hours)
-                
-                # Создаём позицию заказа
-                order_item = OrderItem.objects.create(
+
+                if by_hours:
+                    # Price is per hour
+                    price_per_hour = _Dec(str(custom_price)) if custom_price > 0 else (product.price_per_hour or product.price_per_day / 24)
+                    price_per_day = product.price_per_day
+                    total_hours = global_days * 24 + global_hours
+                    original_cost = _Dec(str(quantity)) * price_per_hour * _Dec(str(total_hours))
+                    # Store rental as 0 days + total_hours hours for clarity
+                    item_rental_days = 0
+                    item_rental_hours = total_hours
+                else:
+                    price_per_day = _Dec(str(custom_price)) if custom_price > 0 else product.price_per_day
+                    price_per_hour = product.price_per_hour if product.price_per_hour else _Dec('0')
+                    # Round up partial day
+                    bill_days = global_days + (1 if global_hours > 0 else 0)
+                    original_cost = _Dec(str(quantity)) * price_per_day * _Dec(str(bill_days))
+                    item_rental_days = bill_days
+                    item_rental_hours = 0
+
+                OrderItem.objects.create(
                     order=order,
                     product=product,
                     quantity_taken=quantity,
                     quantity_remaining=quantity,
                     issued_date=issued_date,
                     planned_return_date=planned_return_date,
-                    rental_days=rental_days,
-                    rental_hours=rental_hours,
+                    rental_days=item_rental_days,
+                    rental_hours=item_rental_hours,
                     price_per_day=price_per_day,
                     price_per_hour=price_per_hour,
                     original_total_cost=original_cost,
                     current_total_cost=original_cost,
+                    rain_applicable=rain_applicable,
                 )
-
                 product.update_available_quantity()
-                # Уменьшаем доступное количество товара
                 product.quantity_available -= quantity
                 product.save()
             
@@ -680,7 +730,20 @@ def create_order(request):
                 notify_director_new_order(order)
             except Exception:
                 pass
+            # Email клиенту
+            try:
+                from apps.main.email_utils import notify_order_created_email
+                notify_order_created_email(order)
+            except Exception:
+                pass
             log_activity(request.user, 'create_order', f'Создал заказ #{order.id} для клиента {client.get_full_name()}')
+            from apps.main.cache_utils import invalidate_dashboard
+            invalidate_dashboard(owner.id)
+            if request.user != owner:
+                from apps.main.notification_utils import push_to_owner
+                push_to_owner(owner, f'📦 Новый заказ #{order.id}',
+                              f'{request.user.username} создал заказ для {client.get_full_name()}',
+                              type='order', link=f'/orders/{order.id}/')
 
             # Редирект на страницу клиента
             return redirect('main:client_detail', client_id=client.id)
@@ -772,8 +835,13 @@ def orders_list(request):
                 overdue_count += 1
                 break
     
+    # Пагинация
+    page_obj, page_query = paginate(request, orders)
+
     context = {
-        'orders': orders,
+        'orders': page_obj,
+        'page_obj': page_obj,
+        'page_query': page_query,
         'total_open': total_open,
         'total_closed': total_closed,
         'overdue_count': overdue_count,
@@ -787,7 +855,7 @@ def orders_list(request):
         # Флаг что фильтр активен
         'filters_active': any([status, date_range, overdue_only, amount_min, amount_max]),
     }
-    
+
     return render(request, 'rental/orders_list.html', context)
 
 
@@ -902,9 +970,17 @@ def accept_payment(request):
                 notify_director_payment(payment_obj)
             except Exception:
                 pass
+            _owner = get_tenant_owner(request.user)
+            from apps.main.cache_utils import invalidate_dashboard
+            invalidate_dashboard(_owner.id)
+            if request.user != _owner:
+                from apps.main.notification_utils import push_to_owner
+                push_to_owner(_owner, f'💰 Оплата {payment_amount:.0f} сом',
+                              f'{request.user.username} принял оплату от {client.get_full_name()}',
+                              type='payment', link='/payment/')
 
             return redirect('main:client_detail', client_id=client.id)
-            
+
         except (ValueError, TypeError):
             return redirect('main:accept_payment')
     
@@ -1028,15 +1104,18 @@ def returns_page(request):
         client_id = request.POST.get('client_id')
         notes = request.POST.get('notes', '')
         payment_amount = request.POST.get('payment_amount', '0')
-        
+        payment_method = request.POST.get('payment_method', 'cash')
+        payment_order_id = request.POST.get('payment_order_id', '')  # ручной выбор заказа
+
         # Создаём документ возврата
         return_doc = ReturnDocument.objects.create(notes=notes)
-        
+
         # Обрабатываем возвраты
         has_returns = False
         total_cost = 0
         total_repair = 0
-        
+        returned_order_ids = []  # список order_id в порядке обработки
+
         for key in request.POST:
             if key.startswith('return_') and request.POST[key]:
                 item_id = key.replace('return_', '')
@@ -1069,27 +1148,101 @@ def returns_page(request):
                             has_returns = True
                             total_cost += float(return_item.calculated_cost)
                             total_repair += float(repair_fee_dec)
-                            
+
+                            # Запоминаем заказ
+                            oid = order_item.order_id
+                            if oid not in returned_order_ids:
+                                returned_order_ids.append(oid)
+
                             # ✅ ВАЖНО: ОБНОВЛЯЕМ ДОСТУПНОСТЬ ТОВАРА
                             product = order_item.product
                             product.update_available_quantity()
-                            
+
                     except OrderItem.DoesNotExist:
                         pass
-        
+
         if has_returns:
-            # Если клиент оплатил
+            # Если клиент оплатил — распределяем платёж по заказам
             try:
-                payment_amount = float(payment_amount)
-                if payment_amount > 0:
-                    Payment.objects.create(
-                        client_id=client_id,
-                        amount=payment_amount,
-                        payment_method='cash',
-                        notes=f'Оплата при возврате (Возврат #{return_doc.id})'
-                    )
+                payment_amount_float = float(payment_amount)
             except (ValueError, TypeError):
-                pass
+                payment_amount_float = 0
+
+            if payment_amount_float > 0:
+                import re as _re
+
+                def _dist_amt(notes_text, oid):
+                    if notes_text and 'Распределение:' in notes_text:
+                        for ln in notes_text.split('\n'):
+                            m = _re.search(rf'Заказ\s*#{oid}\s*:\s*(\d+(?:[\.,]\d+)?)\s*сом', ln)
+                            if m:
+                                return float(m.group(1).replace(',', '.'))
+                    return None
+
+                def _paid_for(client_obj, oid):
+                    total = 0.0
+                    for p in client_obj.payments.all():
+                        amt = _dist_amt(p.notes or '', oid)
+                        if amt is not None:
+                            total += amt
+                        elif p.notes and (f'Заказ #{oid}' in p.notes or f'#{oid}' in p.notes):
+                            total += float(p.amount)
+                    return total
+
+                client_obj = Client.objects.get(id=client_id)
+
+                # Если указан конкретный заказ — только он, иначе заказы с возвратами
+                if payment_order_id:
+                    try:
+                        manual_order = RentalOrder.objects.get(id=payment_order_id, client=client_obj)
+                        orders_for_payment = [manual_order]
+                    except RentalOrder.DoesNotExist:
+                        orders_for_payment = list(RentalOrder.objects.filter(
+                            id__in=returned_order_ids, client=client_obj
+                        ).order_by('created_at'))
+                else:
+                    orders_for_payment = list(RentalOrder.objects.filter(
+                        id__in=returned_order_ids, client=client_obj
+                    ).order_by('created_at'))
+
+                remaining = payment_amount_float
+                distribution = []
+                paid_ids = []
+
+                for order in orders_for_payment:
+                    if remaining <= 0:
+                        break
+                    already = _paid_for(client_obj, order.id)
+                    due = float(order.get_current_total()) - already
+                    if due <= 0:
+                        continue
+                    if remaining >= due:
+                        distribution.append(f'Заказ #{order.id}: {due:.0f} сом (полностью)')
+                        paid_ids.append(str(order.id))
+                        remaining -= due
+                    else:
+                        distribution.append(f'Заказ #{order.id}: {remaining:.0f} сом (частично)')
+                        paid_ids.append(str(order.id))
+                        remaining = 0
+
+                if paid_ids:
+                    order_word = 'ов' if len(paid_ids) > 1 else 'а'
+                    full_notes = (
+                        f"Оплата при возврате (Возврат #{return_doc.id}) "
+                        f"для заказ{order_word} #{', #'.join(paid_ids)}"
+                        f"\n\nРаспределение:\n" + '\n'.join(distribution)
+                    )
+                    if remaining > 0:
+                        full_notes += f"\n\nАванс: {remaining:.0f} сом"
+                else:
+                    full_notes = f'Оплата при возврате (Возврат #{return_doc.id})'
+
+                Payment.objects.create(
+                    client_id=client_id,
+                    amount=payment_amount_float,
+                    payment_method=payment_method,
+                    notes=full_notes
+                )
             
             if total_repair > 0:
                 messages.success(request, f'✅ Товары возвращены! Плата за ремонт/чистку: {int(total_repair)} сом')
@@ -1483,6 +1636,90 @@ def edit_order(request, order_id):
 
     return render(request, 'rental/edit_order.html', context)
 
+@login_required
+def reset_client_balance(request, client_id):
+    """Списать долг клиента (обнулить баланс). Только для суперпользователя."""
+    import re as _re
+
+    if not request.user.is_superuser:
+        messages.error(request, 'Нет прав для этого действия.')
+        return redirect('main:client_detail', client_id=client_id)
+
+    if request.method != 'POST':
+        return redirect('main:client_detail', client_id=client_id)
+
+    client = get_object_or_404(Client, id=client_id)
+    balance = round(client.get_wallet_balance(), 2)
+
+    if balance >= 0:
+        messages.info(request, 'Баланс клиента уже нулевой или положительный — списание не требуется.')
+        return redirect('main:client_detail', client_id=client_id)
+
+    debt = abs(balance)
+
+    # Собираем все заказы с остатком долга и распределяем списание
+    def _dist_amt(notes_text, oid):
+        if notes_text and 'Распределение:' in notes_text:
+            for ln in notes_text.split('\n'):
+                m = _re.search(rf'Заказ\s*#{oid}\s*:\s*(\d+(?:[\.,]\d+)?)\s*сом', ln)
+                if m:
+                    return float(m.group(1).replace(',', '.'))
+        return None
+
+    def _paid_for(c, oid):
+        total = 0.0
+        for p in c.payments.all():
+            amt = _dist_amt(p.notes or '', oid)
+            if amt is not None:
+                total += amt
+            elif p.notes and (f'Заказ #{oid}' in p.notes or f'#{oid}' in p.notes):
+                total += float(p.amount)
+        return total
+
+    orders = list(client.rental_orders.all().order_by('created_at'))
+    remaining = debt
+    distribution = []
+    paid_ids = []
+
+    for order in orders:
+        if remaining <= 0:
+            break
+        already = _paid_for(client, order.id)
+        due = round(float(order.get_current_total()) - already, 2)
+        if due <= 0:
+            continue
+        if remaining >= due:
+            distribution.append(f'Заказ #{order.id}: {due:.0f} сом (полностью)')
+            paid_ids.append(str(order.id))
+            remaining -= due
+        else:
+            distribution.append(f'Заказ #{order.id}: {remaining:.0f} сом (частично)')
+            paid_ids.append(str(order.id))
+            remaining = 0
+
+    if paid_ids:
+        order_word = 'ов' if len(paid_ids) > 1 else 'а'
+        full_notes = (
+            f"Списание долга (обнуление баланса) "
+            f"для заказ{order_word} #{', #'.join(paid_ids)}"
+            f"\n\nРаспределение:\n" + '\n'.join(distribution)
+        )
+    else:
+        full_notes = 'Списание долга (обнуление баланса)'
+
+    Payment.objects.create(
+        client=client,
+        amount=debt,
+        payment_method='writeoff',
+        notes=full_notes,
+    )
+
+    log_activity(request.user, 'reset_balance',
+                 f'Обнулил баланс клиента {client.get_full_name()} (списано {debt:.0f} сом)')
+    messages.success(request, f'Долг клиента {debt:.0f} сом списан. Баланс обнулён.')
+    return redirect('main:client_detail', client_id=client_id)
+
+
 @cashier_required
 def apply_credit_to_order(request, order_id):
     """Зачесть аванс клиента в счёт заказа"""
@@ -1622,7 +1859,7 @@ def close_order(request, order_id):
     client_balance = client.get_wallet_balance()
     order_debt = float(calculate_order_debt(order, total_paid_for_order, client_balance))
 
-    if order_debt > 0:
+    if order_debt >= 1:  # порог 1 сом защищает от ошибок float-округления
         messages.error(
             request,
             f'Нельзя закрыть заказ, пока есть долг по заказу: {order_debt:.0f} сом. '
@@ -1675,6 +1912,15 @@ def close_order(request, order_id):
     order.save()
     log_activity(request.user, 'close_order', f'Закрыл заказ #{order.id} (клиент: {order.client.get_full_name()})')
 
+    # Email клиенту при закрытии
+    try:
+        from apps.main.email_utils import notify_order_closed_email
+        notify_order_closed_email(order)
+    except Exception:
+        pass
+
+    from apps.main.cache_utils import invalidate_dashboard
+    invalidate_dashboard(get_tenant_owner(request.user).id)
     messages.success(request, f'✅ Заказ #{order.id} закрыт. Все товары возвращены на склад.')
     return redirect('main:client_detail', client_id=order.client.id)
 
@@ -1895,6 +2141,69 @@ def global_search_optimized(request):
         'products': [],
     }, json_dumps_params={'ensure_ascii': False})
 
+# ─── SSE: уведомления в реальном времени ─────────────────────────────────────
+
+@login_required
+def sse_stream(request):
+    """Server-Sent Events: стримит новые уведомления пользователю."""
+    import time as _time
+    import json as _json
+
+    def event_generator():
+        last_id = int(request.GET.get('last_id', 0))
+        # Пинг при подключении
+        yield "data: {\"type\": \"ping\"}\n\n"
+        # Цикл ~2 минуты (30 × 4 сек), затем клиент переподключается сам
+        for _ in range(30):
+            _time.sleep(4)
+            from apps.main.models import Notification
+            notes = (Notification.objects
+                     .filter(user=request.user, id__gt=last_id, is_read=False)
+                     .order_by('id')[:10])
+            for note in notes:
+                data = _json.dumps({
+                    'id': note.id,
+                    'type': note.type,
+                    'title': note.title,
+                    'message': note.message,
+                    'link': note.link,
+                }, ensure_ascii=False)
+                yield f"data: {data}\n\n"
+                last_id = note.id
+
+    from django.http import StreamingHttpResponse
+    response = StreamingHttpResponse(event_generator(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response
+
+
+@login_required
+def mark_notifications_read(request):
+    """
+    GET ?poll=1&last_id=N  — вернуть новые уведомления (для polling).
+    POST ids[]             — отметить прочитанными.
+    """
+    from apps.main.models import Notification
+    if request.method == 'POST':
+        ids = request.POST.getlist('ids[]')
+        if ids:
+            Notification.objects.filter(user=request.user, id__in=ids).update(is_read=True)
+        count = Notification.objects.filter(user=request.user, is_read=False).count()
+        return JsonResponse({'ok': True, 'unread': count})
+    # GET — polling
+    last_id = int(request.GET.get('last_id', 0))
+    notes = list(
+        Notification.objects
+        .filter(user=request.user, id__gt=last_id)
+        .order_by('id')[:20]
+        .values('id', 'type', 'title', 'message', 'link', 'is_read', 'created_at')
+    )
+    for n in notes:
+        n['created_at'] = n['created_at'].strftime('%d.%m %H:%M')
+    return JsonResponse({'notes': notes})
+
+
 @login_required
 def api_overdue_orders(request):
     """API: список просроченных открытых заказов для колокольчика"""
@@ -1944,14 +2253,18 @@ def send_overdue_notification(request, order_id):
     '''Ручная отправка уведомления о просрочке'''
     from apps.rental.models import RentalOrder
     from apps.main.telegram_bot_complete import notify_overdue
-    
+    from apps.main.email_utils import notify_overdue_email
+
     order = get_object_or_404(RentalOrder, id=order_id)
-    
-    # Отправляем уведомление
+
     notify_overdue(order)
-    
-    messages.success(request, f'Уведомление отправлено для заказа #{order_id}')
-    
+
+    email_sent = notify_overdue_email(order)
+    if email_sent:
+        messages.success(request, f'Уведомление отправлено для заказа #{order_id} (Telegram + Email)')
+    else:
+        messages.success(request, f'Уведомление отправлено для заказа #{order_id}')
+
     return redirect('main:client_detail', client_id=order.client.id)
 
 
@@ -2487,14 +2800,10 @@ def superuser_panel(request):
         'open_orders':   RentalOrder.objects.filter(status='open').count(),  # system-wide
     }
 
-    from apps.main.models import DirectorMessage
-    unread_messages = DirectorMessage.objects.filter(is_read=False).select_related('sender')
-
     return render(request, 'main/superuser_panel.html', {
         'pending_users': pending_users,
         'stats': stats,
         'all_users': User.objects.order_by('-date_joined')[:20],
-        'unread_messages': unread_messages,
     })
 
 
@@ -2575,17 +2884,59 @@ def edit_director_settings(request, user_id):
 def creator_director_detail(request, user_id):
     """Детальная страница директора — его сотрудники и склады"""
     from apps.inventory.models import Warehouse
+    from apps.clients.models import Client
+    from apps.rental.models import RentalOrder, Payment
+    from apps.main.models import Expense
+    from django.db.models import Sum
+    from django.utils import timezone
+
     director = get_object_or_404(User, id=user_id, is_superuser=True, is_staff=False)
     employees = UserProfile.objects.filter(owner=director).select_related('user').prefetch_related('user__groups')
     warehouses = Warehouse.objects.filter(owner=director)
+
+    # Клиенты
+    clients = Client.objects.filter(owner=director).prefetch_related('phones').order_by('-created_at')
+
+    # Финансы
+    now = timezone.now()
+    total_revenue = Payment.objects.filter(client__owner=director).aggregate(t=Sum('amount'))['t'] or 0
+    total_expenses = Expense.objects.filter(owner=director).aggregate(t=Sum('amount'))['t'] or 0
+    profit = float(total_revenue) - float(total_expenses)
+
+    # Заказы
+    open_orders = RentalOrder.objects.filter(client__owner=director, status='open').count()
+    closed_orders = RentalOrder.objects.filter(client__owner=director, status='closed').count()
+
+    # Доходы по месяцам (последние 6)
+    from datetime import timedelta
+    monthly = []
+    for i in range(5, -1, -1):
+        month_start = (now.replace(day=1) - timedelta(days=i*28)).replace(day=1)
+        if i > 0:
+            next_month = (month_start + timedelta(days=32)).replace(day=1)
+        else:
+            next_month = now
+        rev = Payment.objects.filter(
+            client__owner=director,
+            payment_date__gte=month_start,
+            payment_date__lt=next_month,
+        ).aggregate(t=Sum('amount'))['t'] or 0
+        monthly.append({'label': month_start.strftime('%b'), 'revenue': int(rev)})
+
     return render(request, 'main/creator_director_detail.html', {
         'director': director,
         'employees': employees,
         'warehouses': warehouses,
+        'clients': clients,
+        'total_revenue': int(total_revenue),
+        'total_expenses': int(total_expenses),
+        'profit': int(profit),
+        'open_orders': open_orders,
+        'closed_orders': closed_orders,
+        'monthly': monthly,
     })
 
 
-@login_required
 @login_required
 def ticket_list(request):
     """Список обращений — для директора его тикеты, для создателя все."""
@@ -2599,7 +2950,13 @@ def ticket_list(request):
         # Отметить ответы создателя как прочитанные
         tickets.exclude(reply='').filter(reply_read=False).update(reply_read=True)
 
-    return render(request, 'main/ticket_list.html', {'tickets': tickets})
+    page_obj, page_query = paginate(request, tickets, per_page=20)
+
+    return render(request, 'main/ticket_list.html', {
+        'tickets': page_obj,
+        'page_obj': page_obj,
+        'page_query': page_query,
+    })
 
 
 @login_required
@@ -2645,6 +3002,21 @@ def add_reply(request, ticket_id):
             if not request.user.is_staff:
                 ticket.is_read = False
                 ticket.save(update_fields=['is_read'])
+            # Push-уведомление другой стороне
+            from apps.main.notification_utils import push_notification
+            if request.user.is_staff:
+                # Создатель ответил → уведомить директора
+                push_notification(ticket.sender_id, f'💬 Ответ по тикету #{ticket.pk}',
+                                  f'{request.user.username}: {text[:80]}',
+                                  type='ticket', link=f'/messages/{ticket.id}/')
+            else:
+                # Директор написал → уведомить создателя (is_staff)
+                from django.contrib.auth.models import User as _User
+                creator = _User.objects.filter(is_staff=True, is_superuser=True).first()
+                if creator:
+                    push_notification(creator.id, f'💬 Новое сообщение в тикете #{ticket.pk}',
+                                      f'{request.user.username}: {text[:80]}',
+                                      type='ticket', link=f'/messages/{ticket.id}/')
         else:
             messages.error(request, 'Введите текст')
 
@@ -2670,6 +3042,14 @@ def send_message(request):
             )
             # Первое сообщение добавляем как reply тоже
             TicketReply.objects.create(ticket=ticket, author=request.user, text=message_text, is_read=True)
+            # Уведомить создателя системы
+            creator = User.objects.filter(is_staff=True, is_superuser=True).first()
+            if creator:
+                from apps.main.notification_utils import push_notification
+                push_notification(creator.id,
+                                  f'💬 Новое обращение {ticket.ticket_number}',
+                                  f'{request.user.username}: {subject}',
+                                  type='ticket', link=f'/messages/{ticket.id}/')
             messages.success(request, f'✅ Обращение {ticket.ticket_number} создано!')
             return redirect('main:ticket_detail', ticket_id=ticket.id)
         messages.error(request, 'Заполните тему и сообщение')
@@ -2803,6 +3183,55 @@ def employee_activity(request, user_id):
 
 
 @login_required
+def audit_log(request):
+    """Полный аудит-лог всех действий компании."""
+    from apps.main.models import ActivityLog
+
+    owner = get_tenant_owner(request.user)
+
+    # Все пользователи тенанта
+    if request.user.is_staff:
+        user_ids = list(User.objects.values_list('id', flat=True))
+    else:
+        emp_ids = list(UserProfile.objects.filter(owner=owner).values_list('user_id', flat=True))
+        user_ids = emp_ids + [owner.id]
+
+    logs = ActivityLog.objects.filter(user_id__in=user_ids).select_related('user').order_by('-created_at')
+
+    # Фильтры
+    action_filter = request.GET.get('action', '')
+    user_filter = request.GET.get('user', '')
+    date_from = request.GET.get('from', '')
+    date_to = request.GET.get('to', '')
+
+    if action_filter:
+        logs = logs.filter(action=action_filter)
+    if user_filter:
+        logs = logs.filter(user_id=user_filter)
+    if date_from:
+        logs = logs.filter(created_at__date__gte=date_from)
+    if date_to:
+        logs = logs.filter(created_at__date__lte=date_to)
+
+    page_obj, page_query = paginate(request, logs, per_page=50)
+
+    users = User.objects.filter(id__in=user_ids).order_by('username')
+    actions = ActivityLog.ACTION_CHOICES
+
+    return render(request, 'main/audit_log.html', {
+        'logs': page_obj,
+        'page_obj': page_obj,
+        'page_query': page_query,
+        'users': users,
+        'actions': actions,
+        'action_filter': action_filter,
+        'user_filter': user_filter,
+        'date_from': date_from,
+        'date_to': date_to,
+    })
+
+
+@login_required
 def order_view(request, order_id):
     """Просмотр заказа — всё на одной странице: товары, дождевой календарь, возвраты, заметка"""
     from apps.rental.models import ReturnItem
@@ -2931,6 +3360,7 @@ def order_view(request, order_id):
         'total_paid_order': total_paid_order,
         'total_owed_order': total_owed_order,
         'final_total_val': final_total_val,
+        'attachments': order.attachments.select_related('uploaded_by').all(),
     })
 
 
@@ -3107,3 +3537,662 @@ def custom_404_view(request, exception=None):
     """Кастомный обработчик 404 — редирект на главную с сообщением"""
     messages.error(request, '🔍 Страница не найдена. Возможно, она была удалена или URL введён неверно.')
     return redirect('main:dashboard')
+
+
+# ─── Расходы ───────────────────────────────────────────────────────────────
+
+@login_required
+def expenses_list(request):
+    from apps.main.models import Expense
+    from django.db.models import Sum
+    owner = get_tenant_owner(request.user)
+
+    # Фильтр по месяцу/году
+    now = timezone.now()
+    try:
+        year  = int(request.GET.get('year', now.year))
+        month = int(request.GET.get('month', now.month))
+    except (ValueError, TypeError):
+        year, month = now.year, now.month
+
+    expenses = Expense.objects.filter(owner=owner, date__year=year, date__month=month)
+    total    = expenses.aggregate(t=Sum('amount'))['t'] or 0
+
+    # По категориям
+    by_category = {}
+    for exp in expenses:
+        cat = exp.get_category_display()
+        by_category[cat] = by_category.get(cat, 0) + float(exp.amount)
+
+    # Месяцы для навигации (текущий год)
+    months = [
+        {'num': m, 'name': ['Январь','Февраль','Март','Апрель','Май','Июнь',
+                             'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][m-1]}
+        for m in range(1, 13)
+    ]
+
+    categories = Expense.CATEGORY_CHOICES
+
+    page_obj, page_query = paginate(request, expenses, per_page=30)
+
+    return render(request, 'main/expenses.html', {
+        'expenses': page_obj,
+        'page_obj': page_obj,
+        'page_query': page_query,
+        'total': total,
+        'by_category': by_category,
+        'year': year,
+        'month': month,
+        'months': months,
+        'categories': categories,
+        'month_name': ['Январь','Февраль','Март','Апрель','Май','Июнь',
+                       'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][month-1],
+    })
+
+
+@login_required
+def create_expense(request):
+    from apps.main.models import Expense
+    if request.method != 'POST':
+        return redirect('main:expenses_list')
+
+    owner = get_tenant_owner(request.user)
+    try:
+        amount = float(request.POST.get('amount', 0))
+        if amount <= 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        messages.error(request, 'Укажите корректную сумму')
+        return redirect('main:expenses_list')
+
+    date_str = request.POST.get('date', '')
+    try:
+        from datetime import date as date_cls
+        date_val = date_cls.fromisoformat(date_str)
+    except Exception:
+        date_val = timezone.now().date()
+
+    Expense.objects.create(
+        owner=owner,
+        category=request.POST.get('category', 'other'),
+        amount=amount,
+        description=request.POST.get('description', '').strip(),
+        date=date_val,
+    )
+    messages.success(request, 'Расход добавлен')
+    return redirect(f"{request.META.get('HTTP_REFERER', '/expenses/')}")
+
+
+@login_required
+def delete_expense(request, expense_id):
+    from apps.main.models import Expense
+    owner = get_tenant_owner(request.user)
+    expense = get_object_or_404(Expense, id=expense_id, owner=owner)
+    if request.method == 'POST':
+        expense.delete()
+        messages.success(request, 'Расход удалён')
+    return redirect('main:expenses_list')
+
+# ─── Файлы к заказу ─────────────────────────────────────────────────────────
+
+@login_required
+def upload_order_attachment(request, order_id):
+    from apps.rental.models import RentalOrder, OrderAttachment
+    owner = get_tenant_owner(request.user)
+    order = get_object_or_404(RentalOrder, id=order_id, client__owner=owner)
+
+    if request.method != 'POST':
+        return redirect('main:order_view', order_id=order_id)
+
+    f = request.FILES.get('file')
+    if not f:
+        messages.error(request, 'Выберите файл')
+        return redirect('main:order_view', order_id=order_id)
+
+    if f.size > 20 * 1024 * 1024:
+        messages.error(request, 'Файл слишком большой (максимум 20 МБ)')
+        return redirect('main:order_view', order_id=order_id)
+
+    OrderAttachment.objects.create(
+        order=order,
+        file=f,
+        name=f.name,
+        uploaded_by=request.user,
+    )
+    return redirect('main:order_view', order_id=order_id)
+
+
+@login_required
+def delete_order_attachment(request, attachment_id):
+    from apps.rental.models import OrderAttachment
+    owner = get_tenant_owner(request.user)
+    att = get_object_or_404(OrderAttachment, id=attachment_id, order__client__owner=owner)
+    order_id = att.order_id
+    if request.method == 'POST':
+        att.file.delete(save=False)
+        att.delete()
+    return redirect('main:order_view', order_id=order_id)
+
+
+# ─── Excel экспорт ──────────────────────────────────────────────────────────
+
+def _make_xlsx_response(filename):
+    from django.http import HttpResponse
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def _style_header(ws, headers, widths=None):
+    """Записывает заголовки с форматированием."""
+    import openpyxl.styles as st
+    hdr_font  = st.Font(bold=True, color='FFFFFF', size=11)
+    hdr_fill  = st.PatternFill('solid', fgColor='4F46E5')
+    hdr_align = st.Alignment(horizontal='center', vertical='center', wrap_text=True)
+    for col, text in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=text)
+        cell.font  = hdr_font
+        cell.fill  = hdr_fill
+        cell.alignment = hdr_align
+    ws.row_dimensions[1].height = 24
+    if widths:
+        from openpyxl.utils import get_column_letter
+        for col, w in enumerate(widths, 1):
+            ws.column_dimensions[get_column_letter(col)].width = w
+
+
+@login_required
+def export_clients_xlsx(request):
+    import openpyxl
+    from django.utils import timezone as tz
+
+    owner = get_tenant_owner(request.user)
+    clients = (Client.objects
+               .filter(owner=owner)
+               .prefetch_related('phones', 'rental_orders')
+               .order_by('last_name', 'first_name'))
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Клиенты'
+
+    headers = ['#', 'Фамилия', 'Имя', 'Отчество', 'Телефон', 'Заказов',
+               'Активных', 'Долг (сом)', 'Зарегистрирован']
+    widths  = [5, 18, 15, 15, 18, 10, 10, 14, 18]
+    _style_header(ws, headers, widths)
+
+    for row_num, client in enumerate(clients, 2):
+        phone = client.phones.first()
+        debt  = client.get_debt()
+        total_orders  = client.rental_orders.count()
+        active_orders = client.rental_orders.filter(status='open').count()
+        ws.append([
+            row_num - 1,
+            client.last_name,
+            client.first_name,
+            client.middle_name,
+            phone.phone_number if phone else '',
+            total_orders,
+            active_orders,
+            float(debt),
+            client.created_at.strftime('%d.%m.%Y'),
+        ])
+
+    response = _make_xlsx_response(f'clients_{tz.now().strftime("%Y%m%d")}.xlsx')
+    wb.save(response)
+    return response
+
+
+@login_required
+def export_orders_xlsx(request):
+    import openpyxl
+    from django.utils import timezone as tz
+
+    owner = get_tenant_owner(request.user)
+    status_filter = request.GET.get('status', '')
+    orders_qs = RentalOrder.objects.filter(client__owner=owner).select_related('client')
+    if status_filter in ('open', 'closed'):
+        orders_qs = orders_qs.filter(status=status_filter)
+    orders_qs = orders_qs.order_by('-created_at')
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Заказы'
+
+    headers = ['#', 'Код заказа', 'Клиент', 'Статус', 'Создан',
+               'Сумма (сом)', 'Оплачено (сом)', 'Долг (сом)', 'Доставка']
+    widths  = [5, 14, 24, 10, 16, 14, 14, 14, 8]
+    _style_header(ws, headers, widths)
+
+    for row_num, order in enumerate(orders_qs, 2):
+        total = order.get_current_total()
+        paid  = Payment.objects.filter(order=order).aggregate(t=Sum('amount'))['t'] or 0
+        debt  = max(0, float(total) - float(paid))
+        ws.append([
+            row_num - 1,
+            order.order_code,
+            order.client.get_full_name(),
+            'Открыт' if order.status == 'open' else 'Закрыт',
+            order.created_at.strftime('%d.%m.%Y'),
+            float(total),
+            float(paid),
+            debt,
+            'Да' if order.has_delivery else 'Нет',
+        ])
+
+    response = _make_xlsx_response(f'orders_{tz.now().strftime("%Y%m%d")}.xlsx')
+    wb.save(response)
+    return response
+
+
+@login_required
+def export_payments_xlsx(request):
+    import openpyxl
+    from django.utils import timezone as tz
+
+    owner = get_tenant_owner(request.user)
+    payments_qs = (Payment.objects
+                   .filter(client__owner=owner)
+                   .select_related('client')
+                   .order_by('-payment_date'))
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Оплаты'
+
+    headers = ['#', 'Дата', 'Клиент', 'Примечание', 'Сумма (сом)', 'Способ оплаты']
+    widths  = [5, 14, 24, 14, 14, 16]
+    _style_header(ws, headers, widths)
+
+    method_labels = {'cash': 'Наличные', 'card': 'Карта', 'transfer': 'Перевод'}
+
+    for row_num, payment in enumerate(payments_qs, 2):
+        ws.append([
+            row_num - 1,
+            payment.payment_date.strftime('%d.%m.%Y') if payment.payment_date else '',
+            payment.client.get_full_name(),
+            payment.notes[:30] if payment.notes else '',
+            float(payment.amount),
+            method_labels.get(payment.payment_method, payment.payment_method),
+        ])
+
+    response = _make_xlsx_response(f'payments_{tz.now().strftime("%Y%m%d")}.xlsx')
+    wb.save(response)
+    return response
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# КЛИЕНТСКИЙ ПОРТАЛ — управление заявками
+# ══════════════════════════════════════════════════════════════════════════════
+
+@login_required
+def bookings_list(request):
+    """Список заявок на бронирование. Для создателя — с меню директоров."""
+    from apps.main.models import BookingRequest
+    from apps.clients.models import Client
+    from apps.inventory.models import Product
+    from apps.rental.models import RentalOrder, Payment
+    from django.db.models import Sum, Count, Q
+
+    owner = get_tenant_owner(request.user)
+    is_creator = request.user.is_staff
+
+    directors = []
+    selected_director = None
+
+    if is_creator:
+        # Список директоров с числом заявок
+        director_users = User.objects.filter(is_superuser=True, is_staff=False, is_active=True)
+        for d in director_users:
+            pending = BookingRequest.objects.filter(client__owner=d, status='pending').count()
+            total = BookingRequest.objects.filter(client__owner=d).count()
+            clients_count = Client.objects.filter(owner=d).count()
+            products_count = Product.objects.filter(owner=d).count()
+            revenue = Payment.objects.filter(client__owner=d).aggregate(t=Sum('amount'))['t'] or 0
+            open_orders = RentalOrder.objects.filter(client__owner=d, status='open').count()
+            directors.append({
+                'user': d,
+                'pending': pending,
+                'total': total,
+                'clients': clients_count,
+                'products': products_count,
+                'revenue': int(revenue),
+                'open_orders': open_orders,
+            })
+
+        # Выбранный директор
+        dir_id = request.GET.get('director', '')
+        if dir_id:
+            try:
+                selected_director = User.objects.get(id=int(dir_id))
+                owner = selected_director
+            except (User.DoesNotExist, ValueError):
+                pass
+
+        if selected_director:
+            bookings = BookingRequest.objects.filter(client__owner=selected_director)
+        else:
+            # Показать все заявки от всех директоров
+            bookings = BookingRequest.objects.all()
+    else:
+        bookings = BookingRequest.objects.filter(client__owner=owner)
+
+    bookings = bookings.select_related('client', 'product').order_by('-created_at')
+
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        bookings = bookings.filter(status=status_filter)
+
+    page_obj, page_query = paginate(request, bookings, per_page=20)
+
+    return render(request, 'portal/bookings_manage.html', {
+        'bookings': page_obj,
+        'page_obj': page_obj,
+        'page_query': page_query,
+        'status_filter': status_filter,
+        'is_creator': is_creator,
+        'directors': directors,
+        'selected_director': selected_director,
+    })
+
+
+@login_required
+def booking_approve(request, booking_id):
+    """Одобрить заявку — создать реальный заказ."""
+    from apps.main.models import BookingRequest
+    from apps.rental.models import RentalOrder, OrderItem
+    from decimal import Decimal
+    import datetime
+
+    booking = get_object_or_404(BookingRequest, id=booking_id)
+    if request.method == 'POST':
+        booking.status = 'approved'
+        booking.admin_comment = request.POST.get('comment', '').strip()
+        booking.save()
+
+        # --- Создаём реальный заказ ---
+        product = booking.product
+        client = booking.client
+        qty = min(booking.quantity, product.quantity_available)
+
+        order = None
+        if qty > 0:
+            order = RentalOrder.objects.create(
+                client=client,
+                status='open',
+                notes=f'Создан из заявки на бронирование #{booking.id}',
+            )
+
+            issued = timezone.make_aware(
+                datetime.datetime.combine(booking.start_date, datetime.time(9, 0))
+            )
+            end_dt = timezone.make_aware(
+                datetime.datetime.combine(booking.end_date, datetime.time(18, 0))
+            )
+            days = max((booking.end_date - booking.start_date).days, 1)
+            cost = Decimal(str(product.price_per_day)) * days * qty
+
+            OrderItem.objects.create(
+                order=order,
+                product=product,
+                quantity_taken=qty,
+                quantity_remaining=qty,
+                issued_date=issued,
+                planned_return_date=end_dt,
+                rental_days=days,
+                rental_hours=0,
+                price_per_day=product.price_per_day,
+                price_per_hour=product.price_per_hour,
+                original_total_cost=cost,
+                current_total_cost=cost,
+            )
+
+            product.update_available_quantity()
+
+            messages.success(request, f'Заявка #{booking.id} одобрена. Создан заказ #{order.order_number} ({order.order_code})')
+        else:
+            messages.warning(request, f'Заявка #{booking.id} одобрена, но товар недоступен — заказ не создан')
+
+        # --- Email клиенту ---
+        try:
+            from apps.main.email_utils import _send
+            if client.email:
+                body = (
+                    f'Здравствуйте, {client.get_full_name()}!\n\n'
+                    f'Ваша заявка на бронирование одобрена.\n'
+                    f'Товар: {product.name}\n'
+                    f'Период: {booking.start_date.strftime("%d.%m.%Y")} — {booking.end_date.strftime("%d.%m.%Y")}\n'
+                    f'Количество: {qty} шт.\n\n'
+                    f'Пожалуйста, приходите в назначенную дату.\n\nС уважением,\nСлужба аренды'
+                )
+                _send(f'Заявка одобрена — {product.name}', body, client.email)
+        except Exception:
+            pass
+
+    return redirect('main:bookings_list')
+
+
+@login_required
+def booking_reject(request, booking_id):
+    """Отклонить заявку на бронирование."""
+    from apps.main.models import BookingRequest
+    booking = get_object_or_404(BookingRequest, id=booking_id)
+    if request.method == 'POST':
+        booking.status = 'rejected'
+        booking.admin_comment = request.POST.get('comment', '').strip()
+        booking.save()
+
+        try:
+            from apps.main.email_utils import _send
+            if booking.client.email:
+                body = (
+                    f'Здравствуйте, {booking.client.get_full_name()}!\n\n'
+                    f'К сожалению, ваша заявка на бронирование отклонена.\n'
+                    f'Товар: {booking.product.name}\n'
+                )
+                if booking.admin_comment:
+                    body += f'Причина: {booking.admin_comment}\n\n'
+                body += 'Если у вас есть вопросы, свяжитесь с нами.\n\nС уважением,\nСлужба аренды'
+                _send(f'Заявка отклонена — {booking.product.name}', body, booking.client.email)
+        except Exception:
+            pass
+
+        messages.success(request, f'Заявка #{booking.id} отклонена')
+    return redirect('main:bookings_list')
+
+
+@login_required
+def send_portal_link(request, client_id):
+    """Сгенерировать токен портала и отправить ссылку клиенту."""
+    from apps.main.models import ClientPortalToken
+    client = get_object_or_404(Client, id=client_id)
+
+    token_obj, created = ClientPortalToken.objects.get_or_create(client=client)
+
+    portal_url = request.build_absolute_uri(f'/portal/{token_obj.token}/')
+
+    sent_via = []
+    # Email
+    if client.email:
+        try:
+            from apps.main.email_utils import _send
+            body = (
+                f'Здравствуйте, {client.get_full_name()}!\n\n'
+                f'Ваша персональная ссылка для бронирования инструментов:\n'
+                f'{portal_url}\n\n'
+                f'По этой ссылке вы можете:\n'
+                f'- Посмотреть каталог доступных инструментов\n'
+                f'- Забронировать нужные инструменты\n'
+                f'- Отслеживать статус ваших заявок и заказов\n\n'
+                f'С уважением,\nСлужба аренды'
+            )
+            if _send('Ваша ссылка для бронирования', body, client.email):
+                sent_via.append('Email')
+        except Exception:
+            pass
+
+    # Telegram
+    if client.telegram_id:
+        try:
+            from apps.main.telegram_bot_complete import send_telegram_message
+            text = (
+                f'Здравствуйте, {client.get_full_name()}!\n\n'
+                f'Ваша ссылка для бронирования:\n{portal_url}'
+            )
+            if send_telegram_message(client.telegram_id, text, parse_mode=None):
+                sent_via.append('Telegram')
+        except Exception:
+            pass
+
+    if sent_via:
+        messages.success(request, f'Ссылка на портал отправлена: {", ".join(sent_via)}')
+    else:
+        messages.info(request, f'Ссылка: {portal_url} (у клиента нет email/telegram для автоотправки)')
+
+    return redirect('main:client_detail', client_id=client.id)
+
+
+# === СКРЫТЫЙ АУДИТ-ЦЕНТР (только суперюзер) ===
+
+import shutil
+from pathlib import Path
+
+_BACKUP_DIR = Path(__file__).resolve().parent.parent.parent / 'backups'
+_DB_PATH    = Path(__file__).resolve().parent.parent.parent / 'db.sqlite3'
+
+
+def _superuser_required(view_func):
+    from functools import wraps
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated or not request.user.is_superuser:
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden('403 Forbidden')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+@_superuser_required
+def xsec_audit(request):
+    from apps.main.models import RequestLog, ActivityLog
+    user_filter  = request.GET.get('u', '')
+    path_filter  = request.GET.get('p', '')
+    event_filter = request.GET.get('ev', '')
+    date_from    = request.GET.get('df', '')
+    date_to      = request.GET.get('dt', '')
+    tab          = request.GET.get('tab', 'requests')
+
+    rlogs = RequestLog.objects.select_related('user').order_by('-created_at')
+    if user_filter:  rlogs = rlogs.filter(username__icontains=user_filter)
+    if path_filter:  rlogs = rlogs.filter(path__icontains=path_filter)
+    if event_filter == 'login':  rlogs = rlogs.filter(event='login')
+    elif event_filter == 'logout': rlogs = rlogs.filter(event='logout')
+    elif event_filter == 'close':  rlogs = rlogs.filter(event='page_close')
+    elif event_filter == 'errors': rlogs = rlogs.filter(status_code__gte=400)
+    if date_from: rlogs = rlogs.filter(created_at__date__gte=date_from)
+    if date_to:   rlogs = rlogs.filter(created_at__date__lte=date_to)
+    page_obj, page_query = paginate(request, rlogs, per_page=100)
+
+    alogs = ActivityLog.objects.select_related('user').order_by('-created_at')
+    if user_filter: alogs = alogs.filter(user__username__icontains=user_filter)
+    if date_from: alogs = alogs.filter(created_at__date__gte=date_from)
+    if date_to:   alogs = alogs.filter(created_at__date__lte=date_to)
+    alogs_page, alogs_query = paginate(request, alogs, per_page=100)
+
+    _BACKUP_DIR.mkdir(exist_ok=True)
+    backups = sorted(_BACKUP_DIR.glob('db_backup_*.sqlite3'),
+                     key=lambda f: f.stat().st_mtime, reverse=True)
+    backup_list = [{'name': bf.name,
+                    'size_kb': round(bf.stat().st_size / 1024, 1),
+                    'mtime': datetime.fromtimestamp(bf.stat().st_mtime).strftime('%d.%m.%Y %H:%M:%S')}
+                   for bf in backups]
+
+    total_requests = RequestLog.objects.count()
+    total_logins   = RequestLog.objects.filter(event='login').count()
+    total_errors   = RequestLog.objects.filter(status_code__gte=400).count()
+    active_users   = RequestLog.objects.filter(
+        created_at__gte=timezone.now() - timedelta(hours=24)
+    ).values('username').distinct().count()
+
+    return render(request, 'main/xsec_audit.html', {
+        'tab': tab, 'page_obj': page_obj, 'page_query': page_query,
+        'alogs': alogs_page, 'alogs_query': alogs_query,
+        'backups': backup_list,
+        'total_requests': total_requests, 'total_logins': total_logins,
+        'total_errors': total_errors, 'active_users': active_users,
+        'user_filter': user_filter, 'path_filter': path_filter,
+        'event_filter': event_filter, 'date_from': date_from, 'date_to': date_to,
+    })
+
+
+@_superuser_required
+def xsec_backup_create(request):
+    if request.method != 'POST': return redirect('/xsec-audit/?tab=backups')
+    try:
+        _BACKUP_DIR.mkdir(exist_ok=True)
+        ts   = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M%S')
+        dest = _BACKUP_DIR / ('db_backup_' + ts + '.sqlite3')
+        shutil.copy2(_DB_PATH, dest)
+        all_b = sorted(_BACKUP_DIR.glob('db_backup_*.sqlite3'), key=lambda f: f.stat().st_mtime)
+        for old in all_b[:-30]: old.unlink(missing_ok=True)
+        messages.success(request, 'Бэкап создан: ' + dest.name)
+    except Exception as e:
+        messages.error(request, 'Ошибка: ' + str(e))
+    return redirect('/xsec-audit/?tab=backups')
+
+
+@_superuser_required
+def xsec_backup_restore(request, backup_name):
+    if request.method != 'POST': return redirect('/xsec-audit/?tab=backups')
+    try:
+        src = _BACKUP_DIR / backup_name
+        if not src.exists() or not backup_name.startswith('db_backup_'):
+            messages.error(request, 'Бэкап не найден'); return redirect('/xsec-audit/?tab=backups')
+        ts = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M%S')
+        shutil.copy2(_DB_PATH, _BACKUP_DIR / ('db_backup_before_restore_' + ts + '.sqlite3'))
+        shutil.copy2(src, _DB_PATH)
+        messages.success(request, 'База восстановлена из ' + backup_name)
+    except Exception as e:
+        messages.error(request, 'Ошибка: ' + str(e))
+    return redirect('/xsec-audit/?tab=backups')
+
+
+@_superuser_required
+def xsec_backup_download(request, backup_name):
+    src = _BACKUP_DIR / backup_name
+    if not src.exists() or not backup_name.startswith('db_backup_'): raise Http404
+    return FileResponse(open(src, 'rb'), as_attachment=True, filename=backup_name)
+
+
+@_superuser_required
+def xsec_backup_delete(request, backup_name):
+    if request.method != 'POST': return redirect('/xsec-audit/?tab=backups')
+    try:
+        src = _BACKUP_DIR / backup_name
+        if src.exists() and backup_name.startswith('db_backup_'):
+            src.unlink(); messages.success(request, 'Удалён: ' + backup_name)
+    except Exception as e:
+        messages.error(request, 'Ошибка: ' + str(e))
+    return redirect('/xsec-audit/?tab=backups')
+
+
+@login_required
+def xsec_beacon(request):
+    if request.method == 'POST':
+        try:
+            import json as _json
+            from apps.main.models import RequestLog
+            body = _json.loads(request.body or b'{}')
+            ip = (request.META.get('HTTP_X_FORWARDED_FOR','') or request.META.get('REMOTE_ADDR',''))
+            if ',' in ip: ip = ip.split(',')[0].strip()
+            RequestLog.objects.create(
+                user=request.user, username=request.user.username, ip=ip or None,
+                method='BEACON', path=body.get('path','/')[:500],
+                status_code=200, user_agent=request.META.get('HTTP_USER_AGENT','')[:500],
+                event='page_close',
+            )
+        except Exception: pass
+    from django.http import HttpResponse
+    return HttpResponse('', status=204)

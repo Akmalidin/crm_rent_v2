@@ -1,5 +1,5 @@
 from django.urls import path
-from . import telegram_webhook_complete, views, reports_views, pdf_views
+from . import telegram_webhook_complete, views, reports_views, pdf_views, portal_views
 from apps.clients import views as clients_views
 from apps.inventory import views as inventory_views
 from django.contrib.auth import views as auth_views
@@ -49,6 +49,7 @@ urlpatterns = [
     path('payment/', views.accept_payment, name='accept_payment'),
     path('payment/client-orders/<int:client_id>/', views.client_orders_json, name='client_orders_json'),
     path('orders/<int:order_id>/apply-credit/', views.apply_credit_to_order, name='apply_credit_to_order'),
+    path('clients/<int:client_id>/reset-balance/', views.reset_client_balance, name='reset_client_balance'),
     path('orders/<int:order_id>/close/', views.close_order, name='close_order'),
     path('orders/<int:order_id>/excluded-days/', views.toggle_excluded_day, name='toggle_excluded_day'),
     path('rain-days/toggle/', views.toggle_rain_day, name='toggle_rain_day'),
@@ -66,7 +67,10 @@ urlpatterns = [
     path('orders/<int:order_id>/print/acceptance/', pdf_views.print_acceptance, name='print_acceptance'),
     path('orders/<int:order_id>/print/return/', pdf_views.print_return, name='print_return'),
     path('payments/<int:payment_id>/print/receipt/', pdf_views.print_receipt, name='print_receipt'),
+    path('reports/financial/pdf/', pdf_views.print_financial_report, name='print_financial_report'),
     path('clients/<int:client_id>/payments/print/receipts/', pdf_views.print_receipts_bulk, name='print_receipts_bulk'),
+    path('clients/<int:client_id>/discounts/', clients_views.client_discounts, name='client_discounts'),
+    path('api/discount/', clients_views.api_client_discount, name='api_client_discount'),
     path('orders/<int:order_id>/notify/', views.send_overdue_notification, name='send_notification'),
 
     # Управление пользователями
@@ -80,6 +84,10 @@ urlpatterns = [
 
     # API
     path('api/overdue-orders/', views.api_overdue_orders, name='api_overdue_orders'),
+
+    # SSE уведомления
+    path('sse/', views.sse_stream, name='sse_stream'),
+    path('notifications/mark-read/', views.mark_notifications_read, name='mark_notifications_read'),
 
     # Бэкапы
     path('backup/download/', views.download_latest_backup, name='download_backup'),
@@ -110,6 +118,9 @@ urlpatterns = [
     # Лог активности сотрудника
     path('users/<int:user_id>/activity/', views.employee_activity, name='employee_activity'),
 
+    # Аудит-лог
+    path('audit/', views.audit_log, name='audit_log'),
+
     # Профиль
     path('profile/', views.my_profile, name='my_profile'),
 
@@ -124,4 +135,41 @@ urlpatterns = [
 
     # Массовые уведомления
     path('notifications/', views.broadcast_notifications, name='broadcast_notifications'),
+
+    # Расходы
+    path('expenses/', views.expenses_list, name='expenses_list'),
+    path('expenses/create/', views.create_expense, name='create_expense'),
+    path('expenses/<int:expense_id>/delete/', views.delete_expense, name='delete_expense'),
+
+    # Файлы к заказу
+    path('orders/<int:order_id>/attachments/upload/', views.upload_order_attachment, name='upload_order_attachment'),
+    path('attachments/<int:attachment_id>/delete/', views.delete_order_attachment, name='delete_order_attachment'),
+
+    # Excel экспорт
+    path('export/clients.xlsx', views.export_clients_xlsx, name='export_clients'),
+    path('export/orders.xlsx', views.export_orders_xlsx, name='export_orders'),
+    path('export/payments.xlsx', views.export_payments_xlsx, name='export_payments'),
+
+    # Клиентский портал (публичный, по токену)
+    path('portal/', portal_views.portal_login, name='portal_login'),
+    path('portal/<uuid:token>/', portal_views.portal_catalog, name='portal_catalog'),
+    path('portal/<uuid:token>/book/<int:product_id>/', portal_views.portal_book, name='portal_book'),
+    path('portal/<uuid:token>/bookings/', portal_views.portal_my_bookings, name='portal_my_bookings'),
+    path('portal/<uuid:token>/orders/', portal_views.portal_my_orders, name='portal_my_orders'),
+
+    # Управление заявками (для персонала)
+    path('bookings/', views.bookings_list, name='bookings_list'),
+    path('bookings/<int:booking_id>/approve/', views.booking_approve, name='booking_approve'),
+    path('bookings/<int:booking_id>/reject/', views.booking_reject, name='booking_reject'),
+
+    # Отправить ссылку на портал клиенту
+    path('clients/<int:client_id>/portal-link/', views.send_portal_link, name='send_portal_link'),
+
+    # === Скрытый аудит-центр (только суперюзер) ===
+    path('xsec-audit/', views.xsec_audit, name='xsec_audit'),
+    path('xsec-audit/backup/create/', views.xsec_backup_create, name='xsec_backup_create'),
+    path('xsec-audit/backup/<str:backup_name>/restore/', views.xsec_backup_restore, name='xsec_backup_restore'),
+    path('xsec-audit/backup/<str:backup_name>/download/', views.xsec_backup_download, name='xsec_backup_download'),
+    path('xsec-audit/backup/<str:backup_name>/delete/', views.xsec_backup_delete, name='xsec_backup_delete'),
+    path('xsec-beacon/', views.xsec_beacon, name='xsec_beacon'),
 ]

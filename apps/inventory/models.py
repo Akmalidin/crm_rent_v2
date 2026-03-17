@@ -33,11 +33,15 @@ class Category(models.Model):
     )
     name = models.CharField('Название', max_length=200)
     description = models.TextField('Описание', blank=True)
-    
+    rain_applicable = models.BooleanField(
+        'Дождь не считается', default=False,
+        help_text='Для товаров этой категории можно исключать дождливые дни из аренды'
+    )
+
     class Meta:
         verbose_name = 'Категория'
         verbose_name_plural = 'Категории'
-    
+
     def __str__(self):
         return self.name
 
@@ -54,6 +58,7 @@ class Product(models.Model):
         verbose_name='Склад',
     )
     name = models.CharField('Название', max_length=200)
+    photo = models.ImageField('Фото', upload_to='products/', blank=True, null=True)
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
     quantity_total = models.PositiveIntegerField('Всего', default=0)
     quantity_available = models.PositiveIntegerField('Доступно', default=0)

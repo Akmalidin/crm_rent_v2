@@ -1,5 +1,6 @@
 <!-- templates/documents/return_doc.html -->
 {% extends 'documents/base_document.html' %}
+{% load custom_filters %}
 
 {% block title %}Накладная на возврат № {{ order.order_code|default:order.id }}{% endblock %}
 

@@ -999,7 +999,188 @@ def print_return(request, order_id):
     elements += build_footer(styles, footer_text)
     
     doc.build(elements)
-    
+
     response = HttpResponse(buf.getvalue(), content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="return_{order.id}_{order_code}.pdf"'
+    return response
+
+
+# ============================================================
+# ФИНАНСОВЫЙ ОТЧЁТ PDF
+# ============================================================
+
+from django.contrib.auth.decorators import login_required as _login_required
+from datetime import timedelta as _timedelta
+
+@_login_required
+def print_financial_report(request):
+    """PDF-экспорт финансового отчёта за выбранный период."""
+    from apps.main.views import get_tenant_owner
+    from apps.clients.models import Client
+    from apps.rental.models import Payment
+    from apps.main.models import Expense
+    from django.db.models import Sum
+    import calendar as _calendar
+
+    owner = get_tenant_owner(request.user)
+
+    # Период из GET-параметров (опционально)
+    date_from_str = request.GET.get('from', '')
+    date_to_str   = request.GET.get('to', '')
+    now = timezone.now()
+
+    if date_from_str and date_to_str:
+        try:
+            from datetime import datetime as _dt
+            date_from = timezone.make_aware(_dt.strptime(date_from_str, '%Y-%m-%d'))
+            date_to   = timezone.make_aware(_dt.strptime(date_to_str,   '%Y-%m-%d').replace(hour=23, minute=59, second=59))
+            period_label = f'{date_from.strftime("%d.%m.%Y")} — {date_to.strftime("%d.%m.%Y")}'
+            payments_qs  = Payment.objects.filter(client__owner=owner, payment_date__range=[date_from, date_to])
+            expenses_qs  = Expense.objects.filter(owner=owner, date__range=[date_from.date(), date_to.date()])
+        except ValueError:
+            date_from = date_to = None
+            payments_qs = Payment.objects.filter(client__owner=owner)
+            expenses_qs = Expense.objects.filter(owner=owner)
+            period_label = 'За всё время'
+    else:
+        payments_qs = Payment.objects.filter(client__owner=owner)
+        expenses_qs = Expense.objects.filter(owner=owner)
+        period_label = 'За всё время'
+
+    total_paid     = int(payments_qs.aggregate(t=Sum('amount'))['t'] or 0)
+    total_expenses = int(expenses_qs.aggregate(t=Sum('amount'))['t'] or 0)
+    net_profit     = total_paid - total_expenses
+    total_debt     = int(sum(c.get_debt() for c in Client.objects.filter(owner=owner)))
+
+    # Помесячные данные (последние 6 месяцев для таблицы)
+    monthly_rows = []
+    for i in range(5, -1, -1):
+        month_date = now - _timedelta(days=30 * i)
+        m_start = month_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        m_last  = _calendar.monthrange(m_start.year, m_start.month)[1]
+        m_end   = m_start.replace(day=m_last, hour=23, minute=59, second=59)
+        paid = int(Payment.objects.filter(client__owner=owner, payment_date__range=[m_start, m_end]).aggregate(t=Sum('amount'))['t'] or 0)
+        exp  = int(Expense.objects.filter(owner=owner, date__range=[m_start.date(), m_end.date()]).aggregate(t=Sum('amount'))['t'] or 0)
+        monthly_rows.append((m_start.strftime('%B %Y'), paid, exp, paid - exp))
+
+    # Последние 30 оплат
+    recent_payments = list(
+        payments_qs.select_related('client').order_by('-payment_date')[:30]
+    )
+
+    # Компания
+    try:
+        company = CompanyProfile.objects.get(owner=owner)
+        company_name = company.company_name or owner.username
+    except Exception:
+        company_name = owner.username
+
+    # ── Строим PDF ────────────────────────────────────────────
+    buf    = BytesIO()
+    styles = get_styles()
+    doc    = SimpleDocTemplate(buf, pagesize=A4,
+                               leftMargin=2*cm, rightMargin=2*cm,
+                               topMargin=2*cm, bottomMargin=2*cm)
+    elements = []
+
+    # Шапка
+    elements += build_header(
+        styles,
+        'Финансовый отчёт',
+        f'Период: {period_label}  •  Сформирован: {now.strftime("%d.%m.%Y %H:%M")}',
+        company_name,
+    )
+    elements.append(Spacer(1, 0.4*cm))
+
+    # Сводка
+    PURPLE = colors.HexColor('#7c3aed')
+    summary_data = [
+        [Paragraph('Показатель', styles['heading']),
+         Paragraph('Сумма', styles['heading'])],
+        [Paragraph('Общая оплата (поступления)', styles['normal']),
+         Paragraph(f'{total_paid:,} сом'.replace(',', ' '), ParagraphStyle('v', fontName='MainFont-Bold', fontSize=11, textColor=GREEN))],
+        [Paragraph('Расходы', styles['normal']),
+         Paragraph(f'{total_expenses:,} сом'.replace(',', ' '), ParagraphStyle('v', fontName='MainFont-Bold', fontSize=11, textColor=RED))],
+        [Paragraph('Чистая прибыль', styles['normal']),
+         Paragraph(f'{net_profit:,} сом'.replace(',', ' '), ParagraphStyle('v', fontName='MainFont-Bold', fontSize=12,
+                   textColor=GREEN if net_profit >= 0 else RED))],
+        [Paragraph('Общий долг клиентов', styles['normal']),
+         Paragraph(f'{total_debt:,} сом'.replace(',', ' '), ParagraphStyle('v', fontName='MainFont', fontSize=11, textColor=GRAY))],
+    ]
+    summary_table = Table(summary_data, colWidths=[11*cm, 6*cm])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), LIGHT_BLUE),
+        ('GRID',       (0,0), (-1,-1), 0.5, colors.HexColor('#e0e0e0')),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, LIGHT_GRAY]),
+        ('PADDING',    (0,0), (-1,-1), 8),
+        ('VALIGN',     (0,0), (-1,-1), 'MIDDLE'),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 0.6*cm))
+
+    # По месяцам
+    elements.append(Paragraph('Помесячная динамика (последние 6 месяцев)', styles['heading']))
+    elements.append(Spacer(1, 0.2*cm))
+    month_header = [
+        Paragraph('Месяц',    styles['label']),
+        Paragraph('Оплата',   styles['label']),
+        Paragraph('Расходы',  styles['label']),
+        Paragraph('Прибыль',  styles['label']),
+    ]
+    month_rows_data = [month_header]
+    for label, paid, exp, net in monthly_rows:
+        net_color = GREEN if net >= 0 else RED
+        month_rows_data.append([
+            Paragraph(label, styles['normal']),
+            Paragraph(f'{paid:,}'.replace(',', ' '), styles['normal']),
+            Paragraph(f'{exp:,}'.replace(',', ' '), styles['normal']),
+            Paragraph(f'{net:,}'.replace(',', ' '), ParagraphStyle('n', fontName='MainFont-Bold', fontSize=10, textColor=net_color)),
+        ])
+    month_table = Table(month_rows_data, colWidths=[5*cm, 4*cm, 4*cm, 4*cm])
+    month_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), LIGHT_BLUE),
+        ('GRID',       (0,0), (-1,-1), 0.5, colors.HexColor('#e0e0e0')),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, LIGHT_GRAY]),
+        ('PADDING',    (0,0), (-1,-1), 7),
+        ('ALIGN',      (1,0), (-1,-1), 'RIGHT'),
+    ]))
+    elements.append(month_table)
+    elements.append(Spacer(1, 0.6*cm))
+
+    # Последние оплаты
+    if recent_payments:
+        elements.append(Paragraph(f'Последние оплаты ({len(recent_payments)} шт.)', styles['heading']))
+        elements.append(Spacer(1, 0.2*cm))
+        pay_header = [
+            Paragraph('Дата',    styles['label']),
+            Paragraph('Клиент',  styles['label']),
+            Paragraph('Сумма',   styles['label']),
+            Paragraph('Примечание', styles['label']),
+        ]
+        pay_rows = [pay_header]
+        for p in recent_payments:
+            pay_rows.append([
+                Paragraph(p.payment_date.strftime('%d.%m.%Y'), styles['small']),
+                Paragraph(p.client.get_full_name()[:30], styles['small']),
+                Paragraph(f'{int(p.amount):,}'.replace(',', ' '), styles['small']),
+                Paragraph((p.notes or '')[:40], styles['small']),
+            ])
+        pay_table = Table(pay_rows, colWidths=[3*cm, 6*cm, 3*cm, 5*cm])
+        pay_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), LIGHT_BLUE),
+            ('GRID',       (0,0), (-1,-1), 0.3, colors.HexColor('#e0e0e0')),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, LIGHT_GRAY]),
+            ('PADDING',    (0,0), (-1,-1), 5),
+        ]))
+        elements.append(pay_table)
+
+    # Футер
+    elements.append(Spacer(1, 0.8*cm))
+    elements += build_footer(styles, f'Отчёт сформирован: {now.strftime("%d.%m.%Y %H:%M")} • {company_name}')
+
+    doc.build(elements)
+
+    filename = f'financial_report_{now.strftime("%Y%m%d")}.pdf'
+    response = HttpResponse(buf.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
     return response

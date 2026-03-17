@@ -1,151 +1,186 @@
 {% extends 'base_dark.html' %}
-{% load static %}
-{% block title %}Товары — CRM Аренда{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/products_list.css' %}">{% endblock %}
+{% block title %}Товары{% endblock %}
 
 {% block extra_css %}
+.pl{max-width:1100px;margin:0 auto;padding-bottom:48px}
+.pl-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:24px}
+.cat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 16px;text-decoration:none;display:flex;flex-direction:column;gap:6px;transition:border-color .15s,transform .15s}
+.cat-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.cat-name{font-size:16px;font-weight:800;color:var(--text1)}
+.cat-stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.cat-stat{font-size:12px;padding:3px 8px;border-radius:6px;font-weight:600}
+.stat-total{background:rgba(124,58,237,.1);color:var(--accent)}
+.stat-avail{background:rgba(16,185,129,.1);color:#10b981}
+.stat-rent{background:rgba(239,68,68,.1);color:#ef4444}
+.pl-table{width:100%;border-collapse:collapse}
+.pl-table th{padding:10px 14px;font-size:12px;color:var(--text3);font-weight:600;text-align:left;border-bottom:1px solid var(--border)}
+.pl-table td{padding:10px 14px;font-size:13px;color:var(--text2);border-bottom:1px solid var(--border)}
+.pl-table tr:last-child td{border-bottom:none}
+.pl-table tr:hover td{background:var(--card2)}
+.pl-name{font-weight:700;color:var(--text1);text-decoration:none}
+.pl-name:hover{color:var(--accent)}
+.pl-badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+.avail-ok{background:rgba(16,185,129,.12);color:#10b981}
+.avail-none{background:rgba(239,68,68,.12);color:#ef4444}
+.pl-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;border:none;cursor:pointer;font-family:inherit}
+.btn-acc{background:var(--accent);color:#fff}
+.btn-ghost{background:var(--card2);color:var(--text2);border:1px solid var(--border)}
+.rain-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:7px 14px;border-radius:9px;cursor:pointer;border:1px solid var(--border);background:var(--card2);color:var(--text3);font-family:inherit;font-weight:600}
+.rain-toggle.on{background:rgba(59,130,246,.1);color:#3b82f6;border-color:#3b82f6}
+.pl-search-wrap{position:relative;max-width:340px}
+.pl-search-inp{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--text1);padding:8px 36px 8px 14px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box}
+.pl-search-inp:focus{border-color:var(--accent)}
+.pl-search-ico{position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;font-size:14px}
+.pl-search-clear{position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--text3);cursor:pointer;font-size:16px;background:none;border:none;padding:0;line-height:1}
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-
-    <!-- Header -->
-    <div class="flex justify-between items-center">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-800">🔧 Товары</h1>
-            <p class="text-gray-600">Инвентарь и оборудование для аренды</p>
-        </div>
-        <a href="{% url 'main:create_product' %}"
-           class="px-5 py-3 bg-gradient-to-r from-purple-600 to-cyan-500 text-white rounded-xl font-semibold hover:opacity-90 transition shadow">
-            ➕ Добавить товар
-        </a>
-    </div>
-
-    <!-- Stats row -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div style="background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:16px;padding:20px;color:#fff;box-shadow:0 8px 24px rgba(124,58,237,.35)">
-            <p style="font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.5px">Всего позиций</p>
-            <p style="font-size:36px;font-weight:700;margin-top:4px">{{ products|length }}</p>
-        </div>
-        <div style="background:linear-gradient(135deg,#10b981,#059669);border-radius:16px;padding:20px;color:#fff;box-shadow:0 8px 24px rgba(16,185,129,.35)">
-            <p style="font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.5px">Активных</p>
-            <p style="font-size:36px;font-weight:700;margin-top:4px">{{ products|length }}</p>
-        </div>
-        <div style="background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:16px;padding:20px;color:#fff;box-shadow:0 8px 24px rgba(245,158,11,.35)">
-            <p style="font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.5px">Категорий</p>
-            <p style="font-size:36px;font-weight:700;margin-top:4px">{{ categories|length }}</p>
-        </div>
-        <div style="background:linear-gradient(135deg,#06b6d4,#0284c7);border-radius:16px;padding:20px;color:#fff;box-shadow:0 8px 24px rgba(6,182,212,.35)">
-            <p style="font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.5px">В аренде</p>
-            <p style="font-size:36px;font-weight:700;margin-top:4px">{{ total_rented }}</p>
-        </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="bg-white rounded-xl shadow p-4 flex gap-3 flex-wrap items-center">
-        <form method="GET" class="flex gap-3 flex-wrap items-center flex-1">
-            <select name="category" onchange="this.form.submit()"
-                    class="px-3 py-2 border border-gray-300 rounded-lg text-sm" style="min-width:160px">
-                <option value="">Все категории</option>
-                {% for cat in categories %}
-                <option value="{{ cat.id }}" {% if cat_filter == cat.id|stringformat:"s" %}selected{% endif %}>
-                    {{ cat.name }}
-                </option>
-                {% endfor %}
-            </select>
-            {% if cat_filter %}
-            <a href="{% url 'main:products_list' %}" class="text-sm text-gray-500 hover:text-gray-700 underline">Сбросить</a>
+<div class="pl">
+    <div class="pl-head">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            {% if cat_filter or search_query %}
+            <a href="{% url 'main:products_list' %}" style="color:var(--text3);font-size:13px;text-decoration:none">← Категории</a>
             {% endif %}
-        </form>
-        <span class="text-sm text-gray-500">Найдено: <strong class="text-gray-800">{{ products|length }}</strong></span>
+            <h1 style="font-size:24px;font-weight:800;color:var(--text1);margin:0">
+                {% if selected_cat %}{{ selected_cat.name }}{% elif search_query %}Поиск{% else %}Товары{% endif %}
+            </h1>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            {% if not cat_filter %}
+            <form method="get" style="margin:0" id="searchForm">
+                <div class="pl-search-wrap">
+                    <input type="text" name="search" id="plSearch" class="pl-search-inp"
+                        placeholder="Поиск товаров..." value="{{ search_query }}" autocomplete="off">
+                    {% if search_query %}
+                    <a href="{% url 'main:products_list' %}" class="pl-search-clear" title="Очистить">×</a>
+                    {% else %}
+                    <span class="pl-search-ico">🔍</span>
+                    {% endif %}
+                </div>
+            </form>
+            {% endif %}
+            {% if selected_cat %}
+            <form method="post" style="margin:0">
+                {% csrf_token %}
+                <input type="hidden" name="toggle_rain" value="{{ selected_cat.id }}">
+                <button type="submit" class="rain-toggle {% if selected_cat.rain_applicable %}on{% endif %}">
+                    ☁️ Дождь {% if selected_cat.rain_applicable %}не считается{% else %}считается{% endif %}
+                </button>
+            </form>
+            {% endif %}
+            <a href="{% url 'main:create_product' %}" class="pl-btn btn-acc">+ Добавить товар</a>
+        </div>
     </div>
 
-    <!-- Table -->
-    <div class="bg-white rounded-xl shadow overflow-hidden table-wrap">
-        <table class="w-full">
-            <thead class="bg-gray-50">
+    {% if not cat_filter and not search_query %}
+    <div class="cat-grid" id="catGrid">
+        {% for cat in categories %}
+        <a href="{% url 'main:products_list' %}?category={{ cat.id }}" class="cat-card" data-name="{{ cat.name|lower }}">
+            <div class="cat-name">{{ cat.name }}</div>
+            <div class="cat-stats">
+                <span class="cat-stat stat-total">{{ cat.total_count }} шт</span>
+                {% if cat.available_count > 0 %}<span class="cat-stat stat-avail">{{ cat.available_count }} своб</span>{% endif %}
+                {% if cat.rented_count > 0 %}<span class="cat-stat stat-rent">{{ cat.rented_count }} в аренде</span>{% endif %}
+            </div>
+            {% if cat.rain_applicable %}
+            <span style="font-size:11px;color:#3b82f6;margin-top:4px">☁️ дождь не считается</span>
+            {% endif %}
+        </a>
+        {% empty %}
+        <div style="grid-column:1/-1;padding:48px;text-align:center;color:var(--text3)">
+            <div style="font-size:40px;margin-bottom:12px">📦</div>
+            <p>Нет категорий. <a href="{% url 'main:create_product' %}" style="color:var(--accent)">Добавьте первый товар</a></p>
+        </div>
+        {% endfor %}
+    </div>
+    <div id="catEmpty" style="display:none;padding:48px;text-align:center;color:var(--text3)">
+        <div style="font-size:40px;margin-bottom:12px">🔍</div>
+        <p>Категории не найдены. Нажмите Enter для поиска по товарам.</p>
+    </div>
+
+    {% else %}
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+        {% if search_query %}
+        <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text3)">
+            Результаты по запросу «<strong style="color:var(--text1)">{{ search_query }}</strong>» — найдено {{ products|length }} товаров
+        </div>
+        {% endif %}
+        {% if products %}
+        <table class="pl-table">
+            <thead>
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Товар</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Категория</th>
-                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Всего</th>
-                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Доступно</th>
-                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">В аренде</th>
-                    <th class="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Цена/день</th>
-                    <th class="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Цена/час</th>
-                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Статус</th>
-                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Действия</th>
+                    <th>Товар</th>
+                    {% if search_query %}<th>Категория</th>{% endif %}
+                    <th>Всего</th>
+                    <th>Доступно</th>
+                    <th>В аренде</th>
+                    <th>Цена/день</th>
+                    <th>Цена/час</th>
+                    <th></th>
                 </tr>
             </thead>
-            <tbody class="divide-y">
-                {% for product in products %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4">
-                        <a href="{% url 'main:product_report' product_id=product.id %}" style="color:var(--text1);text-decoration:none;font-weight:600" class="font-semibold text-gray-900 hover:underline">{{ product.name }}</a>
-                    </td>
-                    <td class="px-6 py-4">
-                        <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold">
-                            {{ product.category.name }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 text-center font-semibold text-gray-800">
-                        {{ product.quantity_total }}
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        {% with av=product.get_available_quantity %}
-                        {% if av > 0 %}
-                        <span class="px-2 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold">{{ av }}</span>
-                        {% else %}
-                        <span class="px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold">0</span>
-                        {% endif %}
-                        {% endwith %}
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        {% with rented=product.quantity_rented %}
-                        {% if rented > 0 %}
-                        <span class="px-2 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-bold">{{ rented }}</span>
-                        {% else %}
-                        <span class="text-gray-400 text-sm">—</span>
-                        {% endif %}
-                        {% endwith %}
-                    </td>
-                    <td class="px-6 py-4 text-right font-semibold text-gray-800">
-                        {{ product.price_per_day|floatformat:0 }} сом
-                    </td>
-                    <td class="px-6 py-4 text-right text-gray-600">
-                        {% if product.price_per_hour %}{{ product.price_per_hour|floatformat:0 }} сом{% else %}—{% endif %}
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        {% if product.is_active %}
-                        <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">✓ Активен</span>
-                        {% else %}
-                        <span class="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-semibold">Неактивен</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        <a href="{% url 'main:edit_product' product.id %}"
-                           class="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-200 transition">
-                            ✏️ Изменить
-                        </a>
-                        <a href="{% url 'main:product_report' product_id=product.id %}"
-                           class="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold hover:bg-purple-200 transition" style="margin-left:4px">
-                            📋 Отчёт
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="9" class="px-6 py-16 text-center text-gray-500">
-                        <div style="font-size:48px;margin-bottom:12px;">📦</div>
-                        <p class="font-semibold">Товаров пока нет</p>
-                        <a href="{% url 'main:create_product' %}" class="text-purple-600 hover:underline text-sm mt-2 inline-block">
-                            Добавить первый товар →
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
+            <tbody>
+            {% for p in products %}
+            <tr>
+                <td>
+                    <a href="{% url 'main:product_report' p.id %}" class="pl-name">{{ p.name }}</a>
+                    {% if not p.is_active %}<span class="pl-badge" style="background:rgba(107,114,128,.1);color:#9ca3af;margin-left:6px">неактивен</span>{% endif %}
+                </td>
+                {% if search_query %}<td style="color:var(--text3);font-size:12px">{{ p.category.name }}</td>{% endif %}
+                <td>{{ p.quantity_total }}</td>
+                <td>
+                    {% if p.quantity_available > 0 %}
+                    <span class="pl-badge avail-ok">{{ p.quantity_available }}</span>
+                    {% else %}
+                    <span class="pl-badge avail-none">0</span>
+                    {% endif %}
+                </td>
+                <td>{{ p.quantity_rented }}</td>
+                <td>{{ p.price_per_day|floatformat:0 }} сом</td>
+                <td>{% if p.price_per_hour %}{{ p.price_per_hour|floatformat:0 }} сом{% else %}—{% endif %}</td>
+                <td style="white-space:nowrap">
+                    <a href="{% url 'main:edit_product' p.id %}" class="pl-btn btn-ghost">✏️</a>
+                    <a href="{% url 'main:product_report' p.id %}" class="pl-btn btn-ghost" style="margin-left:4px">📊</a>
+                </td>
+            </tr>
+            {% endfor %}
             </tbody>
         </table>
+        {% else %}
+        <div style="padding:48px;text-align:center;color:var(--text3)">
+            <div style="font-size:40px;margin-bottom:12px">🔍</div>
+            <p>{% if search_query %}По запросу «{{ search_query }}» ничего не найдено{% else %}В этой категории нет товаров{% endif %}</p>
+        </div>
+        {% endif %}
+        {% if page_obj %}{% include 'includes/pagination.html' %}{% endif %}
     </div>
+    {% endif %}
 
+<script>
+(function(){
+    var inp = document.getElementById('plSearch');
+    if (!inp) return;
+    var grid = document.getElementById('catGrid');
+    var empty = document.getElementById('catEmpty');
+    if (!grid) return;
+
+    var cards = Array.from(grid.querySelectorAll('.cat-card'));
+
+    inp.addEventListener('input', function(){
+        var q = inp.value.trim().toLowerCase();
+        var visible = 0;
+        cards.forEach(function(c){
+            var match = !q || c.dataset.name.indexOf(q) !== -1;
+            c.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
+        if (empty) empty.style.display = (visible === 0 && q) ? 'block' : 'none';
+    });
+
+    // Focus search on page load if there was a query
+    {% if search_query %}inp.focus();{% endif %}
+})();
+</script>
 </div>
 {% endblock %}

@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .models import Category, Product, Warehouse
+from apps.main.pagination import paginate
 
 
 def _log(user, action, desc):
@@ -25,18 +26,57 @@ def _get_owner(user):
 
 @login_required
 def products_list(request):
+    from django.http import HttpResponseRedirect
     owner = _get_owner(request.user)
-    products = Product.objects.filter(owner=owner).select_related('category').order_by('category__name', 'name')
     categories = Category.objects.filter(owner=owner).order_by('name')
     cat_filter = request.GET.get('category', '')
+
+    # Toggle rain_applicable on a category (POST)
+    if request.method == 'POST' and 'toggle_rain' in request.POST:
+        cat_id = request.POST.get('toggle_rain')
+        try:
+            cat = Category.objects.get(id=cat_id, owner=owner)
+            cat.rain_applicable = not cat.rain_applicable
+            cat.save(update_fields=['rain_applicable'])
+        except Category.DoesNotExist:
+            pass
+        return HttpResponseRedirect(request.path + (f'?category={cat_id}' if cat_id else ''))
+
+    selected_cat = None
+    page_obj = None
+    page_query = ''
+    total_rented = 0
+    search_query = request.GET.get('search', '').strip()
+
     if cat_filter:
-        products = products.filter(category_id=cat_filter)
-    total_rented = sum(p.quantity_rented for p in products)
+        products_qs = Product.objects.filter(owner=owner, category_id=cat_filter).select_related('category').order_by('name')
+        total_rented = sum(p.quantity_rented for p in products_qs)
+        page_obj, page_query = paginate(request, products_qs)
+        selected_cat = categories.filter(id=cat_filter).first()
+    elif search_query:
+        # Cross-category product search
+        products_qs = Product.objects.filter(
+            owner=owner, name__icontains=search_query
+        ).select_related('category').order_by('category__name', 'name')
+        page_obj, page_query = paginate(request, products_qs)
+        total_rented = sum(p.quantity_rented for p in products_qs)
+    else:
+        # Category overview: annotate stats on each category
+        for cat in categories:
+            cat_products = cat.products.filter(owner=owner)
+            cat.total_count = cat_products.count()
+            cat.available_count = sum(p.quantity_available for p in cat_products)
+            cat.rented_count = sum(p.quantity_rented for p in cat_products)
+
     return render(request, 'inventory/products_list.html', {
-        'products': products,
+        'products': page_obj,
+        'page_obj': page_obj,
+        'page_query': page_query,
         'categories': categories,
         'cat_filter': cat_filter,
         'total_rented': total_rented,
+        'selected_cat': selected_cat,
+        'search_query': search_query,
     })
 
 
@@ -73,6 +113,10 @@ def create_product(request):
             price_per_hour=price_hour or 0,
             owner=owner,
         )
+        photo = request.FILES.get('photo')
+        if photo:
+            product.photo = photo
+            product.save(update_fields=['photo'])
         messages.success(request, f'Товар «{product.name}» добавлен!')
         _log(request.user, 'create_product', f'Создал товар «{product.name}»')
         return redirect('main:products_list')
@@ -102,6 +146,11 @@ def edit_product(request, product_id):
         product.quantity_total = int(qty) if qty.isdigit() else product.quantity_total
         product.price_per_day = price_day or product.price_per_day
         product.price_per_hour = price_hour or product.price_per_hour
+        photo = request.FILES.get('photo')
+        if photo:
+            product.photo = photo
+        elif request.POST.get('remove_photo'):
+            product.photo = None
         product.save()
         messages.success(request, f'Товар «{product.name}» обновлён!')
         _log(request.user, 'edit_product', f'Изменил товар «{product.name}»')

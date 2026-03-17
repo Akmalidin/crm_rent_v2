@@ -12,13 +12,16 @@
 <div style="display:flex; flex-direction:column; gap:22px;">
 
     <!-- ── PAGE HEADER ── -->
-    <div>
-        <h1 style="font-size:28px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.2;">
-            Главная панель
-        </h1>
-        <p style="color:var(--text2);font-size:13px;margin-top:4px;">
-            {{ now|date:"d.m.Y" }} • {{ now|date:"H:i" }}
-        </p>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+            <h1 style="font-size:28px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.2;">
+                Главная панель
+            </h1>
+            <p style="color:var(--text2);font-size:13px;margin-top:4px;">
+                {{ now|date:"d.m.Y" }} • {{ now|date:"H:i" }}
+            </p>
+        </div>
+        <a href="/?refresh=1" data-turbo="false" style="padding:8px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text2);text-decoration:none;display:flex;align-items:center;gap:6px">🔄 Обновить данные</a>
     </div>
 
     <!-- ── ROW 1: 2 Big cards + 2 stat cards ── -->
@@ -181,6 +184,65 @@
             {% endfor %}
         </div>
     </div>
+
+<!-- ── БЛОК ДИРЕКТОРА ── -->
+{% if user.is_superuser and not user.is_staff %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:4px;">
+
+    <!-- Мои сотрудники -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px">
+        <div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:16px;">👥 Мои сотрудники</div>
+        {% with employees=request.user.team_members.all %}
+        {% if employees %}
+        {% for profile in employees %}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:34px;height:34px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:14px;">{{ profile.user.username|slice:":1"|upper }}</div>
+                <div>
+                    <div style="font-size:13px;font-weight:600;color:var(--text1)">{{ profile.user.username }}</div>
+                    <div style="font-size:11px;color:var(--text3)">{{ profile.get_role_display }}</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                {% if profile.user.is_active %}<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(16,185,129,.12);color:#10b981">Активен</span>{% else %}<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(239,68,68,.12);color:#ef4444">Неактивен</span>{% endif %}
+                <a href="{% url 'main:employee_activity' profile.user.id %}" style="font-size:11px;color:var(--accent2);text-decoration:none">лог →</a>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="color:var(--text3);font-size:13px;padding:16px 0">Нет сотрудников. <a href="{% url 'main:create_employee' %}" style="color:var(--accent2)">Добавить →</a></div>
+        {% endif %}
+        {% endwith %}
+        <a href="{% url 'main:users_management' %}" style="display:inline-block;margin-top:14px;font-size:13px;color:var(--accent2);text-decoration:none">Управление сотрудниками →</a>
+    </div>
+
+    <!-- Обратная связь с создателем -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px">
+        <div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:16px;">📬 Обращения к создателю</div>
+        {% with tickets=request.user.sent_messages.all|slice:":3" %}
+        {% if tickets %}
+        {% for ticket in tickets %}
+        <a href="{% url 'main:ticket_detail' ticket.id %}" style="display:block;padding:10px 0;border-bottom:1px solid var(--border);text-decoration:none">
+            <div style="font-size:13px;font-weight:600;color:var(--text1)">{{ ticket.ticket_number }} {{ ticket.subject|truncatechars:40 }}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;display:flex;gap:8px">
+                <span>{{ ticket.created_at|date:"d.m.Y" }}</span>
+                {% if ticket.is_open %}<span style="color:#f59e0b">открыто</span>{% else %}<span style="color:var(--text3)">закрыто</span>{% endif %}
+                {% if ticket.unread_for_sender %}<span style="color:#ef4444;font-weight:700">• новый ответ</span>{% endif %}
+            </div>
+        </a>
+        {% endfor %}
+        {% else %}
+        <div style="color:var(--text3);font-size:13px;padding:16px 0">Обращений нет.</div>
+        {% endif %}
+        {% endwith %}
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+            <a href="{% url 'main:send_message' %}" style="padding:8px 16px;background:var(--accent);color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">✉️ Написать</a>
+            <a href="{% url 'main:ticket_list' %}" style="padding:8px 16px;background:var(--card2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;text-decoration:none">Все обращения</a>
+        </div>
+    </div>
+
+</div>
+{% endif %}
 
 </div>
 </div>
