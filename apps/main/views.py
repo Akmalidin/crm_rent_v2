@@ -1264,7 +1264,7 @@ def returns_page(request):
     _returns_owner = get_tenant_owner(request.user)
     clients_with_orders = []
 
-    for client in Client.objects.filter(owner=_returns_owner):
+    for client in Client.objects.filter(owner=_returns_owner).prefetch_related('phones'):
         active_orders = client.rental_orders.filter(status='open')
         if active_orders.exists():
             has_items = False
@@ -1272,13 +1272,16 @@ def returns_page(request):
                 if order.items.filter(quantity_remaining__gt=0).exists():
                     has_items = True
                     break
-            
+
             if has_items:
+                phones = [p.phone_number for p in client.phones.all()]
                 clients_with_orders.append({
                     'id': client.id,
                     'get_full_name': client.get_full_name(),
                     'active_count': active_orders.count(),
                     'balance': int(client.get_wallet_balance()),
+                    'phones': phones,
+                    'phones_str': ' '.join(phones),
                 })
     
     # Если выбран клиент
@@ -1288,9 +1291,25 @@ def returns_page(request):
     
     if client_id:
         try:
+            import re as _re2
             from django.utils import timezone as _tz
             _now = _tz.now()
             selected_client = Client.objects.get(id=client_id)
+
+            def _paid_for_order_ret(client_obj, order_id_int):
+                paid = 0.0
+                for p in client_obj.payments.all():
+                    notes = p.notes or ''
+                    if 'Распределение:' in notes:
+                        for ln in notes.split('\n'):
+                            m = _re2.search(rf'Заказ\s*#{order_id_int}\s*:\s*(\d+(?:[\.,]\d+)?)\s*сом', ln)
+                            if m:
+                                paid += float(m.group(1).replace(',', '.'))
+                                break
+                    elif f'Заказ #{order_id_int}' in notes or f'#{order_id_int}' in notes:
+                        paid += float(p.amount)
+                return paid
+
             for order in selected_client.rental_orders.filter(status='open'):
                 items_data = []
                 for item in order.items.filter(quantity_remaining__gt=0):
@@ -1314,11 +1333,16 @@ def returns_page(request):
                     })
 
                 if items_data:
+                    _total = float(order.get_current_total()) + float(order.delivery_cost)
+                    _paid = _paid_for_order_ret(selected_client, order.id)
+                    _remaining = max(0.0, _total - _paid)
                     selected_orders.append({
                         'id': order.id,
                         'order_code': order.order_code,
                         'created_at': order.created_at.strftime('%d.%m.%Y %H:%M'),
-                        'total': float(order.get_current_total()),
+                        'total': _total,
+                        'paid': _paid,
+                        'remaining': _remaining,
                         'delivery_cost': float(order.delivery_cost),
                         'items': items_data,
                     })

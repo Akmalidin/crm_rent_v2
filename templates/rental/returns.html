@@ -106,10 +106,17 @@
     <span class="search-clear" id="searchClear" onclick="clearSearch()">×</span>
     <div class="client-list" id="clientList">
       {% for client in clients_with_orders %}
-      <div class="client-item" onclick="selectClient({{ client.id }}, '{{ client.get_full_name|escapejs }}')" data-name="{{ client.get_full_name|lower }}">
+      <div class="client-item" onclick="selectClient({{ client.id }}, '{{ client.get_full_name|escapejs }}')"
+           data-name="{{ client.get_full_name|lower }}"
+           data-phones="{{ client.phones_str }}">
         <div>
           <div class="client-item-name">{{ client.get_full_name }}</div>
-          <div class="client-item-meta">{{ client.active_count }} заказ{{ client.active_count|pluralize:",,ов" }}</div>
+          <div class="client-item-meta">
+            {{ client.active_count }} заказ{{ client.active_count|pluralize:",,ов" }}
+            {% for phone in client.phones %}
+            &nbsp;· <span style="color:var(--text2)">{{ phone }}</span>
+            {% endfor %}
+          </div>
         </div>
         {% if client.balance < 0 %}
         <div class="client-item-debt">{{ client.balance|floatformat:0 }} сом</div>
@@ -146,9 +153,28 @@
       </div>
       <div class="ret-order-sub">Создан: {{ order.created_at }}</div>
     </div>
-    <div class="ret-order-total">
-      {{ order.total|floatformat:0 }} сом
-      <span>сумма заказа</span>
+    <div style="display:flex;gap:16px;align-items:center;text-align:right">
+      {% if order.paid > 0 %}
+      <div style="text-align:right">
+        <div style="font-size:11px;color:var(--text2)">Оплачено</div>
+        <div style="font-size:15px;font-weight:700;color:#22c55e">{{ order.paid|floatformat:0 }} сом</div>
+      </div>
+      {% endif %}
+      {% if order.remaining > 0 %}
+      <div style="background:#fee2e2;border-radius:10px;padding:6px 12px;text-align:center">
+        <div style="font-size:10px;color:#991b1b;font-weight:600">ОСТАТОК</div>
+        <div style="font-size:18px;font-weight:800;color:#dc2626">{{ order.remaining|floatformat:0 }} сом</div>
+      </div>
+      {% elif order.paid > 0 %}
+      <div style="background:#dcfce7;border-radius:10px;padding:6px 12px;text-align:center">
+        <div style="font-size:10px;color:#166534;font-weight:600">ОПЛАЧЕН</div>
+        <div style="font-size:18px;font-weight:800;color:#16a34a">✓</div>
+      </div>
+      {% endif %}
+      <div class="ret-order-total">
+        {{ order.total|floatformat:0 }} сом
+        <span>итого по заказу</span>
+      </div>
     </div>
   </div>
 
@@ -332,14 +358,24 @@ searchInput.addEventListener('input', () => {
   clientList.classList.add('open');
 });
 
+function normalizePhone(s) {
+  // "0553565674" → "996553565674"
+  s = s.replace(/[\s\-\(\)]/g, '');
+  if (s.startsWith('0') && s.length >= 9) return '996' + s.slice(1);
+  if (s.startsWith('+')) return s.slice(1);
+  return s;
+}
+
 function filterClients(q) {
   const lq = q.toLowerCase().trim();
-  let visible = 0;
+  const lqPhone = normalizePhone(lq);
   allClients.forEach(el => {
     const name = el.dataset.name || '';
-    const show = !lq || name.includes(lq);
-    el.style.display = show ? '' : 'none';
-    if (show) visible++;
+    const phones = (el.dataset.phones || '').replace(/\+/g, '');
+    const phonesNorm = normalizePhone(phones.replace(/[\s\-]/g, ''));
+    const matchName = !lq || name.includes(lq);
+    const matchPhone = lq.length >= 4 && (phones.includes(lq) || phonesNorm.includes(lqPhone));
+    el.style.display = (matchName || matchPhone) ? '' : 'none';
   });
 }
 
