@@ -171,8 +171,8 @@ def get_order_groups_for_client(client, now):
         
         # Считаем итоги
         total_paid_for_order = sum(e.get('amount', 0) for e in order_events if e['type'] == 'payment')
-        current_order_cost = float(order.get_current_total())
-        
+        current_order_cost = float(order.get_total_excluding_rain())
+
         # Используем общий баланс клиента для расчёта долга
         if client_balance > 0:
             # Если есть аванс, показываем долг с учётом покрытия
