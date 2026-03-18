@@ -255,6 +255,20 @@
     </div>
   </div>
   {% endfor %}
+
+  {% if order.remaining > 0 %}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:12px 16px;background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(239,68,68,.04));border:1.5px solid rgba(239,68,68,.25);border-radius:10px">
+    <div>
+      <div style="font-size:12px;color:var(--text2);font-weight:600">Долг по этому заказу</div>
+      <div style="font-size:22px;font-weight:800;color:#dc2626">{{ order.remaining|floatformat:0 }} сом</div>
+    </div>
+    <button type="button"
+            onclick="fillOrderDebt({{ order.remaining|floatformat:0 }})"
+            style="background:#dc2626;color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap">
+      💳 Принять {{ order.remaining|floatformat:0 }} сом
+    </button>
+  </div>
+  {% endif %}
 </div>
 {% endfor %}
 
@@ -475,6 +489,16 @@ function fillDebt(amount) {
   if (payAmt) {
     payAmt.value = amount;
     onPayChange();
+  }
+}
+function fillOrderDebt(amount) {
+  if (payAmt) {
+    payAmt.value = amount;
+    onPayChange();
+    payAmt.scrollIntoView({behavior:'smooth', block:'center'});
+    payAmt.focus();
+    payAmt.style.borderColor = '#dc2626';
+    setTimeout(() => { payAmt.style.borderColor = ''; }, 1500);
   }
 }
 
