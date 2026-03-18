@@ -3803,6 +3803,7 @@ def export_clients_xlsx(request):
 @login_required
 def export_orders_xlsx(request):
     import openpyxl
+    import re as _re
     from django.utils import timezone as tz
 
     owner = get_tenant_owner(request.user)
@@ -3811,6 +3812,20 @@ def export_orders_xlsx(request):
     if status_filter in ('open', 'closed'):
         orders_qs = orders_qs.filter(status=status_filter)
     orders_qs = orders_qs.order_by('-created_at')
+
+    def _paid_for_order(client_obj, order_id_int):
+        paid = 0.0
+        for p in client_obj.payments.all():
+            notes = p.notes or ''
+            if 'Распределение:' in notes:
+                for line in notes.split('\n'):
+                    m = _re.search(rf'Заказ\s*#{order_id_int}\s*:\s*(\d+(?:[\.,]\d+)?)\s*сом', line)
+                    if m:
+                        paid += float(m.group(1).replace(',', '.'))
+                        break
+            elif f'Заказ #{order_id_int}' in notes or f'#{order_id_int}' in notes:
+                paid += float(p.amount)
+        return paid
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -3823,7 +3838,7 @@ def export_orders_xlsx(request):
 
     for row_num, order in enumerate(orders_qs, 2):
         total = order.get_current_total()
-        paid  = Payment.objects.filter(order=order).aggregate(t=Sum('amount'))['t'] or 0
+        paid  = _paid_for_order(order.client, order.id)
         debt  = max(0, float(total) - float(paid))
         ws.append([
             row_num - 1,
