@@ -273,9 +273,42 @@
             <span class="cost-amount">{{ base_total|floatformat:0 }} сом</span>
         </div>
         {% if overdue_total > 0 %}
-        <div class="cost-row" style="color:#f87171">
-            <span class="cost-label">⚠️ Штраф за просрочку</span>
+        <div class="cost-row" style="color:#f87171;cursor:pointer;user-select:none" onclick="toggleOverdueDetail()">
+            <span class="cost-label" style="display:flex;align-items:center;gap:6px">
+                ⚠️ Штраф за просрочку
+                <span id="overdueArrow" style="font-size:11px;transition:.2s">▼</span>
+            </span>
             <span class="cost-amount" style="color:#f87171">+{{ overdue_total|floatformat:0 }} сом</span>
+        </div>
+        <div id="overdueDetail" style="display:none;margin:-8px 0 12px 0;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:12px 16px;font-size:13px">
+            {% for row in overdue_breakdown %}
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid rgba(239,68,68,.12){% if forloop.last %};border-bottom:none{% endif %}">
+                <div>
+                    <div style="font-weight:700;color:var(--text1)">{{ row.product }}</div>
+                    {% if row.type == 'late_return' %}
+                    <div style="color:var(--text3);margin-top:2px">
+                        {{ row.quantity }} шт · возврат {{ row.date }}
+                        <span style="color:#f87171"> · план {{ row.planned_days }}д, факт {{ row.actual_days }}д{% if row.actual_hours %} {{ row.actual_hours }}ч{% endif %}</span>
+                    </div>
+                    <div style="color:#fca5a5;margin-top:2px">
+                        лишних {{ row.actual_days|add:"-"|add:row.planned_days }}д × {{ row.price_per_day|floatformat:0 }} сом × {{ row.quantity }} шт
+                    </div>
+                    {% else %}
+                    <div style="color:var(--text3);margin-top:2px">
+                        {{ row.quantity }} шт · просрочка с {{ row.planned_return }}
+                    </div>
+                    <div style="color:#fca5a5;margin-top:2px">
+                        {{ row.overdue_days }}д {% if row.overdue_hours %}{{ row.overdue_hours }}ч{% endif %} × {{ row.price_per_day|floatformat:0 }} сом/д × {{ row.quantity }} шт
+                    </div>
+                    {% endif %}
+                </div>
+                <div style="font-weight:800;color:#f87171;white-space:nowrap;margin-left:16px">
+                    {% if row.type == 'late_return' %}+{{ row.extra_cost|floatformat:0 }}{% else %}+{{ row.overdue_cost|floatformat:0 }}{% endif %} сом
+                </div>
+            </div>
+            {% empty %}
+            <div style="color:var(--text3)">Нет данных</div>
+            {% endfor %}
         </div>
         {% endif %}
         {% for rd in repair_details %}
@@ -733,6 +766,16 @@
     window.toggleNotesEdit = toggleNotesEdit;
 
     renderNotes();
+
+    // Overdue detail toggle
+    window.toggleOverdueDetail = function() {
+        var d = document.getElementById('overdueDetail');
+        var a = document.getElementById('overdueArrow');
+        if (!d) return;
+        var open = d.style.display !== 'none';
+        d.style.display = open ? 'none' : 'block';
+        if (a) a.textContent = open ? '▼' : '▲';
+    };
 })();
 </script>
 {% endblock %}

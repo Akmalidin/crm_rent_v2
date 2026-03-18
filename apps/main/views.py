@@ -1330,6 +1330,8 @@ def returns_page(request):
                         'is_overdue': _overdue,
                         'overdue_days': _overdue_delta.days if _overdue_delta else 0,
                         'overdue_hours': (_overdue_delta.seconds // 3600) if _overdue_delta else 0,
+                        'remaining_planned': round(float(item.price_per_day) * item.rental_days * item.quantity_remaining, 0),
+                        'overdue_extra': round(float(item.price_per_day) * (_overdue_delta.days if _overdue_delta else 0) * item.quantity_remaining, 0),
                     })
 
                 if items_data:
@@ -3392,6 +3394,44 @@ def order_view(request, order_id):
 
     overdue_total = original_total - base_total - _D(str(total_repair_fee))
 
+    # Детальный разбор штрафа (по каждому товару)
+    overdue_breakdown = []
+    for _item in order.items.all():
+        # Возвращённые поздно
+        for _ret in _item.returns.select_related('return_document').all():
+            if _ret.actual_days > _item.rental_days or (_ret.actual_days == _item.rental_days and _ret.actual_hours > 0 and _item.price_per_hour == 0):
+                _planned = float(_item.price_per_day) * _item.rental_days * _ret.quantity
+                _actual_base = float(_ret.calculated_cost) - float(_ret.repair_fee or 0)
+                _extra = round(_actual_base - _planned, 2)
+                if _extra > 0:
+                    overdue_breakdown.append({
+                        'type': 'late_return',
+                        'product': _item.product.name,
+                        'quantity': _ret.quantity,
+                        'planned_days': _item.rental_days,
+                        'actual_days': _ret.actual_days,
+                        'actual_hours': _ret.actual_hours,
+                        'price_per_day': float(_item.price_per_day),
+                        'extra_cost': _extra,
+                        'date': timezone.localtime(_ret.return_document.return_date).strftime('%d.%m.%Y'),
+                    })
+        # Ещё не вернули, просрочка
+        if _item.quantity_remaining > 0 and _item.planned_return_date < now:
+            _delta = now - _item.planned_return_date
+            _od = _delta.days
+            _oh = _delta.seconds // 3600
+            _oc = round(float(_item.price_per_day) * _od * _item.quantity_remaining, 2)
+            overdue_breakdown.append({
+                'type': 'still_out',
+                'product': _item.product.name,
+                'quantity': _item.quantity_remaining,
+                'overdue_days': _od,
+                'overdue_hours': _oh,
+                'price_per_day': float(_item.price_per_day),
+                'overdue_cost': _oc,
+                'planned_return': timezone.localtime(_item.planned_return_date).strftime('%d.%m.%Y'),
+            })
+
     # Глобальные дождливые дни тенанта
     from apps.main.models import RainDay
     global_rain_days = set(
@@ -3441,6 +3481,7 @@ def order_view(request, order_id):
         'original_total': original_total,
         'base_total': base_total,
         'overdue_total': overdue_total,
+        'overdue_breakdown': overdue_breakdown,
         'total_repair_fee': total_repair_fee,
         'repair_details': repair_details,
         'global_rain_days_json': order_rain_days_json,

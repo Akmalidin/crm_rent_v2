@@ -208,10 +208,14 @@
 
     <!-- Cost -->
     <div class="item-cost">
-      <div class="label">Текущая стоимость</div>
-      <div class="price {% if item.is_overdue %}overdue-price{% endif %}">{{ item.actual_cost|floatformat:0 }} сом</div>
       {% if item.is_overdue %}
-      <div style="font-size:10px;color:#f97316;margin-top:2px">вкл. штраф</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:2px">Плановая</div>
+      <div class="price" style="font-size:14px;color:var(--text2)">{{ item.remaining_planned|floatformat:0 }} сом</div>
+      <div style="font-size:11px;color:#ef4444;margin-top:4px;font-weight:700">+ штраф</div>
+      <div class="price overdue-price">+{{ item.overdue_extra|floatformat:0 }} сом</div>
+      {% else %}
+      <div class="label">Стоимость</div>
+      <div class="price">{{ item.actual_cost|floatformat:0 }} сом</div>
       {% endif %}
     </div>
 
