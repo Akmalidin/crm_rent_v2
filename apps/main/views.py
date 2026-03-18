@@ -3395,6 +3395,7 @@ def order_view(request, order_id):
     overdue_total = original_total - base_total - _D(str(total_repair_fee))
 
     # Детальный разбор штрафа (по каждому товару)
+    _now = timezone.now()
     overdue_breakdown = []
     for _item in order.items.all():
         # Возвращённые поздно
@@ -3411,13 +3412,14 @@ def order_view(request, order_id):
                         'planned_days': _item.rental_days,
                         'actual_days': _ret.actual_days,
                         'actual_hours': _ret.actual_hours,
+                        'extra_days': _ret.actual_days - _item.rental_days,
                         'price_per_day': float(_item.price_per_day),
                         'extra_cost': _extra,
                         'date': timezone.localtime(_ret.return_document.return_date).strftime('%d.%m.%Y'),
                     })
         # Ещё не вернули, просрочка
-        if _item.quantity_remaining > 0 and _item.planned_return_date < now:
-            _delta = now - _item.planned_return_date
+        if _item.quantity_remaining > 0 and _item.planned_return_date < _now:
+            _delta = _now - _item.planned_return_date
             _od = _delta.days
             _oh = _delta.seconds // 3600
             _oc = round(float(_item.price_per_day) * _od * _item.quantity_remaining, 2)

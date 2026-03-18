@@ -291,7 +291,7 @@
                         <span style="color:#f87171"> · план {{ row.planned_days }}д, факт {{ row.actual_days }}д{% if row.actual_hours %} {{ row.actual_hours }}ч{% endif %}</span>
                     </div>
                     <div style="color:#fca5a5;margin-top:2px">
-                        лишних {{ row.actual_days|add:"-"|add:row.planned_days }}д × {{ row.price_per_day|floatformat:0 }} сом × {{ row.quantity }} шт
+                        лишних {{ row.extra_days }}д × {{ row.price_per_day|floatformat:0 }} сом × {{ row.quantity }} шт
                     </div>
                     {% else %}
                     <div style="color:var(--text3);margin-top:2px">
