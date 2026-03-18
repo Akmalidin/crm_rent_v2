@@ -126,11 +126,13 @@
                     <a href="{% url 'main:history' %}?client_id={{ client.id }}"
                        class="h-client-opt"
                        data-name="{{ client.get_full_name|lower }}"
-                       style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;text-decoration:none;border-bottom:1px solid var(--border)">
-                        <span style="font-weight:600;color:var(--text1)">{{ client.get_full_name }}</span>
-                        {% for phone in client.phones.all|slice:":1" %}
-                        <span style="font-size:12px;color:var(--text3)">{{ phone.phone_number }}</span>
-                        {% endfor %}
+                       style="display:block;width:100%;padding:10px 14px;text-decoration:none;border-bottom:1px solid var(--border);transition:background .15s">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                            <span style="font-weight:600;color:var(--text1);font-size:14px">{{ client.get_full_name }}</span>
+                            {% for phone in client.phones.all|slice:":1" %}
+                            <span style="font-size:12px;color:var(--text3);white-space:nowrap">{{ phone.phone_number }}</span>
+                            {% endfor %}
+                        </div>
                     </a>
                     {% endfor %}
                 </div>
@@ -156,17 +158,32 @@
             showDrop();
         });
         inp.addEventListener('blur', hideDrop);
+        function normPhone(s){
+            s = s.replace(/[\s\-\(\)\+]/g,'');
+            if(s.startsWith('0') && s.length >= 9) return '996' + s.slice(1);
+            return s;
+        }
         function filterOpts(q){
             q = q.toLowerCase().trim();
+            var qPhone = normPhone(q);
             var any = false;
             opts.forEach(function(o){
-                var match = !q || o.dataset.name.indexOf(q) !== -1
-                    || (o.querySelector('span:last-child') && o.querySelector('span:last-child').textContent.indexOf(q) !== -1);
-                o.style.display = match ? '' : 'none';
-                if(match) any = true;
+                var name = o.dataset.name || '';
+                var phoneEl = o.querySelector('span:last-child');
+                var phone = phoneEl ? phoneEl.textContent.replace(/[\s\-\(\)\+]/g,'') : '';
+                var matchName = !q || name.indexOf(q) !== -1;
+                var matchPhone = q.length >= 4 && (phone.indexOf(q) !== -1 || phone.indexOf(qPhone) !== -1);
+                var show = matchName || matchPhone;
+                o.style.display = show ? '' : 'none';
+                if(show) any = true;
             });
             drop.style.display = any ? 'block' : 'none';
         }
+        // Hover effect
+        opts.forEach(function(o){
+            o.addEventListener('mouseenter', function(){ o.style.background='rgba(99,102,241,.1)'; });
+            o.addEventListener('mouseleave', function(){ o.style.background=''; });
+        });
     })();
     </script>
 
