@@ -1,4 +1,4 @@
-const CACHE_NAME = 'crm-rental-v1';
+const CACHE_NAME = 'crm-rental-v2';
 const PRECACHE = [
   '/',
   '/static/css/base.css',

@@ -3,6 +3,7 @@
   "short_name": "CRM Аренда",
   "description": "Система управления арендой инструментов",
   "start_url": "/portal/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0f0f17",
   "theme_color": "#7c3aed",
