@@ -1288,10 +1288,14 @@ def returns_page(request):
     
     if client_id:
         try:
+            from django.utils import timezone as _tz
+            _now = _tz.now()
             selected_client = Client.objects.get(id=client_id)
             for order in selected_client.rental_orders.filter(status='open'):
                 items_data = []
                 for item in order.items.filter(quantity_remaining__gt=0):
+                    _overdue = item.quantity_remaining > 0 and item.planned_return_date < _now
+                    _overdue_delta = (_now - item.planned_return_date) if _overdue else None
                     items_data.append({
                         'id': item.id,
                         'product_name': item.product.name,
@@ -1301,13 +1305,21 @@ def returns_page(request):
                         'issued_date': item.issued_date.strftime('%d.%m.%Y %H:%M'),
                         'planned_return_date': item.planned_return_date.strftime('%d.%m.%Y %H:%M'),
                         'current_total_cost': float(item.current_total_cost),
+                        'actual_cost': float(item.get_actual_cost()),
+                        'price_per_day': float(item.price_per_day),
+                        'rental_days': item.rental_days,
+                        'is_overdue': _overdue,
+                        'overdue_days': _overdue_delta.days if _overdue_delta else 0,
+                        'overdue_hours': (_overdue_delta.seconds // 3600) if _overdue_delta else 0,
                     })
-                
+
                 if items_data:
                     selected_orders.append({
                         'id': order.id,
+                        'order_code': order.order_code,
                         'created_at': order.created_at.strftime('%d.%m.%Y %H:%M'),
                         'total': float(order.get_current_total()),
+                        'delivery_cost': float(order.delivery_cost),
                         'items': items_data,
                     })
         except Client.DoesNotExist:

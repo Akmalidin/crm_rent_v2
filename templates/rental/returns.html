@@ -1,290 +1,444 @@
-<!-- templates/rental/returns.html -->
 {% extends 'base_dark.html' %}
 {% load static %}
-
-{% block title %}Возврат товаров - CRM Аренда{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/returns.css' %}">{% endblock %}
-
-{% block extra_css %}
-{% endblock %}
+{% block title %}Возврат товаров{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    
-    <!-- Header -->
-    <div>
-        <h1 class="text-3xl font-bold text-gray-800">⬅️ Возврат товаров</h1>
-        <p class="text-gray-600">Выберите клиента для оформления возврата</p>
-    </div>
-    
-    <!-- Client Selection -->
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">1️⃣ Выберите клиента</h2>
-        
-        <form method="get" class="flex gap-4">
-            <select 
-                name="client_id"
-                onchange="this.form.submit()"
-                class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-                <option value="">Выберите клиента...</option>
-                {% for client in clients_with_orders %}
-                <option 
-                    value="{{ client.id }}" 
-                    {% if selected_client_id == client.id|stringformat:"s" %}selected{% endif %}
-                >
-                    {{ client.get_full_name }} ({{ client.active_count }} заказ{{ client.active_count|pluralize:",,ов" }})
-                </option>
-                {% endfor %}
-            </select>
-        </form>
-    </div>
-    
-    <!-- Orders -->
-    {% if selected_orders %}
-    <form method="post" class="space-y-4">
-        {% csrf_token %}
-        <input type="hidden" name="client_id" value="{{ selected_client_id }}" />
-        
-        {% for order in selected_orders %}
-        <div class="bg-white rounded-lg shadow-lg p-6">
-            <!-- Order Header -->
-            <div class="flex justify-between items-start mb-4 pb-4 border-b">
-                <div>
-                    <h2 class="text-xl font-bold text-gray-800">Заказ #{{ order.id }}</h2>
-                    <p class="text-sm text-gray-600">Создан: {{ order.created_at }}</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-sm text-gray-600">Сумма заказа:</p>
-                    <p class="text-2xl font-bold text-blue-600">{{ order.total|floatformat:0 }} сом</p>
-                </div>
-            </div>
-            
-            <!-- Items -->
-            <div class="space-y-3">
-                {% for item in order.items %}
-                <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                    <!-- Product Info -->
-                    <div class="flex-1">
-                        <p class="font-bold text-gray-800">{{ item.product_name }}</p>
-                        <div class="text-sm text-gray-600 mt-1 space-x-2">
-                            <span class="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                                Взято: {{ item.quantity_taken }} шт
-                            </span>
-                            <span class="inline-block px-2 py-1 bg-green-100 text-green-800 rounded">
-                                Возвращено: {{ item.quantity_returned }} шт
-                            </span>
-                            <span class="inline-block px-2 py-1 bg-orange-100 text-orange-800 rounded">
-                                Осталось: {{ item.quantity_remaining }} шт
-                            </span>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">
-                            Выдано: {{ item.issued_date }} | План возврата: {{ item.planned_return_date }}
-                        </p>
-                    </div>
-                    
-                    <!-- Price -->
-                    <div class="text-right mr-4">
-                        <p class="text-sm text-gray-600">Стоимость:</p>
-                        <p class="font-bold text-lg">{{ item.current_total_cost|floatformat:0 }} сом</p>
-                    </div>
-                    
-                    <!-- Return Input -->
-                    <div class="flex flex-col gap-2">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">
-                                Вернуть (шт)
-                            </label>
-                            <input
-                                type="number"
-                                name="return_{{ item.id }}"
-                                min="0"
-                                max="{{ item.quantity_remaining }}"
-                                value="0"
-                                class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-center font-bold text-lg"
-                            />
-                        </div>
-                        <!-- Repair/Cleaning Fee -->
-                        <div>
-                            <label class="flex items-center gap-2 cursor-pointer text-sm text-orange-700 font-semibold">
-                                <input
-                                    type="checkbox"
-                                    id="repair_check_{{ item.id }}"
-                                    onchange="toggleRepair({{ item.id }})"
-                                    class="w-4 h-4 accent-orange-500"
-                                />
-                                🔧 Ремонт/чистка
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <!-- Repair details row (hidden by default) -->
-                <div id="repair_block_{{ item.id }}" class="hidden mt-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                    <div class="flex flex-wrap gap-3 items-start">
-                        <div>
-                            <label class="block text-xs font-semibold text-orange-700 mb-1">Сумма (сом)</label>
-                            <input
-                                type="number"
-                                name="repair_fee_{{ item.id }}"
-                                min="0"
-                                step="1"
-                                placeholder="0"
-                                class="w-28 px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-400 text-center font-bold"
-                            />
-                        </div>
-                        <div class="flex-1 min-w-40">
-                            <label class="block text-xs font-semibold text-orange-700 mb-1">Причина</label>
-                            <input
-                                type="text"
-                                name="repair_notes_{{ item.id }}"
-                                placeholder="Сломана ручка, загрязнение..."
-                                class="w-full px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-400 text-sm"
-                            />
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endfor %}
-        
-        <!-- Notes and Submit -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">2️⃣ Примечания и подтверждение</h2>
-            
-            <div class="mb-4">
-                <label class="block text-sm font-semibold text-gray-700 mb-2">
-                    Примечания
-                </label>
-                <textarea 
-                    name="notes"
-                    rows="3"
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="Дополнительная информация о возврате..."
-                ></textarea>
-            </div>
-            
-<!-- Payment Section -->
-<div class="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg p-6 border-2 border-yellow-200">
-    <h2 class="text-xl font-bold text-gray-800 mb-4">💰 Оплата при возврате (опционально)</h2>
+<style>
+.ret-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px}
+.ret-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.ret-order-title{font-size:17px;font-weight:700;color:var(--text)}
+.ret-order-sub{font-size:12px;color:var(--text2);margin-top:2px}
+.ret-order-total{font-size:20px;font-weight:800;color:#3b82f6;text-align:right}
+.ret-order-total span{display:block;font-size:11px;font-weight:400;color:var(--text2)}
 
-    <div class="grid grid-cols-2 gap-4 mb-4">
-        <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">
-                Клиент оплачивает (сом)
-            </label>
-            <input
-                type="number"
-                name="payment_amount"
-                id="paymentAmountInp"
-                min="0"
-                step="1"
-                placeholder="0"
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 text-xl font-bold"
-            />
-            <p class="text-xs text-gray-600 mt-1">Оставьте 0 если клиент не платит сейчас</p>
-        </div>
+.item-row{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;margin-bottom:8px}
+.item-row.overdue{border-color:#f97316;background:rgba(249,115,22,.05)}
+.item-name{font-weight:700;font-size:15px;color:var(--text)}
+.item-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}
+.badge{padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600}
+.badge-blue{background:#dbeafe;color:#1e40af}
+.badge-green{background:#dcfce7;color:#166534}
+.badge-orange{background:#ffedd5;color:#9a3412}
+.badge-red{background:#fee2e2;color:#991b1b}
+.item-meta{font-size:11px;color:var(--text2);margin-top:4px}
+.overdue-badge{background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:3px}
 
-        {% if selected_client %}
-        <div class="bg-white rounded-lg p-4 border border-gray-200">
-            <p class="text-sm text-gray-600 mb-2">Текущий долг клиента:</p>
-            <p class="text-3xl font-bold {% if selected_client.get_debt > 0 %}text-red-600{% else %}text-green-600{% endif %}">
-                {{ selected_client.get_debt|floatformat:0 }} сом
-            </p>
-            {% if selected_client.get_debt > 0 %}
-            <p class="text-xs text-gray-500 mt-2">Рекомендуемая сумма для полной оплаты</p>
-            {% endif %}
-        </div>
-        {% endif %}
-    </div>
+.item-cost{text-align:right;min-width:110px}
+.item-cost .price{font-size:16px;font-weight:700;color:var(--text)}
+.item-cost .price.overdue-price{color:#ef4444}
+.item-cost .label{font-size:11px;color:var(--text2)}
 
-    <!-- Payment details (hidden until amount > 0) -->
-    <div id="paymentDetails" style="display:none">
-        <div class="grid grid-cols-2 gap-4 mb-4">
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Способ оплаты</label>
-                <select name="payment_method" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500">
-                    <option value="cash">💵 Наличные</option>
-                    <option value="card">💳 Карта</option>
-                    <option value="transfer">🏦 Перевод</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Применить к заказу</label>
-                <select name="payment_order_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500">
-                    <option value="">Авто (к возвращаемым заказам)</option>
-                    {% for order in selected_orders %}
-                    <option value="{{ order.id }}">Заказ #{{ order.id }} — {{ order.total|floatformat:0 }} сом</option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
-        <div class="p-3 bg-blue-50 rounded border border-blue-200 text-sm text-blue-800">
-            💡 Платёж будет распределён по заказам и отразится в отчётах
-        </div>
-    </div>
+.item-controls{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:130px}
+.qty-wrap{display:flex;align-items:center;gap:4px}
+.qty-btn{width:30px;height:30px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.qty-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.qty-input{width:52px;height:32px;border:2px solid var(--border);border-radius:8px;text-align:center;font-size:17px;font-weight:700;background:var(--card);color:var(--text);outline:none}
+.qty-input:focus{border-color:var(--accent)}
+.qty-input.has-value{border-color:#22c55e;background:#f0fdf4;color:#166534}
+.btn-all{font-size:11px;color:var(--accent);cursor:pointer;text-decoration:underline;background:none;border:none;padding:0;font-weight:600}
+
+.repair-toggle{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;color:#f97316;font-weight:600}
+.repair-block{display:none;margin-top:8px;padding:10px 14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;grid-column:1/-1;gap:10px;flex-wrap:wrap}
+.repair-block.show{display:flex}
+
+/* Client search */
+.client-search-wrap{position:relative}
+.client-search-input{width:100%;padding:11px 40px 11px 16px;border:2px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);font-size:15px;outline:none;transition:.2s}
+.client-search-input:focus{border-color:var(--accent)}
+.client-list{position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:10px;z-index:100;max-height:280px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.15);margin-top:4px;display:none}
+.client-list.open{display:block}
+.client-item{padding:10px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);transition:.15s}
+.client-item:last-child{border-bottom:none}
+.client-item:hover,.client-item.active{background:rgba(99,102,241,.08)}
+.client-item-name{font-weight:600;font-size:14px;color:var(--text)}
+.client-item-meta{font-size:12px;color:var(--text2)}
+.client-item-debt{font-size:13px;font-weight:700;color:#ef4444}
+.client-item-ok{font-size:13px;font-weight:700;color:#22c55e}
+.search-clear{position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text2);font-size:18px;display:none}
+
+/* Summary bar */
+.summary-bar{background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;border-radius:12px;padding:14px 20px;display:flex;gap:24px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.summary-item{text-align:center}
+.summary-item .val{font-size:22px;font-weight:800}
+.summary-item .lbl{font-size:11px;opacity:.8}
+
+/* Payment card */
+.pay-card{background:var(--card);border:2px solid #f59e0b;border-radius:14px;padding:20px}
+.pay-card h3{font-size:16px;font-weight:700;margin-bottom:14px;color:var(--text)}
+.pay-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:600px){.pay-grid{grid-template-columns:1fr}.item-row{grid-template-columns:1fr}}
+.inp-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px}
+.inp-field{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:9px;background:var(--bg);color:var(--text);font-size:15px;outline:none;box-sizing:border-box}
+.inp-field:focus{border-color:var(--accent)}
+.debt-box{background:var(--bg);border:1.5px solid var(--border);border-radius:9px;padding:10px 14px;text-align:center}
+.debt-box .debt-val{font-size:26px;font-weight:800;color:#ef4444}
+.debt-box .debt-lbl{font-size:11px;color:var(--text2)}
+.debt-box.no-debt .debt-val{color:#22c55e}
+.submit-btn{width:100%;padding:15px;background:linear-gradient(135deg,#059669,#22c55e);color:#fff;border:none;border-radius:12px;font-size:17px;font-weight:700;cursor:pointer;margin-top:16px;transition:.2s}
+.submit-btn:hover{opacity:.9}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed}
+.cancel-btn{display:inline-block;padding:15px 28px;border:2px solid var(--border);border-radius:12px;color:var(--text2);font-weight:600;text-decoration:none;margin-top:16px;transition:.2s}
+.cancel-btn:hover{background:var(--border)}
+.hint-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:9px 12px;font-size:12px;color:#1e40af;margin-top:10px}
+</style>
+
+<div style="max-width:860px;margin:0 auto">
+
+<!-- Header -->
+<div style="margin-bottom:20px">
+  <h1 style="font-size:26px;font-weight:800;color:var(--text)">⬅️ Возврат товаров</h1>
+  <p style="color:var(--text2);font-size:14px;margin-top:2px">Найдите клиента и оформите возврат</p>
 </div>
-            
-            <!-- Buttons -->
-            <div class="flex gap-4">
-                <button 
-                    type="submit"
-                    class="flex-1 bg-green-600 text-white px-6 py-4 rounded-lg hover:bg-green-700 transition font-bold text-lg"
-                >
-                    ✅ Оформить возврат
-                </button>
-                <a 
-                    href="/"
-                    class="px-6 py-4 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition font-semibold text-gray-700"
-                >
-                    Отмена
-                </a>
-            </div>
+
+<!-- CLIENT SEARCH -->
+<div class="ret-card" style="margin-bottom:20px">
+  <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">1. Выберите клиента</div>
+
+  <div class="client-search-wrap">
+    <input
+      type="text"
+      id="clientSearchInput"
+      class="client-search-input"
+      placeholder="🔍 Поиск по имени клиента..."
+      autocomplete="off"
+      value="{% if selected_client %}{{ selected_client.get_full_name }}{% endif %}"
+    />
+    <span class="search-clear" id="searchClear" onclick="clearSearch()">×</span>
+    <div class="client-list" id="clientList">
+      {% for client in clients_with_orders %}
+      <div class="client-item" onclick="selectClient({{ client.id }}, '{{ client.get_full_name|escapejs }}')" data-name="{{ client.get_full_name|lower }}">
+        <div>
+          <div class="client-item-name">{{ client.get_full_name }}</div>
+          <div class="client-item-meta">{{ client.active_count }} заказ{{ client.active_count|pluralize:",,ов" }}</div>
         </div>
-    </form>
-    
-    {% elif selected_client_id %}
-    <!-- No Items -->
-    <div class="bg-white rounded-lg shadow p-12 text-center">
-        <p class="text-xl font-semibold text-gray-600 mb-2">У этого клиента нет товаров для возврата</p>
-        <p class="text-gray-500">Все товары уже возвращены</p>
+        {% if client.balance < 0 %}
+        <div class="client-item-debt">{{ client.balance|floatformat:0 }} сом</div>
+        {% elif client.balance > 0 %}
+        <div class="client-item-ok">+{{ client.balance|floatformat:0 }} сом</div>
+        {% endif %}
+      </div>
+      {% empty %}
+      <div style="padding:16px;text-align:center;color:var(--text2);font-size:14px">Нет клиентов с открытыми заказами</div>
+      {% endfor %}
     </div>
-    
-    {% else %}
-    <!-- No Client Selected -->
-    <div class="bg-white rounded-lg shadow p-12 text-center">
-        <svg class="w-24 h-24 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-        </svg>
-        <p class="text-xl font-semibold text-gray-600 mb-2">Выберите клиента</p>
-        <p class="text-gray-500">Выберите клиента из списка выше для оформления возврата</p>
+  </div>
+</div>
+
+{% if selected_orders %}
+<!-- SUMMARY BAR -->
+<div class="summary-bar" id="summaryBar" style="display:none">
+  <div style="flex:1;font-size:14px;font-weight:600">📦 К возврату:</div>
+  <div class="summary-item"><div class="val" id="sumQty">0</div><div class="lbl">штук</div></div>
+  <div class="summary-item"><div class="val" id="sumCost">0</div><div class="lbl">сом стоимость</div></div>
+  <div class="summary-item" id="sumRepairWrap" style="display:none"><div class="val" id="sumRepair">0</div><div class="lbl">сом ремонт</div></div>
+</div>
+
+<form method="post" id="returnForm">
+{% csrf_token %}
+<input type="hidden" name="client_id" value="{{ selected_client_id }}" />
+
+{% for order in selected_orders %}
+<div class="ret-card">
+  <div class="ret-header">
+    <div>
+      <div class="ret-order-title">
+        Заказ #{{ order.id }}{% if order.order_code %} &nbsp;<span style="color:var(--text2);font-weight:500;font-size:14px">({{ order.order_code }})</span>{% endif %}
+      </div>
+      <div class="ret-order-sub">Создан: {{ order.created_at }}</div>
+    </div>
+    <div class="ret-order-total">
+      {{ order.total|floatformat:0 }} сом
+      <span>сумма заказа</span>
+    </div>
+  </div>
+
+  {% for item in order.items %}
+  <div class="item-row {% if item.is_overdue %}overdue{% endif %}" id="row_{{ item.id }}">
+
+    <!-- Info -->
+    <div>
+      <div class="item-name">{{ item.product_name }}</div>
+      <div class="item-badges">
+        <span class="badge badge-blue">Взято: {{ item.quantity_taken }}</span>
+        <span class="badge badge-green">Возврат: {{ item.quantity_returned }}</span>
+        <span class="badge badge-orange">Осталось: {{ item.quantity_remaining }}</span>
+        {% if item.is_overdue %}
+        <span class="overdue-badge">⚠️ Просрочен {{ item.overdue_days }}д {{ item.overdue_hours }}ч</span>
+        {% endif %}
+      </div>
+      <div class="item-meta">
+        Выдано {{ item.issued_date }} → вернуть до
+        <span {% if item.is_overdue %}style="color:#ef4444;font-weight:600"{% endif %}>{{ item.planned_return_date }}</span>
+        &nbsp;|&nbsp; {{ item.rental_days }} дн × {{ item.price_per_day|floatformat:0 }} сом/д
+      </div>
+      <!-- Repair toggle -->
+      <div style="margin-top:6px">
+        <label class="repair-toggle">
+          <input type="checkbox" id="rc_{{ item.id }}" onchange="toggleRepair({{ item.id }})" style="accent-color:#f97316">
+          🔧 Ремонт/чистка
+        </label>
+      </div>
+    </div>
+
+    <!-- Cost -->
+    <div class="item-cost">
+      <div class="label">Текущая стоимость</div>
+      <div class="price {% if item.is_overdue %}overdue-price{% endif %}">{{ item.actual_cost|floatformat:0 }} сом</div>
+      {% if item.is_overdue %}
+      <div style="font-size:10px;color:#f97316;margin-top:2px">вкл. штраф</div>
+      {% endif %}
+    </div>
+
+    <!-- Controls -->
+    <div class="item-controls">
+      <div style="font-size:11px;font-weight:600;color:var(--text2)">Вернуть (шт)</div>
+      <div class="qty-wrap">
+        <button type="button" class="qty-btn" onclick="changeQty({{ item.id }}, -1)">−</button>
+        <input
+          type="number"
+          class="qty-input"
+          id="qty_{{ item.id }}"
+          name="return_{{ item.id }}"
+          min="0"
+          max="{{ item.quantity_remaining }}"
+          value="0"
+          oninput="onQtyChange({{ item.id }})"
+        />
+        <button type="button" class="qty-btn" onclick="changeQty({{ item.id }}, 1)">+</button>
+      </div>
+      <button type="button" class="btn-all" onclick="setAll({{ item.id }}, {{ item.quantity_remaining }})">
+        Все {{ item.quantity_remaining }} шт
+      </button>
+    </div>
+
+  </div>
+  <!-- Repair block -->
+  <div class="repair-block" id="rb_{{ item.id }}" style="display:none;margin-bottom:8px;padding:10px 14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;display:none;gap:10px;flex-wrap:wrap">
+    <div>
+      <div class="inp-label">Сумма ремонта (сом)</div>
+      <input type="number" name="repair_fee_{{ item.id }}" id="rf_{{ item.id }}" min="0" step="1" placeholder="0"
+             class="inp-field" style="width:120px" oninput="updateSummary()">
+    </div>
+    <div style="flex:1;min-width:180px">
+      <div class="inp-label">Причина</div>
+      <input type="text" name="repair_notes_{{ item.id }}" placeholder="Сломана ручка, загрязнение..." class="inp-field">
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<!-- Notes + Payment + Submit -->
+<div class="ret-card">
+  <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">2. Примечания</div>
+  <textarea name="notes" rows="2" class="inp-field" style="resize:vertical" placeholder="Дополнительная информация о возврате..."></textarea>
+</div>
+
+<div class="pay-card">
+  <h3>💰 Оплата при возврате <span style="font-size:12px;font-weight:400;color:var(--text2)">(опционально)</span></h3>
+  <div class="pay-grid">
+    <div>
+      <div class="inp-label">Клиент платит (сом)</div>
+      <input type="number" name="payment_amount" id="payAmt" min="0" step="1" placeholder="0"
+             class="inp-field" style="font-size:22px;font-weight:800" oninput="onPayChange()">
+      <p style="font-size:11px;color:var(--text2);margin-top:5px">Оставьте 0 — клиент заплатит позже</p>
+    </div>
+    {% if selected_client %}
+    <div class="debt-box {% if selected_client.get_debt == 0 %}no-debt{% endif %}">
+      <div class="debt-lbl">Текущий долг клиента</div>
+      <div class="debt-val">{{ selected_client.get_debt|floatformat:0 }} сом</div>
+      {% if selected_client.get_debt > 0 %}
+      <button type="button" onclick="fillDebt({{ selected_client.get_debt|floatformat:0 }})"
+              style="margin-top:6px;font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;text-decoration:underline;font-weight:600">
+        Заполнить сумму долга
+      </button>
+      {% endif %}
     </div>
     {% endif %}
+  </div>
+
+  <!-- payment details shown when amount > 0 -->
+  <div id="payDetails" style="display:none;margin-top:14px">
+    <div class="pay-grid">
+      <div>
+        <div class="inp-label">Способ оплаты</div>
+        <select name="payment_method" class="inp-field">
+          <option value="cash">💵 Наличные</option>
+          <option value="card">💳 Карта</option>
+          <option value="transfer">🏦 Перевод</option>
+        </select>
+      </div>
+      <div>
+        <div class="inp-label">Применить к заказу</div>
+        <select name="payment_order_id" class="inp-field">
+          <option value="">Авто (по возвращаемым заказам)</option>
+          {% for order in selected_orders %}
+          <option value="{{ order.id }}">Заказ #{{ order.id }} — {{ order.total|floatformat:0 }} сом</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="hint-box" style="margin-top:10px">💡 Платёж распределится по заказам автоматически</div>
+  </div>
+</div>
+
+<div style="display:flex;gap:12px;align-items:center;margin-top:4px">
+  <button type="submit" class="submit-btn" id="submitBtn" disabled>✅ Оформить возврат</button>
+  <a href="{% url 'main:client_detail' selected_client_id %}" class="cancel-btn">Отмена</a>
+</div>
+
+</form>
+
+{% elif selected_client_id %}
+<div class="ret-card" style="text-align:center;padding:40px">
+  <div style="font-size:40px;margin-bottom:12px">✅</div>
+  <p style="font-size:18px;font-weight:700;color:var(--text)">Нет товаров для возврата</p>
+  <p style="color:var(--text2);margin-top:4px">Все товары уже возвращены</p>
+</div>
+
+{% else %}
+<div class="ret-card" style="text-align:center;padding:48px">
+  <div style="font-size:48px;margin-bottom:12px">📦</div>
+  <p style="font-size:18px;font-weight:600;color:var(--text)">Найдите клиента выше</p>
+  <p style="color:var(--text2);font-size:14px;margin-top:4px">Начните вводить имя в поле поиска</p>
+</div>
+{% endif %}
 
 </div>
 
 <script>
-function toggleRepair(itemId) {
-    var block = document.getElementById('repair_block_' + itemId);
-    var check = document.getElementById('repair_check_' + itemId);
-    if (check.checked) {
-        block.classList.remove('hidden');
-    } else {
-        block.classList.add('hidden');
-        block.querySelector('input[type="number"]').value = '';
-        block.querySelector('input[type="text"]').value = '';
-    }
+// ----- CLIENT SEARCH -----
+const allClients = Array.from(document.querySelectorAll('.client-item'));
+const searchInput = document.getElementById('clientSearchInput');
+const clientList = document.getElementById('clientList');
+const searchClear = document.getElementById('searchClear');
+
+{% if selected_client %}
+// Already selected — don't show list
+{% else %}
+searchInput.addEventListener('focus', () => {
+  clientList.classList.add('open');
+  filterClients(searchInput.value);
+});
+{% endif %}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.client-search-wrap')) clientList.classList.remove('open');
+});
+
+searchInput.addEventListener('input', () => {
+  filterClients(searchInput.value);
+  searchClear.style.display = searchInput.value ? 'block' : 'none';
+  clientList.classList.add('open');
+});
+
+function filterClients(q) {
+  const lq = q.toLowerCase().trim();
+  let visible = 0;
+  allClients.forEach(el => {
+    const name = el.dataset.name || '';
+    const show = !lq || name.includes(lq);
+    el.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
 }
 
-(function(){
-    var inp = document.getElementById('paymentAmountInp');
-    var det = document.getElementById('paymentDetails');
-    if (!inp || !det) return;
-    function toggle() {
-        det.style.display = parseFloat(inp.value) > 0 ? 'block' : 'none';
+function selectClient(id, name) {
+  window.location.href = '?client_id=' + id;
+}
+
+function clearSearch() {
+  searchInput.value = '';
+  searchClear.style.display = 'none';
+  filterClients('');
+  clientList.classList.add('open');
+}
+
+// ----- QTY CONTROLS -----
+function changeQty(itemId, delta) {
+  const inp = document.getElementById('qty_' + itemId);
+  const max = parseInt(inp.max);
+  let val = parseInt(inp.value) || 0;
+  val = Math.max(0, Math.min(max, val + delta));
+  inp.value = val;
+  onQtyChange(itemId);
+}
+
+function setAll(itemId, max) {
+  const inp = document.getElementById('qty_' + itemId);
+  inp.value = max;
+  onQtyChange(itemId);
+}
+
+function onQtyChange(itemId) {
+  const inp = document.getElementById('qty_' + itemId);
+  const val = parseInt(inp.value) || 0;
+  if (val > 0) {
+    inp.classList.add('has-value');
+  } else {
+    inp.classList.remove('has-value');
+  }
+  updateSummary();
+}
+
+// ----- REPAIR -----
+function toggleRepair(itemId) {
+  const check = document.getElementById('rc_' + itemId);
+  const block = document.getElementById('rb_' + itemId);
+  block.style.display = check.checked ? 'flex' : 'none';
+  if (!check.checked) {
+    const feeInp = document.getElementById('rf_' + itemId);
+    if (feeInp) feeInp.value = '';
+  }
+  updateSummary();
+}
+
+// ----- SUMMARY -----
+function updateSummary() {
+  let totalQty = 0, totalRepair = 0;
+  document.querySelectorAll('.qty-input').forEach(inp => {
+    totalQty += parseInt(inp.value) || 0;
+  });
+  document.querySelectorAll('[id^="rf_"]').forEach(inp => {
+    totalRepair += parseFloat(inp.value) || 0;
+  });
+
+  const bar = document.getElementById('summaryBar');
+  const submitBtn = document.getElementById('submitBtn');
+  if (bar) {
+    if (totalQty > 0) {
+      bar.style.display = 'flex';
+      document.getElementById('sumQty').textContent = totalQty;
+      const repairWrap = document.getElementById('sumRepairWrap');
+      if (totalRepair > 0) {
+        repairWrap.style.display = '';
+        document.getElementById('sumRepair').textContent = Math.round(totalRepair);
+      } else {
+        repairWrap.style.display = 'none';
+      }
+    } else {
+      bar.style.display = 'none';
     }
-    inp.addEventListener('input', toggle);
-    toggle();
-})();
+  }
+  if (submitBtn) submitBtn.disabled = totalQty === 0;
+}
+
+// ----- PAYMENT -----
+const payAmt = document.getElementById('payAmt');
+const payDetails = document.getElementById('payDetails');
+function onPayChange() {
+  if (payAmt && payDetails) {
+    payDetails.style.display = parseFloat(payAmt.value) > 0 ? 'block' : 'none';
+  }
+}
+function fillDebt(amount) {
+  if (payAmt) {
+    payAmt.value = amount;
+    onPayChange();
+  }
+}
+
+// init
+updateSummary();
 </script>
 {% endblock %}
