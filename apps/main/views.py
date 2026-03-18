@@ -221,10 +221,10 @@ def edit_company(request):
 
 
 def root_view(request):
-    """Корневой URL: авторизованные → дашборд, неавторизованные → портал клиента"""
+    """Корневой URL: авторизованные → дашборд, неавторизованные → логин"""
     if request.user.is_authenticated:
         return redirect('main:dashboard')
-    return redirect('/portal/')
+    return redirect('/login/')
 
 
 @login_required
