@@ -220,6 +220,13 @@ def edit_company(request):
 
 
 
+def root_view(request):
+    """Корневой URL: авторизованные → дашборд, неавторизованные → портал клиента"""
+    if request.user.is_authenticated:
+        return redirect('main:dashboard')
+    return redirect('/portal/')
+
+
 @login_required
 def dashboard(request):
     """Современный дашборд с графиками (кэширование тяжёлых данных)"""

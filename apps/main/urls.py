@@ -19,7 +19,8 @@ urlpatterns = [
 
 
     # Главная
-    path('', views.dashboard, name='dashboard'),
+    path('', views.root_view, name='root'),
+    path('dashboard/', views.dashboard, name='dashboard'),
     path('history/', views.history, name='history'),
     path('search/', views.global_search, name='global_search'),
     path('telegram/webhook/', telegram_webhook_complete.telegram_webhook, name='telegram_webhook'),
