@@ -182,7 +182,8 @@ def get_order_groups_for_client(client, now):
         
         has_unreturned = order.items.filter(quantity_remaining__gt=0).exists()
         is_overdue = order.items.filter(quantity_remaining__gt=0, planned_return_date__lt=now).exists()
-        
+        overdue_penalty = sum(e.get('overdue_cost', 0) for e in order_events if e['type'] == 'overdue_charge')
+
         order_groups.append({
             'order': order,
             'events': order_events,
@@ -191,6 +192,7 @@ def get_order_groups_for_client(client, now):
             'debt': order_debt,
             'has_unreturned_items': has_unreturned,
             'is_overdue': is_overdue,
+            'overdue_penalty': overdue_penalty,
         })
     
     return order_groups

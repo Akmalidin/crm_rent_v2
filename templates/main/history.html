@@ -30,6 +30,7 @@
 
 /* ── Список заказов ── */
 .h-order{background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:12px;overflow:hidden}
+.h-order.is-overdue{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.03);border-left:4px solid #ef4444}
 .h-order-head{padding:16px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .h-order-head:active{background:var(--card2)}
 .h-order-row1{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
@@ -229,7 +230,7 @@
 
     <!-- Список заказов -->
     {% for group in order_groups %}
-    <div class="h-order">
+    <div class="h-order {% if group.order.status == 'open' and group.is_overdue %}is-overdue{% endif %}">
 
         <!-- Шапка заказа (кликабельная) -->
         <div class="h-order-head" onclick="toggleOrder({{ forloop.counter }})">
@@ -240,14 +241,18 @@
                 </div>
                 <div class="h-order-cost">
                     <div class="h-order-cost-val">{{ group.current_cost|floatformat:0 }} сом</div>
+                    {% if group.order.status == 'open' and group.is_overdue and group.overdue_penalty > 0 %}
+                    <div style="font-size:12px;font-weight:700;color:#f87171">⚠️ просрочка: +{{ group.overdue_penalty|floatformat:0 }} сом</div>
+                    {% endif %}
                     {% if group.total_paid > 0 %}
-                    <div class="h-order-paid">✓ {{ group.total_paid|floatformat:0 }} оплачено</div>
+                    <div class="h-order-paid">✓ оплачено: {{ group.total_paid|floatformat:0 }} сом</div>
                     {% endif %}
                     {% if group.debt > 0 %}
-                    <div class="h-order-debt" style="color:#f87171">долг {{ group.debt|floatformat:0 }}</div>
+                    <div class="h-order-debt" style="color:#fbbf24;font-weight:800">Осталось: {{ group.debt|floatformat:0 }} сом</div>
                     {% elif group.debt < 0 %}
                     <div class="h-order-debt" style="color:#34d399">перепл. {{ group.debt|floatformat:0|slice:"1:" }}</div>
                     {% endif %}
+                    <div style="font-size:11px;color:var(--text3);margin-top:4px">Нажмите, чтобы открыть →</div>
                 </div>
             </div>
 
