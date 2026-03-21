@@ -199,11 +199,12 @@ function pickerClose() {
 }
 
 function pickerChoose(source) {
+    const side = _pickerSide;
     pickerClose();
-    if (!_pickerSide) return;
+    if (!side) return;
     const inputId = source === 'camera'
-        ? 'inp-' + _pickerSide + '-cam'
-        : 'inp-' + _pickerSide + '-gal';
+        ? 'inp-' + side + '-cam'
+        : 'inp-' + side + '-gal';
     document.getElementById(inputId).click();
 }
 

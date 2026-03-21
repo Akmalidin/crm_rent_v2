@@ -72,13 +72,34 @@
         <!-- Фото паспорта -->
         <div class="card">
             <div class="sec-title">🪪 Фото паспорта</div>
-            <p style="font-size:13px;color:var(--text3);margin:-12px 0 20px;">Загрузите новое фото чтобы заменить текущее. Оставьте пустым — фото не изменится.</p>
+            <p style="font-size:13px;color:var(--text3);margin:-12px 0 20px;">Нажмите на зону — появится выбор: камера или галерея</p>
+
+            <!-- Попап выбора источника -->
+            <div id="passport-picker" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);align-items:flex-end;justify-content:center;">
+                <div style="background:var(--card);border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;">
+                    <div style="font-size:15px;font-weight:600;color:var(--text1);margin-bottom:16px;text-align:center">Выберите источник</div>
+                    <div style="display:flex;gap:12px;">
+                        <button type="button" onclick="pickerChoose('camera')"
+                                style="flex:1;padding:14px;border:none;border-radius:12px;background:#7c3aed;color:#fff;font-size:15px;font-weight:600;cursor:pointer;">
+                            📷 Камера
+                        </button>
+                        <button type="button" onclick="pickerChoose('gallery')"
+                                style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--bg2);color:var(--text1);font-size:15px;font-weight:600;cursor:pointer;">
+                            🖼️ Галерея
+                        </button>
+                    </div>
+                    <button type="button" onclick="pickerClose()"
+                            style="width:100%;margin-top:10px;padding:12px;border:none;border-radius:12px;background:transparent;color:var(--text3);font-size:14px;cursor:pointer;">
+                        Отмена
+                    </button>
+                </div>
+            </div>
 
             <div class="upload-grid">
                 <!-- Лицевая -->
                 <div>
                     <p class="upload-label-text">Лицевая сторона</p>
-                    <div class="upload-zone {% if client.passport_front %}filled{% endif %}" id="zone-front" onclick="triggerUpload('inp-front')">
+                    <div class="upload-zone {% if client.passport_front %}filled{% endif %}" id="zone-front" onclick="openPicker('front')">
                         {% if client.passport_front %}
                         <img class="preview" id="prev-front" src="{{ client.passport_front.url }}" alt="Лицевая">
                         {% else %}
@@ -87,18 +108,25 @@
                         <div class="upload-ph" id="ph-front">
                             <div class="icon">🪪</div>
                             <div class="hint">{% if client.passport_front %}Нажмите для замены{% else %}Нажмите для загрузки{% endif %}</div>
+                            <div class="tags">
+                                <span class="tag">📷 Камера</span>
+                                <span class="tag">🖼️ Галерея</span>
+                            </div>
                         </div>
                     </div>
-                    <input type="file" id="inp-front" name="passport_front" accept="image/*"
-                           style="display:none"
-                           onchange="showPreview(this,'prev-front','zone-front','ph-front')">
-                    <p id="lbl-front" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center;"></p>
+                    <!-- Камера -->
+                    <input type="file" id="inp-front-cam" name="passport_front" accept="image/*" capture="environment"
+                           style="display:none" onchange="showPreview(this,'prev-front','zone-front','ph-front')">
+                    <!-- Галерея -->
+                    <input type="file" id="inp-front-gal" name="passport_front" accept="image/*"
+                           style="display:none" onchange="showPreview(this,'prev-front','zone-front','ph-front')">
+                    <p id="lbl-front" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></p>
                 </div>
 
                 <!-- Обратная -->
                 <div>
                     <p class="upload-label-text">Обратная сторона</p>
-                    <div class="upload-zone {% if client.passport_back %}filled{% endif %}" id="zone-back" onclick="triggerUpload('inp-back')">
+                    <div class="upload-zone {% if client.passport_back %}filled{% endif %}" id="zone-back" onclick="openPicker('back')">
                         {% if client.passport_back %}
                         <img class="preview" id="prev-back" src="{{ client.passport_back.url }}" alt="Обратная">
                         {% else %}
@@ -107,12 +135,19 @@
                         <div class="upload-ph" id="ph-back">
                             <div class="icon">🔖</div>
                             <div class="hint">{% if client.passport_back %}Нажмите для замены{% else %}Нажмите для загрузки{% endif %}</div>
+                            <div class="tags">
+                                <span class="tag">📷 Камера</span>
+                                <span class="tag">🖼️ Галерея</span>
+                            </div>
                         </div>
                     </div>
-                    <input type="file" id="inp-back" name="passport_back" accept="image/*"
-                           style="display:none"
-                           onchange="showPreview(this,'prev-back','zone-back','ph-back')">
-                    <p id="lbl-back" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center;"></p>
+                    <!-- Камера -->
+                    <input type="file" id="inp-back-cam" name="passport_back" accept="image/*" capture="environment"
+                           style="display:none" onchange="showPreview(this,'prev-back','zone-back','ph-back')">
+                    <!-- Галерея -->
+                    <input type="file" id="inp-back-gal" name="passport_back" accept="image/*"
+                           style="display:none" onchange="showPreview(this,'prev-back','zone-back','ph-back')">
+                    <p id="lbl-back" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></p>
                 </div>
             </div>
         </div>
@@ -160,11 +195,40 @@ function updateHidden() {
 }
 
 // ─── Passport upload & preview ────────────────────────────────────────────────
-function triggerUpload(inputId) { document.getElementById(inputId).click(); }
+let _pickerSide = null;
+
+function openPicker(side) {
+    _pickerSide = side;
+    document.getElementById('passport-picker').style.display = 'flex';
+}
+
+function pickerClose() {
+    document.getElementById('passport-picker').style.display = 'none';
+    _pickerSide = null;
+}
+
+function pickerChoose(source) {
+    const side = _pickerSide;
+    pickerClose();
+    if (!side) return;
+    const inputId = source === 'camera'
+        ? 'inp-' + side + '-cam'
+        : 'inp-' + side + '-gal';
+    document.getElementById(inputId).click();
+}
+
+document.getElementById('passport-picker').addEventListener('click', function(e) {
+    if (e.target === this) pickerClose();
+});
 
 function showPreview(input, previewId, zoneId, phId) {
     if (!input.files || !input.files[0]) return;
     const file = input.files[0];
+    // Очищаем парный input (камера/галерея), чтобы не отправился пустой
+    const side = input.id.includes('front') ? 'front' : 'back';
+    const source = input.id.includes('-cam') ? '-gal' : '-cam';
+    const twin = document.getElementById('inp-' + side + source);
+    if (twin) twin.value = '';
     const lblId = zoneId === 'zone-front' ? 'lbl-front' : 'lbl-back';
     document.getElementById(lblId).textContent = '✓ ' + file.name;
     const reader = new FileReader();
