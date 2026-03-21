@@ -24,11 +24,11 @@ def reports_main(request):
     from django.db.models import Sum
     owner = _get_owner(request)
     total_clients = Client.objects.filter(owner=owner).count()
-    open_orders = RentalOrder.objects.filter(client__owner=owner, status='open').count()
+    open_orders = RentalOrder.objects.filter(client__owner=owner, status=RentalOrder.STATUS_OPEN).count()
     total_income = Payment.objects.filter(client__owner=owner).aggregate(t=Sum('amount'))['t'] or 0
     total_debt = sum(
         float(o.get_current_total())
-        for o in RentalOrder.objects.filter(client__owner=owner, status='open')
+        for o in RentalOrder.objects.filter(client__owner=owner, status=RentalOrder.STATUS_OPEN)
     )
     return render(request, 'reports/main.html', {
         'total_clients': total_clients,
@@ -82,7 +82,7 @@ def reports_clients(request):
         clients_data.append({
             'client': client,
             'total_orders': client.rental_orders.count(),
-            'active_orders': client.rental_orders.filter(status='open').count(),
+            'active_orders': client.rental_orders.filter(status=RentalOrder.STATUS_OPEN).count(),
             'total_spent': int(total_spent),
             'total_paid': int(client.get_total_paid()),
             'balance': int(client.get_wallet_balance()),

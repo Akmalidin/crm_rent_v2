@@ -165,7 +165,7 @@ def edit_product(request, product_id):
 @login_required
 def product_report(request, product_id):
     """Отчёт по товару — кто и когда брал"""
-    from apps.rental.models import OrderItem
+    from apps.rental.models import OrderItem, RentalOrder
     from django.utils import timezone
 
     owner = _get_owner(request.user)
@@ -179,7 +179,7 @@ def product_report(request, product_id):
 
     # Stats
     total_rentals = items.count()
-    active_rentals = items.filter(order__status='open', quantity_remaining__gt=0).count()
+    active_rentals = items.filter(order__status=RentalOrder.STATUS_OPEN, quantity_remaining__gt=0).count()
     total_quantity_rented = sum(i.quantity_taken for i in items)
 
     now = timezone.now()

@@ -271,7 +271,7 @@ def dashboard(request):
         # === СТАТИСТИКА ===
         total_clients = Client.objects.filter(owner=owner).count()
         new_clients_week = Client.objects.filter(owner=owner, created_at__gte=week_ago).count()
-        active_orders = RentalOrder.objects.filter(status='open', client__owner=owner).count()
+        active_orders = RentalOrder.objects.filter(status=RentalOrder.STATUS_OPEN, client__owner=owner).count()
         total_orders = RentalOrder.objects.filter(client__owner=owner).count()
 
         # === ДОЛГИ ===
@@ -318,10 +318,10 @@ def dashboard(request):
             day = now - timedelta(days=i)
             orders_labels.append(day.strftime('%d.%m'))
             orders_open_data.append(RentalOrder.objects.filter(
-                client__owner=owner, created_at__date=day.date(), status='open'
+                client__owner=owner, created_at__date=day.date(), status=RentalOrder.STATUS_OPEN
             ).count())
             orders_closed_data.append(RentalOrder.objects.filter(
-                client__owner=owner, created_at__date=day.date(), status='closed'
+                client__owner=owner, created_at__date=day.date(), status=RentalOrder.STATUS_CLOSED
             ).count())
 
         # === ТОП-5 ТОВАРОВ ===
@@ -370,7 +370,7 @@ def dashboard(request):
 
     # === ПРОСРОЧЕННЫЕ ЗАКАЗЫ (всегда свежие, не кэшируем) ===
     overdue_orders = []
-    for order in RentalOrder.objects.filter(status='open', client__owner=owner).prefetch_related('items__product', 'client')[:50]:
+    for order in RentalOrder.objects.filter(status=RentalOrder.STATUS_OPEN, client__owner=owner).prefetch_related('items__product', 'client')[:50]:
         overdue_items_list = [
             item for item in order.items.all()
             if item.quantity_remaining > 0 and item.planned_return_date < now
@@ -521,7 +521,7 @@ def client_detail(request, client_id):
                 paid += float(p.amount)
         return paid
 
-    active_orders = client.rental_orders.filter(status='open').prefetch_related('items__product')
+    active_orders = client.rental_orders.filter(status=RentalOrder.STATUS_OPEN).prefetch_related('items__product')
     all_orders_qs = client.rental_orders.all().order_by('-created_at')
     payments = client.payments.all().order_by('-payment_date')[:10]
 
@@ -701,7 +701,7 @@ def create_order(request):
 
             order = RentalOrder.objects.create(
                 client=client,
-                status='open',
+                status=RentalOrder.STATUS_OPEN,
                 proof_file=proof_file,
                 has_delivery=has_delivery,
                 delivery_address=request.POST.get('delivery_address', '').strip() if has_delivery else '',
@@ -819,9 +819,9 @@ def orders_list(request):
     
     # === ФИЛЬТР ПО СТАТУСУ ===
     if status == 'open':
-        orders = orders.filter(status='open')
+        orders = orders.filter(status=RentalOrder.STATUS_OPEN)
     elif status == 'closed':
-        orders = orders.filter(status='closed')
+        orders = orders.filter(status=RentalOrder.STATUS_CLOSED)
     
     # === ФИЛЬТР ПО ДАТЕ ===
     now = timezone.now()
@@ -835,7 +835,7 @@ def orders_list(request):
     # === ФИЛЬТР ПРОСРОЧЕННЫХ ===
     if overdue_only == '1':
         overdue_ids = []
-        for order in orders.filter(status='open'):
+        for order in orders.filter(status=RentalOrder.STATUS_OPEN):
             for item in order.items.all():
                 if item.quantity_remaining > 0 and item.planned_return_date < now:
                     overdue_ids.append(order.id)
@@ -862,12 +862,12 @@ def orders_list(request):
         orders = orders.filter(id__in=filtered)
     
     # Статистика
-    total_open   = RentalOrder.objects.filter(status='open', client__owner=owner).count()
-    total_closed = RentalOrder.objects.filter(status='closed', client__owner=owner).count()
+    total_open   = RentalOrder.objects.filter(status=RentalOrder.STATUS_OPEN, client__owner=owner).count()
+    total_closed = RentalOrder.objects.filter(status=RentalOrder.STATUS_CLOSED, client__owner=owner).count()
 
     # Просроченные
     overdue_count = 0
-    for order in RentalOrder.objects.filter(status='open', client__owner=owner).prefetch_related('items'):
+    for order in RentalOrder.objects.filter(status=RentalOrder.STATUS_OPEN, client__owner=owner).prefetch_related('items'):
         for item in order.items.all():
             if item.quantity_remaining > 0 and item.planned_return_date < now:
                 overdue_count += 1
@@ -1112,7 +1112,7 @@ def client_orders_json(request, client_id):
         return paid
 
     orders_data = []
-    for order in client.rental_orders.filter(status='open').order_by('created_at'):
+    for order in client.rental_orders.filter(status=RentalOrder.STATUS_OPEN).order_by('created_at'):
         already_paid = _paid_for_order_local(client, order.id)
         due = float(order.get_current_total()) - already_paid
         if due <= 0:
@@ -1295,7 +1295,7 @@ def returns_page(request):
     clients_with_orders = []
 
     for client in Client.objects.filter(owner=_returns_owner).prefetch_related('phones'):
-        active_orders = client.rental_orders.filter(status='open')
+        active_orders = client.rental_orders.filter(status=RentalOrder.STATUS_OPEN)
         if active_orders.exists():
             has_items = False
             for order in active_orders:
@@ -1340,7 +1340,7 @@ def returns_page(request):
                         paid += float(p.amount)
                 return paid
 
-            for order in selected_client.rental_orders.filter(status='open'):
+            for order in selected_client.rental_orders.filter(status=RentalOrder.STATUS_OPEN):
                 items_data = []
                 for item in order.items.filter(quantity_remaining__gt=0):
                     _overdue = item.quantity_remaining > 0 and item.planned_return_date < _now
@@ -2248,7 +2248,7 @@ def api_overdue_orders(request):
 
     from apps.rental.models import OrderItem
     items = (OrderItem.objects
-             .filter(order__status='open', order__client__owner=owner, quantity_remaining__gt=0, planned_return_date__lt=now)
+             .filter(order__status=RentalOrder.STATUS_OPEN, order__client__owner=owner, quantity_remaining__gt=0, planned_return_date__lt=now)
              .select_related('order', 'order__client', 'product')
              .order_by('planned_return_date'))
 
@@ -2402,7 +2402,7 @@ def orders_calendar(request):
 
     # Базовый запрос - активные заказы текущего тенанта
     orders = RentalOrder.objects.filter(
-        status='open', client__owner=owner
+        status=RentalOrder.STATUS_OPEN, client__owner=owner
     ).select_related('client').prefetch_related('items__product', 'client__phones')
 
     # Фильтрация по клиенту
@@ -2412,7 +2412,7 @@ def orders_calendar(request):
     # Получаем список клиентов текущего тенанта для выпадающего списка
     clients = Client.objects.filter(
         owner=owner,
-        rental_orders__status='open'
+        rental_orders__status=RentalOrder.STATUS_OPEN
     ).distinct().order_by('last_name', 'first_name')
 
     # Подсчет активных и просроченных
@@ -2830,7 +2830,7 @@ def superuser_panel(request):
         'total_users':   User.objects.count(),
         'pending_users': pending_users.count(),
         'total_clients': Client.objects.count(),   # system-wide
-        'open_orders':   RentalOrder.objects.filter(status='open').count(),  # system-wide
+        'open_orders':   RentalOrder.objects.filter(status=RentalOrder.STATUS_OPEN).count(),  # system-wide
     }
 
     # Director list (merged from creator_directors)
@@ -2843,7 +2843,7 @@ def superuser_panel(request):
         from apps.clients.models import Client as _Cli
         _clients = _Cli.objects.filter(owner=d).count()
         _products = Product.objects.filter(owner=d).count()
-        _orders = RentalOrder.objects.filter(client__owner=d, status='open').count()
+        _orders = RentalOrder.objects.filter(client__owner=d, status=RentalOrder.STATUS_OPEN).count()
         _revenue = _Pmt.objects.filter(client__owner=d).aggregate(t=_Sum('amount'))['t'] or 0
         _employees = UserProfile.objects.filter(owner=d).count()
         try:
@@ -2895,7 +2895,7 @@ def creator_directors(request):
         for d in User.objects.filter(is_superuser=True, is_staff=False, is_active=True):
             clients = Client.objects.filter(owner=d).count()
             products = Product.objects.filter(owner=d).count()
-            orders = RentalOrder.objects.filter(client__owner=d, status='open').count()
+            orders = RentalOrder.objects.filter(client__owner=d, status=RentalOrder.STATUS_OPEN).count()
             revenue = Payment.objects.filter(client__owner=d).aggregate(t=Sum('amount'))['t'] or 0
             try:
                 max_wh = d.profile.max_warehouses
@@ -2909,7 +2909,7 @@ def creator_directors(request):
     for d in directors:
         clients = Client.objects.filter(owner=d).count()
         products = Product.objects.filter(owner=d).count()
-        orders = RentalOrder.objects.filter(client__owner=d, status='open').count()
+        orders = RentalOrder.objects.filter(client__owner=d, status=RentalOrder.STATUS_OPEN).count()
         revenue = Payment.objects.filter(client__owner=d).aggregate(t=Sum('amount'))['t'] or 0
         try:
             max_wh = d.profile.max_warehouses
@@ -2973,8 +2973,8 @@ def creator_director_detail(request, user_id):
     profit = float(total_revenue) - float(total_expenses)
 
     # Заказы
-    open_orders = RentalOrder.objects.filter(client__owner=director, status='open').count()
-    closed_orders = RentalOrder.objects.filter(client__owner=director, status='closed').count()
+    open_orders = RentalOrder.objects.filter(client__owner=director, status=RentalOrder.STATUS_OPEN).count()
+    closed_orders = RentalOrder.objects.filter(client__owner=director, status=RentalOrder.STATUS_CLOSED).count()
 
     # Доходы по месяцам (последние 6)
     from datetime import timedelta
@@ -3161,7 +3161,7 @@ def close_ticket(request, ticket_id):
     from apps.main.models import DirectorMessage
 
     if request.method == 'POST':
-        DirectorMessage.objects.filter(id=ticket_id).update(status='closed')
+        DirectorMessage.objects.filter(id=ticket_id).update(status=RentalOrder.STATUS_CLOSED)
     return redirect('main:ticket_detail', ticket_id=ticket_id)
 
 
@@ -3487,7 +3487,7 @@ def broadcast_notifications(request):
             sent, skipped = 0, 0
             seen_clients = set()
             for order in RentalOrder.objects.filter(
-                client__owner=owner, status='open'
+                client__owner=owner, status=RentalOrder.STATUS_OPEN
             ).select_related('client').prefetch_related('items'):
                 if order.client_id in seen_clients:
                     continue
@@ -3522,7 +3522,7 @@ def broadcast_notifications(request):
             if target == 'overdue':
                 overdue_ids = set()
                 for order in RentalOrder.objects.filter(
-                    client__owner=owner, status='open'
+                    client__owner=owner, status=RentalOrder.STATUS_OPEN
                 ).prefetch_related('items'):
                     if any(it.is_overdue for it in order.items.all()):
                         overdue_ids.add(order.client_id)
@@ -3571,7 +3571,7 @@ def broadcast_notifications(request):
 
     overdue_client_ids = set()
     for order in RentalOrder.objects.filter(
-        client__owner=owner, status='open'
+        client__owner=owner, status=RentalOrder.STATUS_OPEN
     ).prefetch_related('items'):
         if any(it.is_overdue for it in order.items.all()):
             overdue_client_ids.add(order.client_id)
@@ -3835,7 +3835,7 @@ def export_clients_xlsx(request):
         phone = client.phones.first()
         debt  = client.get_debt()
         total_orders  = client.rental_orders.count()
-        active_orders = client.rental_orders.filter(status='open').count()
+        active_orders = client.rental_orders.filter(status=RentalOrder.STATUS_OPEN).count()
         ws.append([
             row_num - 1,
             client.last_name,
@@ -3974,7 +3974,7 @@ def bookings_list(request):
             clients_count = Client.objects.filter(owner=d).count()
             products_count = Product.objects.filter(owner=d).count()
             revenue = Payment.objects.filter(client__owner=d).aggregate(t=Sum('amount'))['t'] or 0
-            open_orders = RentalOrder.objects.filter(client__owner=d, status='open').count()
+            open_orders = RentalOrder.objects.filter(client__owner=d, status=RentalOrder.STATUS_OPEN).count()
             directors.append({
                 'user': d,
                 'pending': pending,
@@ -4043,7 +4043,7 @@ def booking_approve(request, booking_id):
         if qty > 0:
             order = RentalOrder.objects.create(
                 client=client,
-                status='open',
+                status=RentalOrder.STATUS_OPEN,
                 notes=f'Создан из заявки на бронирование #{booking.id}',
             )
 

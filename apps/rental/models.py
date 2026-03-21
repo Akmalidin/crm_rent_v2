@@ -10,9 +10,12 @@ import math
 class RentalOrder(models.Model):
     """Заказ аренды"""
     
+    STATUS_OPEN   = 'open'
+    STATUS_CLOSED = 'closed'
+
     STATUS_CHOICES = [
-        ('open', 'Открыт'),
-        ('closed', 'Закрыт'),
+        (STATUS_OPEN,   'Открыт'),
+        (STATUS_CLOSED, 'Закрыт'),
     ]
     
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='rental_orders', verbose_name='Клиент')
@@ -133,9 +136,9 @@ class RentalOrder(models.Model):
     def update_status(self):
         """Обновить статус"""
         if not self.has_unreturned_items():
-            self.status = 'closed'
+            self.status = self.STATUS_CLOSED
         else:
-            self.status = 'open'
+            self.status = self.STATUS_OPEN
         self.save()
 
 

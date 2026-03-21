@@ -284,7 +284,7 @@ def admin_overdue_orders():
 
     now = timezone.now()
     overdue = []
-    for order in RentalOrder.objects.filter(status='open').prefetch_related('items__product', 'client__phones'):
+    for order in RentalOrder.objects.filter(status=RentalOrder.STATUS_OPEN).prefetch_related('items__product', 'client__phones'):
         overdue_items = [i for i in order.items.all() if i.quantity_remaining > 0 and i.planned_return_date < now]
         if overdue_items:
             days = (now - min(i.planned_return_date for i in overdue_items)).days
@@ -319,7 +319,7 @@ def admin_debtors():
 def admin_active_orders():
     from apps.rental.models import RentalOrder
 
-    orders = RentalOrder.objects.filter(status='open').select_related('client').prefetch_related('client__phones')[:15]
+    orders = RentalOrder.objects.filter(status=RentalOrder.STATUS_OPEN).select_related('client').prefetch_related('client__phones')[:15]
     if not orders:
         return "📭 <b>Нет активных заказов</b>"
 
@@ -400,7 +400,7 @@ def director_overdue_orders(director_profile):
     owner = _dir_owner(director_profile)
     now = timezone.now()
     overdue = []
-    for order in RentalOrder.objects.filter(status='open', owner=owner).prefetch_related('items__product', 'client__phones'):
+    for order in RentalOrder.objects.filter(status=RentalOrder.STATUS_OPEN, owner=owner).prefetch_related('items__product', 'client__phones'):
         overdue_items = [i for i in order.items.all() if i.quantity_remaining > 0 and i.planned_return_date < now]
         if overdue_items:
             days = (now - min(i.planned_return_date for i in overdue_items)).days
@@ -437,7 +437,7 @@ def director_active_orders(director_profile):
     from apps.rental.models import RentalOrder
 
     owner = _dir_owner(director_profile)
-    orders = RentalOrder.objects.filter(status='open', owner=owner).select_related('client').prefetch_related('client__phones')[:15]
+    orders = RentalOrder.objects.filter(status=RentalOrder.STATUS_OPEN, owner=owner).select_related('client').prefetch_related('client__phones')[:15]
     if not orders:
         return "📭 <b>Нет активных заказов</b>"
 
@@ -505,7 +505,7 @@ def handle_orders(chat_id):
         send_telegram_message(chat_id, "❌ Вы не зарегистрированы.", reply_markup=get_back_button())
         return
 
-    orders = client.rental_orders.filter(status='open').prefetch_related('items__product')
+    orders = client.rental_orders.filter(status=RentalOrder.STATUS_OPEN).prefetch_related('items__product')
     if not orders:
         send_telegram_message(chat_id, "📭 У вас нет активных заказов.", reply_markup=get_back_button())
         return
@@ -561,7 +561,7 @@ def handle_broadcast_overdue(admin_chat_id):
     from apps.rental.models import RentalOrder
 
     sent, skipped, seen = 0, 0, set()
-    for order in RentalOrder.objects.filter(status='open').prefetch_related('items', 'client'):
+    for order in RentalOrder.objects.filter(status=RentalOrder.STATUS_OPEN).prefetch_related('items', 'client'):
         if order.client_id in seen:
             continue
         if any(it.is_overdue for it in order.items.all()):
@@ -602,7 +602,7 @@ def handle_dir_broadcast_overdue(director_chat_id, director_profile):
 
     owner = _dir_owner(director_profile)
     sent, skipped, seen = 0, 0, set()
-    for order in RentalOrder.objects.filter(status='open', owner=owner).prefetch_related('items', 'client'):
+    for order in RentalOrder.objects.filter(status=RentalOrder.STATUS_OPEN, owner=owner).prefetch_related('items', 'client'):
         if order.client_id in seen:
             continue
         if any(it.is_overdue for it in order.items.all()):
@@ -824,7 +824,7 @@ def _handle_custom_broadcast_send(chat_id, data, role, director_profile=None):
         chat_ids = list(base_qs.exclude(telegram_id__isnull=True).exclude(telegram_id='').values_list('telegram_id', flat=True))
     elif key == 'send_custom_overdue':
         overdue_ids = set()
-        qs = RentalOrder.objects.filter(status='open')
+        qs = RentalOrder.objects.filter(status=RentalOrder.STATUS_OPEN)
         if role == 'director' and director_profile:
             from apps.main.telegram_bot_complete import _dir_owner
             qs = qs.filter(owner=_dir_owner(director_profile))

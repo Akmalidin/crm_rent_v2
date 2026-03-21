@@ -80,12 +80,12 @@ class Product(models.Model):
         Returns:
             int: количество единиц товара, которые сейчас в аренде
         """
-        from apps.rental.models import OrderItem
-        
+        from apps.rental.models import OrderItem, RentalOrder
+
         # Суммируем quantity_remaining из всех ОТКРЫТЫХ заказов
         rented = OrderItem.objects.filter(
             product=self,
-            order__status='open'
+            order__status=RentalOrder.STATUS_OPEN
         ).aggregate(
             total=models.Sum('quantity_remaining')
         )['total'] or 0

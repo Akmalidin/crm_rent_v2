@@ -141,7 +141,7 @@ def get_order_groups_for_client(client, now):
         order_events.extend(date_change_events)
 
         # 5. Просрочки
-        if order.status == 'open':
+        if order.status == order.STATUS_OPEN:
             for item in order.items.all():
                 if item.quantity_remaining > 0 and item.planned_return_date < now:
                     overdue_time = now - item.planned_return_date

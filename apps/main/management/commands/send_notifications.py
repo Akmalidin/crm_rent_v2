@@ -37,7 +37,7 @@ class Command(BaseCommand):
         # ── 1. Завтра срок возврата ────────────────────────────────────────────
         items_tomorrow = (
             OrderItem.objects
-            .filter(order__status='open', quantity_remaining__gt=0,
+            .filter(order__status=RentalOrder.STATUS_OPEN, quantity_remaining__gt=0,
                     planned_return_date__date=tomorrow)
             .select_related('order__client', 'product')
         )
@@ -63,7 +63,7 @@ class Command(BaseCommand):
         # ── 2. Сегодня срок возврата ───────────────────────────────────────────
         items_today = (
             OrderItem.objects
-            .filter(order__status='open', quantity_remaining__gt=0,
+            .filter(order__status=RentalOrder.STATUS_OPEN, quantity_remaining__gt=0,
                     planned_return_date__date=today)
             .select_related('order__client', 'product')
         )
@@ -91,7 +91,7 @@ class Command(BaseCommand):
         if local_hour == 9 or dry_run:
             overdue_items = (
                 OrderItem.objects
-                .filter(order__status='open', quantity_remaining__gt=0,
+                .filter(order__status=RentalOrder.STATUS_OPEN, quantity_remaining__gt=0,
                         planned_return_date__lt=now)
                 .select_related('order__client__owner', 'product')
             )

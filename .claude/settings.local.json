@@ -45,7 +45,25 @@
       "Bash(python update_server.py)",
       "Bash(curl -s \"https://api.telegram.org/bot8276509481:AAGhKOhn45P8l5belorDsEqqetqGNgHoG3s/getWebhookInfo\")",
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(''URL:'', d[''result''].get\\(''url'', ''none''\\)\\); print\\(''Pending:'', d[''result''].get\\(''pending_update_count'', 0\\)\\)\")",
-      "Bash(curl -s \"https://api.telegram.org/bot8276509481:AAGhKOhn45P8l5belorDsEqqetqGNgHoG3s/deleteWebhook\")"
+      "Bash(curl -s \"https://api.telegram.org/bot8276509481:AAGhKOhn45P8l5belorDsEqqetqGNgHoG3s/deleteWebhook\")",
+      "Bash(xargs wc:*)",
+      "Bash(ls -la /c/Users/vertex/Desktop/crm_rent_v2/apps/*/migrations/)",
+      "Bash(sshpass -p 'cCZNwtAJ1DYZ*n' ssh -o StrictHostKeyChecking=no root@46.149.68.65 \"echo ''=== whoami ==='' && whoami && echo ''=== project dir ==='' && find /var/www /home /opt /root -maxdepth 3 -name ''manage.py'' 2>/dev/null && echo ''=== services ==='' && systemctl list-units --type=service --state=running | grep -E ''gunicorn|nginx|django|crm'' 2>/dev/null\")",
+      "Bash(apt-get install:*)",
+      "Bash(python -c \"import paramiko; print\\(''ok''\\)\")",
+      "Bash(pip install:*)",
+      "Bash(python -:*)",
+      "Bash(find /c/Users/vertex/Desktop/crm_rent_v2 -name \"*.py\" -type f -exec grep -l \"get_absolute_url\" {})",
+      "Bash(xargs cat:*)",
+      "Bash(find /c/Users/vertex/Desktop/crm_rent_v2/templates -name \"*.html\" -exec grep -l \"mobile\\\\|max-width\\\\|responsive\" {})",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(python -m py_compile apps/main/views.py)",
+      "Bash(python -m py_compile apps/main/views.py config/settings.py)",
+      "Bash(python -m py_compile apps/main/views.py apps/clients/models.py)",
+      "Bash(grep -A 2 \"pass$\")",
+      "Bash(python -m py_compile apps/rental/models.py apps/rental/utils.py apps/inventory/models.py apps/inventory/views.py apps/main/views.py apps/main/telegram_bot_complete.py apps/main/reports_views.py apps/main/pdf_views.py apps/main/management/commands/send_notifications.py)"
     ]
   }
 }
