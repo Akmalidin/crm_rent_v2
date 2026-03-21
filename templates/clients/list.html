@@ -123,6 +123,13 @@ a.sort-th:hover{color:var(--text1)}
     <div class="filter-sep"></div>
 
     <div class="filter-group">
+        <label>📞 Телефон</label>
+        <input type="text" name="phone" value="{{ current_phone }}" placeholder="+996..." style="width:130px" inputmode="tel">
+    </div>
+
+    <div class="filter-sep"></div>
+
+    <div class="filter-group">
         <label>Долг от (сом)</label>
         <input type="number" name="amount_min" value="{{ current_amount_min }}" placeholder="0" style="width:100px">
     </div>

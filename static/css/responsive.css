@@ -228,3 +228,61 @@
     .md\:grid-cols-3,
     .md\:grid-cols-2 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
 }
+
+
+/* ══════════════════════════════════════
+   TOUCH TARGETS — минимум 44px (iOS HIG)
+══════════════════════════════════════ */
+@media (max-width: 900px) {
+    /* Кнопки действий в таблицах и карточках */
+    a.btn, button.btn,
+    .btn-p, .btn-s, .btn-danger,
+    .action-btn, .icon-btn {
+        min-height: 44px !important;
+        min-width: 44px !important;
+        padding-top: 10px !important;
+        padding-bottom: 10px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* Ссылки-кнопки в таблицах */
+    td a, td button {
+        min-height: 44px !important;
+        padding: 10px 12px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+    }
+
+    /* Sidebar nav items */
+    .nav-item, .nav-link, .sidebar a {
+        min-height: 44px !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+
+    /* Topbar кнопки */
+    .topbar button, .topbar a {
+        min-height: 44px !important;
+        min-width: 44px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* Чекбоксы и радио-кнопки */
+    input[type="checkbox"], input[type="radio"] {
+        width: 20px !important;
+        height: 20px !important;
+        cursor: pointer;
+    }
+
+    /* Поля ввода */
+    input[type="text"], input[type="email"], input[type="tel"],
+    input[type="number"], input[type="password"], input[type="date"],
+    input[type="datetime-local"], select, textarea {
+        min-height: 44px !important;
+        font-size: 16px !important; /* предотвращает zoom на iOS */
+    }
+}

@@ -227,6 +227,11 @@ def root_view(request):
     return render(request, 'main/entry.html')
 
 
+def offline_view(request):
+    """Страница для PWA при отсутствии интернета"""
+    return render(request, 'offline.html')
+
+
 @login_required
 def dashboard(request):
     """Современный дашборд с графиками (кэширование тяжёлых данных)"""
@@ -396,9 +401,16 @@ def clients_list(request):
     amount_min   = request.GET.get('amount_min', '')
     amount_max   = request.GET.get('amount_max', '')
     sort_by      = request.GET.get('sort', '-created_at')
+    phone_search = request.GET.get('phone', '').strip()
 
     # Базовый queryset
     clients = Client.objects.filter(owner=owner).prefetch_related('phones', 'rental_orders')
+
+    # === ПОИСК ПО ТЕЛЕФОНУ ===
+    if phone_search:
+        digits = ''.join(c for c in phone_search if c.isdigit())
+        if digits:
+            clients = clients.filter(phones__phone_number__icontains=digits).distinct()
     
     # === СОРТИРОВКА ===
     if sort_by == '-created_at':
@@ -422,11 +434,12 @@ def clients_list(request):
     # === ФИЛЬТР ПО ТИПУ (долг / аванс / активные) ===
     # Применяем post-filter (т.к. баланс вычисляется)
     if filter_type or amount_min or amount_max:
+        from decimal import Decimal as _D
         filtered_ids = []
         for client in clients:
-            balance = float(client.get_wallet_balance())
-            debt = float(client.get_total_debt())
-            
+            balance = client.get_wallet_balance()
+            debt = client.get_total_debt()
+
             # Фильтр по типу
             if filter_type == 'debt' and balance >= 0:
                 continue
@@ -436,20 +449,20 @@ def clients_list(request):
                 has_open = client.rental_orders.filter(status='open').exists()
                 if not has_open:
                     continue
-            
+
             # Фильтр по сумме долга
-            if amount_min and debt < float(amount_min):
+            if amount_min and debt < _D(amount_min):
                 continue
-            if amount_max and debt > float(amount_max):
+            if amount_max and debt > _D(amount_max):
                 continue
-            
+
             filtered_ids.append(client.id)
         clients = clients.filter(id__in=filtered_ids)
-    
+
     # Статистика
     all_clients = Client.objects.filter(owner=owner).prefetch_related('phones', 'rental_orders')
-    debt_count   = sum(1 for c in all_clients if float(c.get_wallet_balance()) < 0)
-    credit_count = sum(1 for c in all_clients if float(c.get_wallet_balance()) > 0)
+    debt_count   = sum(1 for c in all_clients if c.get_wallet_balance() < 0)
+    credit_count = sum(1 for c in all_clients if c.get_wallet_balance() > 0)
     active_count = sum(1 for c in all_clients if c.rental_orders.filter(status='open').exists())
     
     # Пагинация
@@ -469,7 +482,8 @@ def clients_list(request):
         'current_amount_min': amount_min,
         'current_amount_max': amount_max,
         'current_sort': sort_by,
-        'filters_active': any([filter_type, date_range, amount_min, amount_max]),
+        'current_phone': phone_search,
+        'filters_active': any([filter_type, date_range, amount_min, amount_max, phone_search]),
     }
 
     return render(request, 'clients/list.html', context)
@@ -522,6 +536,13 @@ def client_detail(request, client_id):
             'owed': owed,
         })
 
+    # Ссылка на портал клиента
+    from apps.main.models import ClientPortalToken
+    portal_token_obj = ClientPortalToken.objects.filter(client=client, is_active=True).first()
+    portal_url = None
+    if portal_token_obj:
+        portal_url = request.build_absolute_uri(f'/portal/{portal_token_obj.token}/')
+
     context = {
         'client': client,
         'balance': client.get_wallet_balance(),
@@ -533,6 +554,7 @@ def client_detail(request, client_id):
         'all_orders': all_orders_data,
         'payments': payments,
         'now': now,
+        'portal_url': portal_url,
     }
 
     return render(request, 'clients/detail.html', context)
@@ -790,7 +812,7 @@ def orders_list(request):
     sort_by       = request.GET.get('sort', '-created_at')  # сортировка
 
     # Базовый queryset — только заказы текущего тенанта
-    orders = RentalOrder.objects.filter(client__owner=owner).select_related('client').prefetch_related('items')
+    orders = RentalOrder.objects.filter(client__owner=owner).select_related('client').prefetch_related('items__returns')
     
     # === ФИЛЬТР ПО СТАТУСУ ===
     if status == 'open':
@@ -826,12 +848,13 @@ def orders_list(request):
     
     # === ФИЛЬТР ПО СУММЕ (post-filter т.к. сумма вычисляется) ===
     if amount_min or amount_max:
+        from decimal import Decimal as _D
         filtered = []
-        for order in orders:
-            total = float(order.get_current_total())
-            if amount_min and total < float(amount_min):
+        for order in orders.prefetch_related('items__returns'):
+            total = order.get_current_total()
+            if amount_min and total < _D(amount_min):
                 continue
-            if amount_max and total > float(amount_max):
+            if amount_max and total > _D(amount_max):
                 continue
             filtered.append(order.id)
         orders = orders.filter(id__in=filtered)

@@ -2,6 +2,7 @@ from django.db import models
 from django.core.validators import RegexValidator
 from django.db.models import Sum
 from django.contrib.auth.models import User
+from decimal import Decimal
 import os
 
 def passport_front_path(instance, filename):
@@ -43,36 +44,36 @@ class Client(models.Model):
     def get_total_paid(self):
         """Сколько всего оплатил"""
         total = self.payments.aggregate(total=Sum('amount'))['total']
-        return round(float(total or 0), 2)
+        return total or Decimal('0')
 
     def get_total_debt(self):
         """Сколько всего должен"""
-        total = 0
+        total = Decimal('0')
         for order in self.rental_orders.all():
-            total += float(order.get_current_total())
-        return round(total, 2)
+            total += order.get_current_total()
+        return total
 
     def get_wallet_balance(self):
         """Баланс кошелька (+ переплата, - долг)"""
-        return round(self.get_total_paid() - self.get_total_debt(), 2)
+        return self.get_total_paid() - self.get_total_debt()
 
     def get_debt(self):
         """Только долг (если баланс отрицательный)"""
         balance = self.get_wallet_balance()
-        return round(abs(balance), 2) if balance < -0.005 else 0
+        return abs(balance) if balance < Decimal('-0.005') else Decimal('0')
 
     def get_credit(self):
         """Только переплата (если баланс положительный)"""
         balance = self.get_wallet_balance()
-        return round(balance, 2) if balance > 0.005 else 0
+        return balance if balance > Decimal('0.005') else Decimal('0')
 
     def has_debt(self):
         """Есть ли долг"""
-        return self.get_wallet_balance() < -0.005
+        return self.get_wallet_balance() < Decimal('-0.005')
 
     def has_credit(self):
         """Есть ли переплата"""
-        return self.get_wallet_balance() > 0.005
+        return self.get_wallet_balance() > Decimal('0.005')
     
     def get_active_orders(self):
         """Активные заказы (не закрытые)"""

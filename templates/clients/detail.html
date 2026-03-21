@@ -101,6 +101,9 @@
             <a href="/rental/create/?client={{ client.id }}" data-turbo="false" class="cd-btn btn-blue">➕ Новый заказ</a>
             <a href="{% url 'main:client_discounts' client_id=client.id %}" class="cd-btn btn-green">🏷️ Скидки</a>
             <a href="{% url 'main:send_portal_link' client_id=client.id %}" class="cd-btn" style="background:var(--accent);color:#fff;">🔗 Портал клиента</a>
+            {% if portal_url %}
+            <button type="button" class="cd-btn btn-ghost" onclick="copyPortalLink(this)" data-url="{{ portal_url }}" title="Скопировать ссылку портала">📋 Скопировать</button>
+            {% endif %}
         </div>
     </div>
 
@@ -256,4 +259,21 @@
     {% endif %}
 
 </div>
+
+{% block extra_js %}
+<script>
+function copyPortalLink(btn) {
+    const url = btn.dataset.url;
+    if (!url) return;
+    navigator.clipboard.writeText(url).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✅ Скопировано!';
+        btn.style.color = '#34d399';
+        setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 2000);
+    }).catch(() => {
+        prompt('Скопируйте ссылку:', url);
+    });
+}
+</script>
+{% endblock %}
 {% endblock %}

@@ -280,8 +280,11 @@ class OrderItem(models.Model):
         now = timezone.now()
         price_per_day = Decimal(str(self.price_per_day))
 
-        # Сумма уже возвращённых штук (включает ремонт/чистку)
-        returned_actual = self.returns.aggregate(t=Sum('calculated_cost'))['t'] or Decimal('0')
+        # Сумма уже возвращённых штук (использует prefetch-кеш если есть, иначе aggregate)
+        if hasattr(self, '_prefetched_objects_cache') and 'returns' in self._prefetched_objects_cache:
+            returned_actual = sum(r.calculated_cost for r in self.returns.all()) or Decimal('0')
+        else:
+            returned_actual = self.returns.aggregate(t=Sum('calculated_cost'))['t'] or Decimal('0')
         returned_actual = Decimal(str(returned_actual))
 
         # Все штуки возвращены — только фактические затраты
@@ -356,7 +359,7 @@ class ReturnDocument(models.Model):
     
     def get_total_cost(self):
         total = self.items.aggregate(total=Sum('calculated_cost'))['total']
-        return float(total or 0)
+        return total or Decimal('0')
 
 
 class ReturnItem(models.Model):
@@ -393,8 +396,11 @@ class ReturnItem(models.Model):
             self.actual_hours = 0
     
     def calculate_cost(self):
-        base = float(self.quantity * (float(self.order_item.price_per_day) * self.actual_days + float(self.order_item.price_per_hour) * self.actual_hours))
-        return base + float(self.repair_fee or 0)
+        base = self.quantity * (
+            self.order_item.price_per_day * self.actual_days +
+            self.order_item.price_per_hour * self.actual_hours
+        )
+        return base + (self.repair_fee or Decimal('0'))
     
     def save(self, *args, **kwargs):
         self.calculate_actual_time()

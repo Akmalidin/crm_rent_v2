@@ -720,12 +720,69 @@ document.addEventListener('DOMContentLoaded', _initInvDrop);
 {% if messages %}{% for message in messages %}
 Toastify({
     text: "{{ message|escapejs }}",
-    duration: 5000, close: true,
+    duration: 3500, close: true,
     gravity: "top", position: "right",
     style: { borderRadius: '12px', fontFamily: 'Space Grotesk, sans-serif', fontSize: '14px' },
     backgroundColor: "{% if message.tags == 'error' %}#ef4444{% elif message.tags == 'success' %}#10b981{% elif message.tags == 'warning' %}#f59e0b{% else %}#7c3aed{% endif %}",
 }).showToast();
 {% endfor %}{% endif %}
+
+/* ── CONFIRM DIALOG (data-confirm="Текст") ── */
+(function() {
+    const overlay = document.createElement('div');
+    overlay.id = 'confirm-overlay';
+    overlay.innerHTML = `
+        <div id="confirm-box">
+            <div id="confirm-text"></div>
+            <div id="confirm-btns">
+                <button id="confirm-cancel">Отмена</button>
+                <button id="confirm-ok">Подтвердить</button>
+            </div>
+        </div>`;
+    overlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:center;justify-content:center;';
+    const box = overlay.querySelector('#confirm-box');
+    box.style.cssText = 'background:var(--card,#1e293b);border-radius:16px;padding:28px 24px;max-width:380px;width:90%;text-align:center;';
+    overlay.querySelector('#confirm-text').style.cssText = 'font-size:15px;color:var(--text1,#f1f5f9);margin-bottom:20px;line-height:1.5;';
+    const btns = overlay.querySelector('#confirm-btns');
+    btns.style.cssText = 'display:flex;gap:10px;';
+    const cancelBtn = overlay.querySelector('#confirm-cancel');
+    cancelBtn.style.cssText = 'flex:1;padding:12px;border:none;border-radius:10px;background:var(--bg2,#334155);color:var(--text1,#f1f5f9);font-size:14px;font-weight:600;cursor:pointer;';
+    const okBtn = overlay.querySelector('#confirm-ok');
+    okBtn.style.cssText = 'flex:1;padding:12px;border:none;border-radius:10px;background:#ef4444;color:#fff;font-size:14px;font-weight:600;cursor:pointer;';
+    document.body.appendChild(overlay);
+
+    let _resolve = null;
+
+    function showConfirm(text) {
+        return new Promise(resolve => {
+            _resolve = resolve;
+            overlay.querySelector('#confirm-text').textContent = text;
+            overlay.style.display = 'flex';
+        });
+    }
+
+    cancelBtn.addEventListener('click', () => { overlay.style.display = 'none'; if (_resolve) _resolve(false); });
+    okBtn.addEventListener('click',     () => { overlay.style.display = 'none'; if (_resolve) _resolve(true);  });
+    overlay.addEventListener('click',   e => { if (e.target === overlay) { overlay.style.display = 'none'; if (_resolve) _resolve(false); } });
+
+    // Перехватываем все клики на элементы с data-confirm
+    document.addEventListener('click', async function(e) {
+        const el = e.target.closest('[data-confirm]');
+        if (!el) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const msg = el.dataset.confirm || 'Вы уверены?';
+        const ok = await showConfirm(msg);
+        if (!ok) return;
+        // Если это кнопка внутри формы — сабмит формы
+        const form = el.closest('form') || (el.dataset.form && document.getElementById(el.dataset.form));
+        if (form) { form.submit(); return; }
+        // Если это ссылка — переход
+        if (el.tagName === 'A' && el.href) { window.location.href = el.href; return; }
+        // Если button[type=submit] — ищем форму выше
+        if (el.type === 'submit' && el.form) { el.form.submit(); }
+    });
+})();
 </script>
 
 <!-- PWA Service Worker -->

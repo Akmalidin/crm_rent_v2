@@ -1,6 +1,7 @@
-const CACHE_NAME = 'crm-rental-v2';
+const CACHE_NAME = 'crm-rental-v3';
 const PRECACHE = [
   '/',
+  '/offline/',
   '/static/css/base.css',
   '/static/css/responsive.css',
 ];
@@ -21,23 +22,30 @@ self.addEventListener('activate', e => {
   );
 });
 
-// Fetch: network first, fallback to cache
+// Fetch: network first, fallback to cache, then offline page
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  // Skip API / admin
   const url = new URL(e.request.url);
+  // Skip admin and API
   if (url.pathname.startsWith('/admin') || url.pathname.startsWith('/api/')) return;
 
   e.respondWith(
     fetch(e.request)
       .then(resp => {
-        // Cache successful responses
         if (resp.ok && url.origin === location.origin) {
           const clone = resp.clone();
           caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
         }
         return resp;
       })
-      .catch(() => caches.match(e.request))
+      .catch(() =>
+        caches.match(e.request).then(cached => {
+          if (cached) return cached;
+          // For navigation requests show offline page
+          if (e.request.mode === 'navigate') {
+            return caches.match('/offline/');
+          }
+        })
+      )
   );
 });
