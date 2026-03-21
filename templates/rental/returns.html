@@ -179,7 +179,9 @@
   </div>
 
   {% for item in order.items %}
-  <div class="item-row {% if item.is_overdue %}overdue{% endif %}" id="row_{{ item.id }}">
+  <div class="item-row {% if item.is_overdue %}overdue{% endif %}" id="row_{{ item.id }}"
+       data-cost="{% if item.is_overdue %}{{ item.remaining_planned|add:item.overdue_extra }}{% else %}{{ item.actual_cost|floatformat:0 }}{% endif %}"
+       data-remaining="{{ item.quantity_remaining }}">
 
     <!-- Info -->
     <div>
@@ -449,9 +451,18 @@ function toggleRepair(itemId) {
 
 // ----- SUMMARY -----
 function updateSummary() {
-  let totalQty = 0, totalRepair = 0;
+  let totalQty = 0, totalRepair = 0, totalCost = 0;
   document.querySelectorAll('.qty-input').forEach(inp => {
-    totalQty += parseInt(inp.value) || 0;
+    const qty = parseInt(inp.value) || 0;
+    totalQty += qty;
+    if (qty > 0) {
+      const row = document.getElementById('row_' + inp.id.replace('qty_', ''));
+      if (row) {
+        const itemCost = parseFloat(row.dataset.cost) || 0;
+        const remaining = parseInt(row.dataset.remaining) || 1;
+        totalCost += (itemCost / remaining) * qty;
+      }
+    }
   });
   document.querySelectorAll('[id^="rf_"]').forEach(inp => {
     totalRepair += parseFloat(inp.value) || 0;
@@ -463,6 +474,7 @@ function updateSummary() {
     if (totalQty > 0) {
       bar.style.display = 'flex';
       document.getElementById('sumQty').textContent = totalQty;
+      document.getElementById('sumCost').textContent = Math.round(totalCost).toLocaleString('ru-RU');
       const repairWrap = document.getElementById('sumRepairWrap');
       if (totalRepair > 0) {
         repairWrap.style.display = '';
