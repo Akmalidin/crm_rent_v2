@@ -1,5 +1,7 @@
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, redirect, get_object_or_404
+from decimal import Decimal
+import time as _time
 from django.db.models import Sum, Count, Q
 from apps.clients.models import Client
 from apps.rental.models import RentalOrder, OrderItem, Payment, ReturnDocument
@@ -12,7 +14,6 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.http import JsonResponse, FileResponse, Http404
 from apps.rental.utils import get_order_groups_for_client, calculate_order_debt
 from config import settings
-from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User, Group, Permission
 from .decorators import admin_required, manager_required, cashier_required
 from django.contrib.auth import login, authenticate
@@ -236,7 +237,6 @@ def offline_view(request):
 def dashboard(request):
     """Современный дашборд с графиками (кэширование тяжёлых данных)"""
     from django.db.models import Sum
-    from decimal import Decimal
     from django.core.cache import cache
 
     # Если новый директор ещё не настроил компанию — направить на setup
@@ -434,7 +434,6 @@ def clients_list(request):
     # === ФИЛЬТР ПО ТИПУ (долг / аванс / активные) ===
     # Применяем post-filter (т.к. баланс вычисляется)
     if filter_type or amount_min or amount_max:
-        from decimal import Decimal as _D
         filtered_ids = []
         for client in clients:
             balance = client.get_wallet_balance()
@@ -451,9 +450,9 @@ def clients_list(request):
                     continue
 
             # Фильтр по сумме долга
-            if amount_min and debt < _D(amount_min):
+            if amount_min and debt < Decimal(amount_min):
                 continue
-            if amount_max and debt > _D(amount_max):
+            if amount_max and debt > Decimal(amount_max):
                 continue
 
             filtered_ids.append(client.id)
@@ -598,7 +597,6 @@ def create_order(request):
 
     # GET запрос - показываем форму
     if request.method == 'GET':
-        import json as _json
         from apps.inventory.models import Category
         clients = Client.objects.filter(owner=owner).prefetch_related('phones')
         categories = Category.objects.filter(owner=owner).order_by('name')
@@ -626,7 +624,7 @@ def create_order(request):
                 all_phones.append(ph.phone_number)
                 if ph.is_primary:
                     primary_phone = ph.phone_number
-            clients_json.append({
+            clientsjson.append({
                 'id': c.id,
                 'name': c.get_full_name(),
                 'phone': primary_phone,
@@ -637,8 +635,8 @@ def create_order(request):
 
         context = {
             'categories': categories,
-            'clients_json': _json.dumps(clients_json),
-            'products_by_cat_json': _json.dumps(products_by_cat),
+            'clients_json': json.dumps(clients_json),
+            'products_by_cat_json': json.dumps(products_by_cat),
             'preselect_client': preselect_client,
         }
         return render(request, 'rental/create_order.html', context)
@@ -646,12 +644,10 @@ def create_order(request):
     # POST запрос - обрабатываем форму
     if request.method == 'POST':
         try:
-            import json as _json
-            from decimal import Decimal as _Dec
             client_id = request.POST.get('client')
             # New format: cart_json = '[{"pid":1,"qty":2,"price":500,"rain":true},...]'
             cart_json = request.POST.get('cart_json', '[]')
-            cart = _json.loads(cart_json)
+            cart = json.loads(cart_json)
 
             if not client_id:
                 messages.error(request, 'Выберите клиента')
@@ -723,19 +719,19 @@ def create_order(request):
 
                 if by_hours:
                     # Price is per hour
-                    price_per_hour = _Dec(str(custom_price)) if custom_price > 0 else (product.price_per_hour or product.price_per_day / 24)
+                    price_per_hour = Decimal(str(custom_price)) if custom_price > 0 else (product.price_per_hour or product.price_per_day / 24)
                     price_per_day = product.price_per_day
                     total_hours = global_days * 24 + global_hours
-                    original_cost = _Dec(str(quantity)) * price_per_hour * _Dec(str(total_hours))
+                    original_cost = Decimal(str(quantity)) * price_per_hour * Decimal(str(total_hours))
                     # Store rental as 0 days + total_hours hours for clarity
                     item_rental_days = 0
                     item_rental_hours = total_hours
                 else:
-                    price_per_day = _Dec(str(custom_price)) if custom_price > 0 else product.price_per_day
-                    price_per_hour = product.price_per_hour if product.price_per_hour else _Dec('0')
+                    price_per_day = Decimal(str(custom_price)) if custom_price > 0 else product.price_per_day
+                    price_per_hour = product.price_per_hour if product.price_per_hour else Decimal('0')
                     # Round up partial day
                     bill_days = global_days + (1 if global_hours > 0 else 0)
-                    original_cost = _Dec(str(quantity)) * price_per_day * _Dec(str(bill_days))
+                    original_cost = Decimal(str(quantity)) * price_per_day * Decimal(str(bill_days))
                     item_rental_days = bill_days
                     item_rental_hours = 0
 
@@ -848,13 +844,12 @@ def orders_list(request):
     
     # === ФИЛЬТР ПО СУММЕ (post-filter т.к. сумма вычисляется) ===
     if amount_min or amount_max:
-        from decimal import Decimal as _D
         filtered = []
         for order in orders.prefetch_related('items__returns'):
             total = order.get_current_total()
-            if amount_min and total < _D(amount_min):
+            if amount_min and total < Decimal(amount_min):
                 continue
-            if amount_max and total > _D(amount_max):
+            if amount_max and total > Decimal(amount_max):
                 continue
             filtered.append(order.id)
         orders = orders.filter(id__in=filtered)
@@ -1092,7 +1087,6 @@ def accept_payment(request):
 @login_required
 def client_orders_json(request, client_id):
     """AJAX: вернуть список заказов клиента с суммами к оплате"""
-    import json as _json
     client = get_object_or_404(Client, id=client_id)
 
     def _paid_for_order_local(client_obj, order_id_int):
@@ -1135,7 +1129,6 @@ def returns_page(request):
     
     if request.method == 'POST':
         from apps.rental.models import ReturnDocument, ReturnItem
-        from decimal import Decimal
 
         client_id = request.POST.get('client_id')
         notes = request.POST.get('notes', '')
@@ -1437,7 +1430,6 @@ def edit_order(request, order_id):
         return redirect('main:client_detail', client_id=order.client.id)
     
     if request.method == 'POST':
-        from decimal import Decimal
         from datetime import timedelta
         import re as _re
         _log_pattern = _re.compile(r'^\[\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}\]')
@@ -1676,7 +1668,6 @@ def edit_order(request, order_id):
     # --- Данные для дождливого календаря ---
     from apps.rental.models import OrderExcludedDay
     from datetime import date as date_cls, timedelta as td
-    import json as _json
     items_all = list(order.items.all())
     cal_start = cal_end = None
     for _it in items_all:
@@ -1703,7 +1694,7 @@ def edit_order(request, order_id):
         'user_notes_display': user_notes_display,
         'calendar_days': calendar_days,
         'excluded_dates': excluded_dates,
-        'excluded_dates_json': _json.dumps(excluded_dates),
+        'excluded_dates_json': json.dumps(excluded_dates),
         'rain_excluded_count': len(excluded_dates),
         'rain_total': rain_total,
     }
@@ -1842,7 +1833,6 @@ def apply_credit_to_order(request, order_id):
         return redirect('main:client_detail', client_id=client.id)
     
     # Зачитываем аванс
-    from decimal import Decimal
     
     if credit >= order_debt:
         # Аванса хватает полностью покрыть долг
@@ -1871,10 +1861,9 @@ def toggle_excluded_day(request, order_id):
     if order.client.owner_id != owner.id:
         return JsonResponse({'error': 'Доступ запрещён'}, status=403)
     try:
-        import json as _json
         from datetime import date as date_cls
         from apps.rental.models import OrderExcludedDay
-        data = _json.loads(request.body)
+        data = json.loads(request.body)
         day = date_cls.fromisoformat(data.get('date', ''))
         item_id = int(data.get('item_id', 0))
     except Exception:
@@ -1910,7 +1899,6 @@ def close_order(request, order_id):
     """Закрыть заказ вручную - все товары возвращаются на склад"""
     from apps.rental.models import ReturnDocument, ReturnItem
     from django.utils import timezone
-    from decimal import Decimal
     import re
 
     if request.method != 'POST':
@@ -2182,59 +2170,11 @@ def global_search(request):
         'products': products_results,
     }, json_dumps_params={'ensure_ascii': False})
 
-def global_search_optimized(request):
-    """Оптимизированный поиск для больших баз"""
-    
-    query = request.GET.get('q', '').strip().lower()
-    
-    if len(query) < 2:
-        return JsonResponse({'clients': [], 'orders': [], 'products': []})
-    
-    from apps.clients.models import Client
-    
-    # Берём только последних 500 клиентов (самые свежие)
-    all_clients = Client.objects.prefetch_related('phones').order_by('-id')[:500]
-    
-    found_clients = []
-    for client in all_clients:
-        # Ищем в полном имени сразу (быстрее)
-        full_name = f"{client.first_name} {client.last_name} {client.middle_name or ''}".lower()
-        
-        if query in full_name:
-            found_clients.append(client)
-            if len(found_clients) >= 5:
-                break
-    
-    
-    clients_results = []
-    for client in found_clients:
-        balance = float(client.get_wallet_balance())
-        badge_color = 'bg-green-100 text-green-700' if balance >= 0 else 'bg-red-100 text-red-700'
-        badge_text = f'+{int(balance)}' if balance > 0 else f'{int(balance)}'
-        phones = ', '.join([p.phone_number for p in client.phones.all()[:2]])
-        
-        clients_results.append({
-            'type': 'client',
-            'title': client.get_full_name(),
-            'subtitle': phones,
-            'badge': f'{badge_text} сом',
-            'badge_color': badge_color,
-            'url': f'/clients/{client.id}/',
-        })
-    
-    return JsonResponse({
-        'clients': clients_results,
-        'orders': [],
-        'products': [],
-    }, json_dumps_params={'ensure_ascii': False})
-
 # ─── SSE: уведомления в реальном времени ─────────────────────────────────────
 
 @login_required
 def sse_stream(request):
     """Server-Sent Events: стримит новые уведомления пользователю."""
-    import time as _time
-    import json as _json
 
     def event_generator():
         last_id = int(request.GET.get('last_id', 0))
@@ -2248,7 +2188,7 @@ def sse_stream(request):
                      .filter(user=request.user, id__gt=last_id, is_read=False)
                      .order_by('id')[:10])
             for note in notes:
-                data = _json.dumps({
+                data = json.dumps({
                     'id': note.id,
                     'type': note.type,
                     'title': note.title,
@@ -2556,10 +2496,9 @@ def toggle_rain_day(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST only'}, status=405)
     try:
-        import json as _json
         from datetime import date as date_cls
         from apps.main.models import RainDay
-        data = _json.loads(request.body)
+        data = json.loads(request.body)
         day = date_cls.fromisoformat(data.get('date', ''))
     except Exception:
         return JsonResponse({'error': 'Неверные данные'}, status=400)
@@ -3210,12 +3149,6 @@ def edit_ticket(request, ticket_id):
 
 
 @superuser_required
-def reply_ticket(request, ticket_id):
-    """Legacy redirect — теперь используется add_reply."""
-    return redirect('main:ticket_detail', ticket_id=ticket_id)
-
-
-@superuser_required
 def close_ticket(request, ticket_id):
     """Создатель закрывает обращение."""
     from apps.main.models import DirectorMessage
@@ -3359,7 +3292,6 @@ def order_view(request, order_id):
     """Просмотр заказа — всё на одной странице: товары, дождевой календарь, возвраты, заметка"""
     from apps.rental.models import ReturnItem
     from datetime import date as date_cls, timedelta as td
-    import json as _json
 
     owner = get_tenant_owner(request.user)
     order = get_object_or_404(RentalOrder, id=order_id, client__owner=owner)
@@ -3404,7 +3336,7 @@ def order_view(request, order_id):
             'end': str(it_end) if it_end else None,
         })
 
-    excluded_by_item_json = _json.dumps({
+    excluded_by_item_json = json.dumps({
         str(row['item'].id): row['excluded'] for row in item_rain_data
     })
 
@@ -3412,7 +3344,6 @@ def order_view(request, order_id):
     original_total = order.get_current_total()
 
     # Разбивка стоимости: базовая аренда + просрочка + ремонт
-    from decimal import Decimal as _D
     base_total = order.get_original_total()
 
     # Считаем ремонт/чистку отдельно от просрочки
@@ -3422,7 +3353,7 @@ def order_view(request, order_id):
     total_repair_fee = sum(float(r[0]) for r in repair_items_qs)
     repair_details = [{'fee': float(r[0]), 'notes': r[1] or 'Ремонт/чистка'} for r in repair_items_qs]
 
-    overdue_total = original_total - base_total - _D(str(total_repair_fee))
+    overdue_total = original_total - base_total - Decimal(str(total_repair_fee))
 
     # Детальный разбор штрафа (по каждому товару)
     _now = timezone.now()
@@ -3469,7 +3400,7 @@ def order_view(request, order_id):
     global_rain_days = set(
         str(d) for d in RainDay.objects.filter(owner=owner).values_list('date', flat=True)
     )
-    order_rain_days_json = _json.dumps(list(global_rain_days))
+    order_rain_days_json = json.dumps(list(global_rain_days))
 
     # История возвратов
     returns = ReturnItem.objects.filter(
@@ -4088,7 +4019,6 @@ def booking_approve(request, booking_id):
     """Одобрить заявку — создать реальный заказ."""
     from apps.main.models import BookingRequest
     from apps.rental.models import RentalOrder, OrderItem
-    from decimal import Decimal
     import datetime
 
     booking = get_object_or_404(BookingRequest, id=booking_id)
@@ -4367,9 +4297,8 @@ def xsec_backup_delete(request, backup_name):
 def xsec_beacon(request):
     if request.method == 'POST':
         try:
-            import json as _json
             from apps.main.models import RequestLog
-            body = _json.loads(request.body or b'{}')
+            body = json.loads(request.body or b'{}')
             ip = (request.META.get('HTTP_X_FORWARDED_FOR','') or request.META.get('REMOTE_ADDR',''))
             if ',' in ip: ip = ip.split(',')[0].strip()
             RequestLog.objects.create(

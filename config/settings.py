@@ -10,7 +10,7 @@ SECRET_KEY = os.environ.get(
     'django-insecure-c94unzxpo+#2z03q_43r0q_5013)xl9&4x0!y(d5sznd1ds#&t'
 )
 
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 _hosts = os.environ.get('ALLOWED_HOSTS', '')
 ALLOWED_HOSTS = _hosts.split(',') if _hosts else ['*']
@@ -108,16 +108,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 # Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
-
-LANGUAGE_CODE = 'ru'
-
+LANGUAGE_CODE = 'ru-ru'
 TIME_ZONE = 'Asia/Bishkek'
-
 USE_I18N = True
-
 USE_TZ = True
-
 
 # Login/Logout URLs
 LOGIN_URL = '/login/'
@@ -128,10 +122,6 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-
-# Язык
-LANGUAGE_CODE = 'ru-ru'
-TIME_ZONE = 'Asia/Bishkek'
 
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8276509481:AAGhKOhn45P8l5belorDsEqqetqGNgHoG3s')
 TELEGRAM_ADMIN_CHAT_ID = os.environ.get('TELEGRAM_ADMIN_CHAT_ID', '1289894304')
