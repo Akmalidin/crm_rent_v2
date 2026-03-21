@@ -3699,7 +3699,13 @@ def my_profile(request):
 
 def custom_404_view(request, exception=None):
     """Кастомный обработчик 404 — редирект на главную с сообщением"""
-    messages.error(request, '🔍 Страница не найдена. Возможно, она была удалена или URL введён неверно.')
+    # Skip message for browser auto-requests (favicon, robots.txt, etc.) and non-navigation fetches
+    skip_paths = {'/favicon.ico', '/robots.txt', '/sitemap.xml', '/apple-touch-icon.png',
+                  '/apple-touch-icon-precomposed.png'}
+    sec_fetch_mode = request.META.get('HTTP_SEC_FETCH_MODE', 'navigate')
+    is_navigation = sec_fetch_mode == 'navigate'
+    if request.path not in skip_paths and is_navigation:
+        messages.error(request, '🔍 Страница не найдена. Возможно, она была удалена или URL введён неверно.')
     return redirect('main:dashboard')
 
 
