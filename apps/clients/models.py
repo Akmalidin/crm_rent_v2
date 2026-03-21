@@ -43,6 +43,9 @@ class Client(models.Model):
     
     def get_total_paid(self):
         """Сколько всего оплатил"""
+        # Если payments уже prefetch'нуты — считаем в Python (без лишнего SQL)
+        if 'payments' in getattr(self, '_prefetched_objects_cache', {}):
+            return sum((p.amount or Decimal('0')) for p in self.payments.all())
         total = self.payments.aggregate(total=Sum('amount'))['total']
         return total or Decimal('0')
 

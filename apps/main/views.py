@@ -403,25 +403,23 @@ def clients_list(request):
     sort_by      = request.GET.get('sort', '-created_at')
     phone_search = request.GET.get('phone', '').strip()
 
-    # Базовый queryset
-    clients = Client.objects.filter(owner=owner).prefetch_related('phones', 'rental_orders')
+    # Базовый queryset — prefetch payments чтобы get_total_paid() не шёл в БД на каждого
+    clients = Client.objects.filter(owner=owner).prefetch_related('phones', 'rental_orders', 'payments')
 
     # === ПОИСК ПО ТЕЛЕФОНУ ===
     if phone_search:
         digits = ''.join(c for c in phone_search if c.isdigit())
         if digits:
             clients = clients.filter(phones__phone_number__icontains=digits).distinct()
-    
+
     # === СОРТИРОВКА ===
-    if sort_by == '-created_at':
-        clients = clients.order_by('-created_at')
-    elif sort_by == 'created_at':
+    if sort_by == 'created_at':
         clients = clients.order_by('created_at')
     elif sort_by == 'name':
         clients = clients.order_by('last_name', 'first_name')
     else:
         clients = clients.order_by('-created_at')
-    
+
     # === ФИЛЬТР ПО ДАТЕ РЕГИСТРАЦИИ ===
     now = timezone.now()
     if date_range == 'today':
@@ -430,26 +428,38 @@ def clients_list(request):
         clients = clients.filter(created_at__gte=now - timedelta(days=7))
     elif date_range == 'month':
         clients = clients.filter(created_at__gte=now - timedelta(days=30))
-    
+
+    # === СТАТИСТИКА — загружаем всех клиентов ОДИН РАЗ с prefetch ===
+    # Используем тот же queryset (до фильтра по балансу), вычисляем в Python
+    all_clients_list = list(clients) if (filter_type or amount_min or amount_max) else None
+
+    if all_clients_list is None:
+        # Нет фильтра по балансу — подгружаем отдельно только для статистики
+        stat_qs = list(Client.objects.filter(owner=owner).prefetch_related('payments', 'rental_orders'))
+    else:
+        stat_qs = all_clients_list
+
+    total_clients = Client.objects.filter(owner=owner).count()
+    # any() по prefetch'нутым rental_orders — не идёт в БД
+    debt_count   = sum(1 for c in stat_qs if c.get_wallet_balance() < 0)
+    credit_count = sum(1 for c in stat_qs if c.get_wallet_balance() > 0)
+    active_count = sum(1 for c in stat_qs if any(o.status == 'open' for o in c.rental_orders.all()))
+
     # === ФИЛЬТР ПО ТИПУ (долг / аванс / активные) ===
-    # Применяем post-filter (т.к. баланс вычисляется)
     if filter_type or amount_min or amount_max:
         filtered_ids = []
-        for client in clients:
+        for client in all_clients_list:
             balance = client.get_wallet_balance()
             debt = client.get_total_debt()
 
-            # Фильтр по типу
             if filter_type == 'debt' and balance >= 0:
                 continue
             if filter_type == 'credit' and balance <= 0:
                 continue
             if filter_type == 'active':
-                has_open = client.rental_orders.filter(status='open').exists()
-                if not has_open:
+                if not any(o.status == 'open' for o in client.rental_orders.all()):
                     continue
 
-            # Фильтр по сумме долга
             if amount_min and debt < Decimal(amount_min):
                 continue
             if amount_max and debt > Decimal(amount_max):
@@ -458,12 +468,6 @@ def clients_list(request):
             filtered_ids.append(client.id)
         clients = clients.filter(id__in=filtered_ids)
 
-    # Статистика
-    all_clients = Client.objects.filter(owner=owner).prefetch_related('phones', 'rental_orders')
-    debt_count   = sum(1 for c in all_clients if c.get_wallet_balance() < 0)
-    credit_count = sum(1 for c in all_clients if c.get_wallet_balance() > 0)
-    active_count = sum(1 for c in all_clients if c.rental_orders.filter(status='open').exists())
-    
     # Пагинация
     page_obj, page_query = paginate(request, clients)
 
@@ -471,7 +475,7 @@ def clients_list(request):
         'clients': page_obj,
         'page_obj': page_obj,
         'page_query': page_query,
-        'total_clients': all_clients.count(),
+        'total_clients': total_clients,
         'debt_count': debt_count,
         'credit_count': credit_count,
         'active_count': active_count,
