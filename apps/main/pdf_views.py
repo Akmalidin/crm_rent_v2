@@ -205,6 +205,80 @@ def build_signatures(styles, left_title, right_title, left_name='', right_name='
     ]))
     return table
 
+def build_payment_items_section(styles, payment, currency='сом'):
+    """Блок товаров заказа(ов) для квитанции об оплате"""
+    import re
+    elements = []
+    if not payment.notes:
+        return elements
+
+    order_ids = list(dict.fromkeys(re.findall(r'#(\d+)', payment.notes)))  # уникальные, сохраняя порядок
+    if not order_ids:
+        return elements
+
+    orders = {str(o.id): o for o in RentalOrder.objects.filter(id__in=order_ids).prefetch_related('items__product')}
+    if not orders:
+        return elements
+
+    elements.append(Spacer(1, 0.3*cm))
+    elements.append(Paragraph('<b>Состав заказа(ов):</b>', styles['heading']))
+    elements.append(Spacer(1, 0.2*cm))
+
+    for oid in order_ids:
+        order = orders.get(oid)
+        if not order:
+            continue
+        items = list(order.items.all())
+        if not items:
+            continue
+
+        elements.append(Paragraph(
+            f'<b>Заказ #{order.id}</b> от {order.created_at.strftime("%d.%m.%Y")}',
+            styles['normal']
+        ))
+        elements.append(Spacer(1, 0.1*cm))
+
+        header = ['#', 'Товар', 'Кол-во', 'Дней', f'Цена/день, {currency}', f'Сумма, {currency}']
+        data = [header]
+        for i, item in enumerate(items, 1):
+            from django.utils import timezone as tz
+            now = tz.now()
+            start = order.created_at
+            delta = item.planned_return_date - start
+            days = max(1, delta.days + (1 if delta.seconds > 0 else 0))
+            total = int(item.price_per_day * item.quantity_taken * days)
+            data.append([
+                str(i),
+                item.product.name,
+                str(item.quantity_taken),
+                str(days),
+                f"{int(item.price_per_day):,}".replace(',', ' '),
+                f"{total:,}".replace(',', ' '),
+            ])
+
+        col_w = [0.6*cm, 6.5*cm, 1.5*cm, 1.5*cm, 2.5*cm, 3.4*cm]
+        tbl = Table(data, colWidths=col_w)
+        tbl.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'MainFont'),
+            ('FONTNAME', (0, 0), (-1, 0), 'MainFont-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a5f')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4ff')]),
+            ('ALIGN', (2, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (-1, 0), (-1, -1), 'RIGHT'),
+            ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#cccccc')),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(tbl)
+        elements.append(Spacer(1, 0.3*cm))
+
+    return elements
+
+
 def get_overdue_info(order):
     """Получить информацию о просрочке для заказа"""
     now = timezone.now()
@@ -214,22 +288,14 @@ def get_overdue_info(order):
     for item in order.items.all():
         if item.quantity_remaining > 0 and item.planned_return_date < now:
             overdue_time = now - item.planned_return_date
-            overdue_days = overdue_time.days
-            overdue_hours = overdue_time.seconds // 3600
-            
-            # Расчёт стоимости просрочки
-            if overdue_time.total_seconds() < 86400:  # Меньше суток
-                hourly_rate = Decimal(str(item.price_per_day)) / 24
-                overdue_cost = Decimal(str(overdue_hours)) * hourly_rate * item.quantity_remaining
-            else:
-                overdue_cost = Decimal(str(overdue_days)) * Decimal(str(item.price_per_day)) * item.quantity_remaining
-            
+            overdue_days = max(1, overdue_time.days)  # минимум 1 день
+            overdue_cost = Decimal(str(overdue_days)) * Decimal(str(item.price_per_day)) * item.quantity_remaining
+
             overdue_items.append({
                 'product_name': item.product.name,
                 'quantity': item.quantity_remaining,
                 'planned_return': item.planned_return_date,
                 'overdue_days': overdue_days,
-                'overdue_hours': overdue_hours,
                 'overdue_cost': overdue_cost,
             })
             total_overdue_cost += overdue_cost
@@ -288,7 +354,7 @@ def build_debt_summary(styles, order, client, currency='сом'):
         for item_info in overdue_items:
             summary_data.append([
                 f"  • {item_info['product_name']} ({item_info['quantity']} шт)",
-                f"{item_info['overdue_days']} дн {item_info['overdue_hours']} ч: +{int(item_info['overdue_cost']):,} {currency}".replace(',', ' ')
+                f"{item_info['overdue_days']} дн: +{int(item_info['overdue_cost']):,} {currency}".replace(',', ' ')
             ])
         summary_data.append(['Итого за просрочку:', f"+{int(total_overdue_cost):,} {currency}".replace(',', ' ')])
 
@@ -545,12 +611,15 @@ def print_receipt(request, payment_id):
         elements.append(Paragraph('<b>Назначение платежа:</b>', styles['heading']))
         elements.append(Paragraph(payment.notes.replace('\n', '<br/>'), styles['normal']))
         elements.append(Spacer(1, 0.3*cm))
-    
+
+    # Товары из заказа(ов)
+    elements += build_payment_items_section(styles, payment, company.currency)
+
     # Итого с балансом
     total_paid = client.get_total_paid()
     total_debt = client.get_total_debt()
     wallet_balance = client.get_wallet_balance()
-    
+
     balance_data = [
         ['Всего оплачено клиентом:', f"{int(total_paid):,} {company.currency}".replace(',', ' ')],
         ['Общий долг клиента:', f"{int(total_debt):,} {company.currency}".replace(',', ' ')],
@@ -648,6 +717,9 @@ def _build_receipt_elements(styles, company, client, payment):
         elements.append(Paragraph('<b>Назначение платежа:</b>', styles['heading']))
         elements.append(Paragraph(payment.notes.replace('\n', '<br/>'), styles['normal']))
         elements.append(Spacer(1, 0.3*cm))
+
+    # Товары из заказа(ов)
+    elements += build_payment_items_section(styles, payment, company.currency)
 
     total_paid = client.get_total_paid()
     total_debt = client.get_total_debt()

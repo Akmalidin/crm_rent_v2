@@ -145,15 +145,9 @@ def get_order_groups_for_client(client, now):
             for item in order.items.all():
                 if item.quantity_remaining > 0 and item.planned_return_date < now:
                     overdue_time = now - item.planned_return_date
-                    overdue_days = overdue_time.days
-                    overdue_hours = overdue_time.seconds // 3600
-                    
-                    if overdue_time.total_seconds() < 86400:
-                        hourly_rate = Decimal(str(item.price_per_day)) / 24
-                        overdue_cost = Decimal(str(overdue_hours)) * hourly_rate * item.quantity_remaining
-                    else:
-                        overdue_cost = Decimal(str(overdue_days)) * Decimal(str(item.price_per_day)) * item.quantity_remaining
-                    
+                    overdue_days = max(1, overdue_time.days)  # минимум 1 день
+                    overdue_cost = Decimal(str(overdue_days)) * Decimal(str(item.price_per_day)) * item.quantity_remaining
+
                     order_events.append({
                         'type': 'overdue_charge',
                         'date': now,
@@ -161,7 +155,6 @@ def get_order_groups_for_client(client, now):
                         'product_name': item.product.name,
                         'quantity': item.quantity_remaining,
                         'overdue_days': overdue_days,
-                        'overdue_hours': overdue_hours,
                         'overdue_cost': float(overdue_cost),
                         'planned_return_date': item.planned_return_date,
                     })
