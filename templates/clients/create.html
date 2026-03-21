@@ -219,22 +219,53 @@ function showPreview(input, previewId, zoneId, phId) {
     // Очищаем парный input (камера/галерея), чтобы не отправился пустой
     const side = input.id.includes('front') ? 'front' : 'back';
     const source = input.id.includes('-cam') ? '-gal' : '-cam';
-    const twinId = 'inp-' + side + source;
-    const twin = document.getElementById(twinId);
+    const twin = document.getElementById('inp-' + side + source);
     if (twin) twin.value = '';
-    // Show filename
+
+    const MAX_PX = 1280, QUALITY = 0.82;
     const lblId = zoneId === 'zone-front' ? 'lbl-front' : 'lbl-back';
-    document.getElementById(lblId).textContent = '✓ ' + file.name;
-    // Show image preview
-    const reader = new FileReader();
-    reader.onload = function (e) {
-        const img = document.getElementById(previewId);
-        img.src = e.target.result;
-        img.style.display = 'block';
+    document.getElementById(lblId).textContent = '⏳ Сжимаем…';
+
+    // Use createObjectURL to avoid large base64 string in memory
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = function () {
+        URL.revokeObjectURL(url);
+        let w = image.naturalWidth, h = image.naturalHeight;
+        if (w > MAX_PX || h > MAX_PX) {
+            const ratio = Math.min(MAX_PX / w, MAX_PX / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(image, 0, 0, w, h);
+
+        // Preview
+        const imgEl = document.getElementById(previewId);
+        imgEl.src = canvas.toDataURL('image/jpeg', QUALITY);
+        imgEl.style.display = 'block';
         document.getElementById(zoneId).classList.add('filled');
         document.getElementById(phId).querySelector('.hint').textContent = 'Нажмите для замены';
+        document.getElementById(lblId).textContent = '✓ ' + file.name;
+
+        // Replace file in input with compressed JPEG
+        canvas.toBlob(function (blob) {
+            if (!blob) return;
+            const name = file.name.replace(/\.\w+$/, '') + '.jpg';
+            const compressed = new File([blob], name, { type: 'image/jpeg' });
+            try {
+                const dt = new DataTransfer();
+                dt.items.add(compressed);
+                input.files = dt.files;
+            } catch (_) { /* DataTransfer not supported — original file sent */ }
+        }, 'image/jpeg', QUALITY);
     };
-    reader.readAsDataURL(file);
+    image.onerror = function () {
+        URL.revokeObjectURL(url);
+        document.getElementById(lblId).textContent = '✓ ' + file.name;
+    };
+    image.src = url;
 }
 
 // ─── Form validation ──────────────────────────────────────────────────────────
