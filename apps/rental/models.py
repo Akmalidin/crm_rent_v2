@@ -392,10 +392,8 @@ class ReturnItem(models.Model):
         self.actual_days = int(total_seconds // 86400)
         remaining_seconds = total_seconds % 86400
         self.actual_hours = int(remaining_seconds // 3600)
-        # Если товар тарифицируется по дням (нет цены за час),
-        # округляем вверх до полных суток, часы не считаем
-        if self.order_item.price_per_hour == 0 and self.actual_hours > 0:
-            self.actual_days += 1
+        # Тарификация по дням: часы не считаем, берём точные дни
+        if self.order_item.price_per_hour == 0:
             self.actual_hours = 0
     
     def calculate_cost(self):
