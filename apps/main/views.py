@@ -2,6 +2,9 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, redirect, get_object_or_404
 from decimal import Decimal
 import time as _time
+import logging
+
+logger = logging.getLogger(__name__)
 from django.db.models import Sum, Count, Q
 from apps.clients.models import Client
 from apps.rental.models import RentalOrder, OrderItem, Payment, ReturnDocument
@@ -126,7 +129,7 @@ def register_view(request):
                         timeout=5,
                     )
         except Exception:
-            pass
+            logger.exception("Telegram уведомление о регистрации не отправлено")
 
         if is_first_user:
             # Первый пользователь — входим сразу
@@ -248,7 +251,7 @@ def dashboard(request):
                 prof.save()
                 return redirect('main:setup_company')
         except Exception:
-            pass
+            logger.exception("Ошибка проверки профиля на дашборде")
 
     owner = get_tenant_owner(request.user)
     now = timezone.now()
@@ -764,13 +767,13 @@ def create_order(request):
                 from apps.main.telegram_bot_complete import notify_director_new_order
                 notify_director_new_order(order)
             except Exception:
-                pass
+                logger.exception("Telegram уведомление о новом заказе не отправлено")
             # Email клиенту
             try:
                 from apps.main.email_utils import notify_order_created_email
                 notify_order_created_email(order)
             except Exception:
-                pass
+                logger.exception("Email уведомление о новом заказе не отправлено")
             log_activity(request.user, 'create_order', f'Создал заказ #{order.id} для клиента {client.get_full_name()}')
             from apps.main.cache_utils import invalidate_dashboard
             invalidate_dashboard(owner.id)
@@ -1004,7 +1007,7 @@ def accept_payment(request):
                 from apps.main.telegram_bot_complete import notify_director_payment
                 notify_director_payment(payment_obj)
             except Exception:
-                pass
+                logger.exception("Telegram уведомление об оплате не отправлено")
             _owner = get_tenant_owner(request.user)
             from apps.main.cache_utils import invalidate_dashboard
             invalidate_dashboard(_owner.id)
@@ -1996,7 +1999,7 @@ def close_order(request, order_id):
         from apps.main.email_utils import notify_order_closed_email
         notify_order_closed_email(order)
     except Exception:
-        pass
+        logger.exception("Email уведомление о закрытии заказа не отправлено")
 
     from apps.main.cache_utils import invalidate_dashboard
     invalidate_dashboard(get_tenant_owner(request.user).id)
@@ -4088,7 +4091,7 @@ def booking_approve(request, booking_id):
                 )
                 _send(f'Заявка одобрена — {product.name}', body, client.email)
         except Exception:
-            pass
+            logger.exception("Email уведомление об одобрении бронирования не отправлено")
 
     return redirect('main:bookings_list')
 
@@ -4116,7 +4119,7 @@ def booking_reject(request, booking_id):
                 body += 'Если у вас есть вопросы, свяжитесь с нами.\n\nС уважением,\nСлужба аренды'
                 _send(f'Заявка отклонена — {booking.product.name}', body, booking.client.email)
         except Exception:
-            pass
+            logger.exception("Email уведомление об отклонении бронирования не отправлено")
 
         messages.success(request, f'Заявка #{booking.id} отклонена')
     return redirect('main:bookings_list')
@@ -4150,7 +4153,7 @@ def send_portal_link(request, client_id):
             if _send('Ваша ссылка для бронирования', body, client.email):
                 sent_via.append('Email')
         except Exception:
-            pass
+            logger.exception("Email отправка ссылки портала клиенту не выполнена")
 
     # Telegram
     if client.telegram_id:
@@ -4163,7 +4166,7 @@ def send_portal_link(request, client_id):
             if send_telegram_message(client.telegram_id, text, parse_mode=None):
                 sent_via.append('Telegram')
         except Exception:
-            pass
+            logger.exception("Telegram отправка ссылки портала клиенту не выполнена")
 
     if sent_via:
         messages.success(request, f'Ссылка на портал отправлена: {", ".join(sent_via)}')
