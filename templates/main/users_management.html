@@ -142,11 +142,13 @@
                         <!-- Действия -->
                         <td class="px-6 py-4">
                             <div class="flex gap-2 flex-wrap">
-                                <a href="{% url 'main:toggle_user_active' u.id %}"
-                                   class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-semibold"
-                                   onclick="return confirm('{% if u.is_active %}Деактивировать{% else %}Активировать{% endif %} пользователя?')">
-                                    {% if u.is_active %}🔒 Блок{% else %}✓ Актив{% endif %}
-                                </a>
+                                <form method="post" action="{% url 'main:toggle_user_active' u.id %}" style="display:inline"
+                                      onsubmit="return confirm('{% if u.is_active %}Деактивировать{% else %}Активировать{% endif %} пользователя?')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-semibold">
+                                        {% if u.is_active %}🔒 Блок{% else %}✓ Актив{% endif %}
+                                    </button>
+                                </form>
                                 <a href="{% url 'main:change_user_password' u.id %}"
                                    class="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-xs font-semibold">
                                     🔑 Пароль

@@ -2658,6 +2658,8 @@ def create_employee(request):
 @user_passes_test(is_admin)
 def toggle_user_active(request, user_id):
     """Активировать/деактивировать пользователя"""
+    if request.method != 'POST':
+        return redirect('main:users_management')
     user = get_object_or_404(User, id=user_id)
 
     if user == request.user:
@@ -2789,9 +2791,10 @@ def superuser_panel(request):
     from apps.rental.models import RentalOrder
     from apps.clients.models import Client
 
-    # Пользователи, ожидающие одобрения — только Director-регистрации (не сотрудники)
+    # Пользователи, ожидающие одобрения — только новые Director-регистрации
+    # Исключаем is_superuser=True чтобы уже одобренные директора не попали сюда повторно
     pending_users = User.objects.filter(
-        is_active=False, profile__owner__isnull=True
+        is_active=False, is_superuser=False, profile__owner__isnull=True
     ).order_by('date_joined')
 
     # Одобрение пользователя через POST
